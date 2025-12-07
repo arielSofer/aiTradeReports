@@ -21,6 +21,7 @@ import {
   getAccounts, 
   createAccount, 
   deleteAccount as deleteFirestoreAccount,
+  getTrades,
   FirestoreAccount 
 } from '@/lib/firebase/firestore'
 
@@ -40,6 +41,7 @@ function AccountsContent() {
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [totalPnL, setTotalPnL] = useState(0)
   const [newAccount, setNewAccount] = useState({
     name: '',
     broker: '',
@@ -63,6 +65,11 @@ function AccountsContent() {
     try {
       const userAccounts = await getAccounts(user.uid)
       setAccounts(userAccounts)
+      
+      // Calculate total P&L from all trades
+      const allTrades = await getTrades(user.uid)
+      const totalPnl = allTrades.reduce((sum, trade) => sum + (trade.pnlNet || 0), 0)
+      setTotalPnL(totalPnl)
     } catch (error) {
       console.error('Error loading accounts:', error)
     } finally {
@@ -70,8 +77,7 @@ function AccountsContent() {
     }
   }
 
-  const totalBalance = accounts.reduce((sum, a) => sum + (a.balance || 0), 0)
-  const totalPnL = accounts.reduce((sum, a) => sum + (a.totalPnl || 0), 0)
+  const totalBalance = accounts.reduce((sum, a) => sum + (a.initialBalance || 0), 0)
 
   const handleAddAccount = async () => {
     if (!user) {
