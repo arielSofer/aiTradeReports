@@ -149,6 +149,18 @@ npm run dev
 
 האפליקציה תהיה זמינה ב: http://localhost:3000
 
+## 🌐 העלאה לאינטרנט
+
+להעלאה לאינטרנט (Vercel/Netlify), עיין ב-[DEPLOYMENT.md](./DEPLOYMENT.md) להוראות מפורטות.
+
+**הדרך המהירה ביותר:**
+1. לך ל-https://vercel.com
+2. היכנס עם GitHub
+3. בחר את ה-repository `arielSofer/aiTradeReports`
+4. הגדר Root Directory: `frontend`
+5. הוסף Environment Variables
+6. לחץ Deploy!
+
 ## 📖 שימוש
 
 ### ייבוא עסקאות
