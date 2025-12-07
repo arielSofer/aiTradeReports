@@ -79,7 +79,7 @@ Respond in Hebrew.`
     // Retry logic with exponential backoff
     const maxRetries = 3
     let lastError: any = null
-    
+
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
         // Wait before retry (exponential backoff)
@@ -113,10 +113,10 @@ Respond in Hebrew.`
               continue
             }
           }
-          
+
           // If we've exhausted retries, return helpful error
           return NextResponse.json(
-            { 
+            {
               error: 'יותר מדי בקשות. אנא נסה שוב בעוד כמה דקות.',
               errorCode: 'RATE_LIMIT',
               retryAfter: retryAfter || '60'
@@ -128,22 +128,22 @@ Respond in Hebrew.`
         if (!response.ok) {
           const errorText = await response.text()
           console.error('OpenRouter API error:', response.status, errorText)
-          
+
           // Don't retry on client errors (4xx) except 429
           if (response.status >= 400 && response.status < 500 && response.status !== 429) {
             return NextResponse.json(
-              { 
-                error: response.status === 401 
+              {
+                error: response.status === 401
                   ? 'שגיאת אימות. אנא בדוק את מפתח ה-API.'
                   : response.status === 403
-                  ? 'אין הרשאה לגשת לשירות.'
-                  : `שגיאת שירות: ${response.status}`,
+                    ? 'אין הרשאה לגשת לשירות.'
+                    : `שגיאת שירות: ${response.status}`,
                 errorCode: `HTTP_${response.status}`
               },
               { status: response.status }
             )
           }
-          
+
           // Retry on server errors (5xx)
           lastError = { status: response.status, message: errorText }
           if (attempt < maxRetries - 1) continue
@@ -152,7 +152,7 @@ Respond in Hebrew.`
           const data = await response.json()
           const review = data.choices?.[0]?.message?.content || 'No review generated'
 
-          return NextResponse.json({ 
+          return NextResponse.json({
             review,
             model: data.model
           })
@@ -162,11 +162,11 @@ Respond in Hebrew.`
         if (attempt < maxRetries - 1) continue
       }
     }
-    
+
     // All retries exhausted
     return NextResponse.json(
-      { 
-        error: lastError?.status === 429 
+      {
+        error: lastError?.status === 429
           ? 'יותר מדי בקשות. אנא נסה שוב בעוד כמה דקות.'
           : 'שגיאה ביצירת סקירה. אנא נסה שוב מאוחר יותר.',
         errorCode: 'RETRY_EXHAUSTED'
@@ -174,13 +174,7 @@ Respond in Hebrew.`
       { status: lastError?.status || 500 }
     )
 
-    const data = await response.json()
-    const review = data.choices?.[0]?.message?.content || 'No review generated'
 
-    return NextResponse.json({ 
-      review,
-      model: data.model
-    })
 
   } catch (error) {
     console.error('Error in AI review:', error)

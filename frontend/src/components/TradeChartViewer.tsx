@@ -29,11 +29,11 @@ interface TradeChartViewerProps {
   onToggleFullScreen?: () => void
 }
 
-export function TradeChartViewer({ 
-  trade, 
-  onClose, 
+export function TradeChartViewer({
+  trade,
+  onClose,
   isFullScreen = false,
-  onToggleFullScreen 
+  onToggleFullScreen
 }: TradeChartViewerProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -60,7 +60,7 @@ export function TradeChartViewer({
       try {
         setIsLoading(true)
         setError(null)
-        
+
         // טוען את הקובץ המתאים ל-timeframe
         const response = await fetch(`/data/marketData_${timeframe}.json`)
         if (!response.ok) {
@@ -85,13 +85,13 @@ export function TradeChartViewer({
 
     // סימון שהגרף פעיל
     isDisposedRef.current = false
-    
+
     // הסרת resize handler קודם
     if (resizeHandlerRef.current) {
       window.removeEventListener('resize', resizeHandlerRef.current)
       resizeHandlerRef.current = null
     }
-    
+
     // ניקוי גרף קודם לפני יצירת חדש
     if (chartRef.current) {
       try {
@@ -105,7 +105,7 @@ export function TradeChartViewer({
     // ייבוא דינמי של lightweight-charts
     const initChart = async () => {
       const { createChart, ColorType } = await import('lightweight-charts')
-      
+
       // בדיקה אם הקומפוננטה נמחקה בזמן הטעינה
       if (isDisposedRef.current || !chartContainerRef.current) return
 
@@ -173,12 +173,12 @@ export function TradeChartViewer({
       // יצירת markers לכניסה ויציאה של העסקה
       const entryTime = new Date(trade.entryTime).getTime() / 1000
       const exitTime = trade.exitTime ? new Date(trade.exitTime).getTime() / 1000 : null
-      
+
       // מציאת הנרות הקרובים ביותר לזמני הכניסה והיציאה
       const findClosestCandle = (targetTime: number) => {
         let closest = marketData[0]
         let minDiff = Math.abs(marketData[0].time - targetTime)
-        
+
         for (const candle of marketData) {
           const diff = Math.abs(candle.time - targetTime)
           if (diff < minDiff) {
@@ -191,11 +191,11 @@ export function TradeChartViewer({
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const markers: any[] = []
-      
+
       // Entry marker
       const entryCandle = findClosestCandle(entryTime)
       const isLong = trade.direction === 'long'
-      
+
       markers.push({
         time: entryCandle.time,
         position: isLong ? 'belowBar' : 'aboveBar',
@@ -209,7 +209,7 @@ export function TradeChartViewer({
       if (exitTime && trade.exitPrice) {
         const exitCandle = findClosestCandle(exitTime)
         const isProfit = trade.pnlNet !== undefined && trade.pnlNet >= 0
-        
+
         markers.push({
           time: exitCandle.time,
           position: isLong ? 'aboveBar' : 'belowBar',
@@ -247,17 +247,17 @@ export function TradeChartViewer({
       // מרכוז הגרף סביב העסקה
       const startTime = entryCandle.time - 3600 * 24 // יום לפני
       const endTime = exitTime ? findClosestCandle(exitTime).time + 3600 * 24 : entryCandle.time + 3600 * 48
-      
+
       chart.timeScale().setVisibleRange({
-        from: startTime,
-        to: endTime,
+        from: startTime as any,
+        to: endTime as any,
       })
 
       // Resize handler - שמירה ב-ref כדי שנוכל להסיר אותו ב-cleanup
       resizeHandlerRef.current = () => {
         if (!isDisposedRef.current && chartContainerRef.current && chartRef.current) {
           try {
-            chartRef.current.applyOptions({ 
+            chartRef.current.applyOptions({
               width: chartContainerRef.current.clientWidth,
               height: isFullScreen ? window.innerHeight - 200 : 400,
             })
@@ -275,13 +275,13 @@ export function TradeChartViewer({
     return () => {
       // סימון שהגרף disposed
       isDisposedRef.current = true
-      
+
       // הסרת event listener
       if (resizeHandlerRef.current) {
         window.removeEventListener('resize', resizeHandlerRef.current)
         resizeHandlerRef.current = null
       }
-      
+
       // ניקוי הגרף
       if (chartRef.current) {
         try {
@@ -331,7 +331,7 @@ export function TradeChartViewer({
         <div className="flex items-center gap-4">
           <div className={cn(
             "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium",
-            trade.direction === 'long' 
+            trade.direction === 'long'
               ? "bg-accent-blue/20 text-accent-blue"
               : "bg-accent-orange/20 text-accent-orange"
           )}>
@@ -342,7 +342,7 @@ export function TradeChartViewer({
             )}
             {trade.symbol} - {trade.direction.toUpperCase()}
           </div>
-          
+
           {trade.pnlNet !== undefined && (
             <div className={cn(
               "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold",
@@ -381,7 +381,7 @@ export function TradeChartViewer({
 
         <div className="flex items-center gap-2">
           {onToggleFullScreen && (
-            <button 
+            <button
               onClick={onToggleFullScreen}
               className="p-2 hover:bg-dark-800 rounded-lg transition-colors"
             >
@@ -392,9 +392,9 @@ export function TradeChartViewer({
               )}
             </button>
           )}
-          
+
           {onClose && (
-            <button 
+            <button
               onClick={onClose}
               className="p-2 hover:bg-dark-800 rounded-lg transition-colors"
             >
@@ -413,13 +413,13 @@ export function TradeChartViewer({
         {/* Trade Details Panel */}
         <div className="w-64 bg-dark-850 border-l border-dark-800/50 p-4">
           <h4 className="text-sm font-semibold text-dark-300 mb-4">פרטי העסקה</h4>
-          
+
           <div className="space-y-3">
             <div className="flex justify-between">
               <span className="text-dark-500 text-sm">זמן כניסה</span>
               <span className="text-dark-200 text-sm">{new Date(trade.entryTime).toLocaleString('he-IL')}</span>
             </div>
-            
+
             <div className="flex justify-between">
               <span className="text-dark-500 text-sm">מחיר כניסה</span>
               <span className="text-accent-blue text-sm font-medium">${trade.entryPrice.toFixed(2)}</span>
@@ -485,7 +485,7 @@ export function TradeChartViewer({
                 <span className="text-dark-500 text-sm block mb-2">תגיות</span>
                 <div className="flex flex-wrap gap-1">
                   {trade.tags.map(tag => (
-                    <span 
+                    <span
                       key={tag}
                       className="px-2 py-0.5 bg-dark-700 text-dark-300 rounded text-xs"
                     >

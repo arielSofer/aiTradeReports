@@ -13,6 +13,8 @@ interface AddTradeModalProps {
 export interface TradeFormData {
   symbol: string
   direction: 'long' | 'short'
+  status: 'open' | 'closed'
+  assetType: string
   entryTime: string
   exitTime?: string
   entryPrice: number
@@ -28,6 +30,8 @@ export interface TradeFormData {
 const initialFormData: TradeFormData = {
   symbol: '',
   direction: 'long',
+  status: 'closed',
+  assetType: 'stock',
   entryTime: new Date().toISOString().slice(0, 16),
   exitTime: '',
   entryPrice: 0,
@@ -114,6 +118,54 @@ export function AddTradeModal({ isOpen, onClose, onSubmit }: AddTradeModalProps)
             </div>
           )}
 
+          {/* Type & Status */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-dark-300 mb-2">Asset Type</label>
+              <select
+                name="assetType"
+                value={formData.assetType}
+                onChange={handleChange}
+                className="input w-full"
+              >
+                <option value="stock">Stock</option>
+                <option value="option">Option</option>
+                <option value="crypto">Crypto</option>
+                <option value="future">Future</option>
+                <option value="forex">Forex</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-dark-300 mb-2">Status</label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, status: 'closed' }))}
+                  className={cn(
+                    'flex-1 py-2 px-4 rounded-lg border font-medium transition-all',
+                    formData.status === 'closed'
+                      ? 'bg-primary/20 border-primary text-primary'
+                      : 'bg-dark-800 border-dark-700 text-dark-400 hover:border-dark-600'
+                  )}
+                >
+                  Closed
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, status: 'open' }))}
+                  className={cn(
+                    'flex-1 py-2 px-4 rounded-lg border font-medium transition-all',
+                    formData.status === 'open'
+                      ? 'bg-primary/20 border-primary text-primary'
+                      : 'bg-dark-800 border-dark-700 text-dark-400 hover:border-dark-600'
+                  )}
+                >
+                  Open
+                </button>
+              </div>
+            </div>
+          </div>
+
           {/* Symbol & Direction */}
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -198,6 +250,7 @@ export function AddTradeModal({ isOpen, onClose, onSubmit }: AddTradeModalProps)
                 value={formData.exitTime}
                 onChange={handleChange}
                 className="input w-full"
+                disabled={formData.status === 'open'}
               />
             </div>
             <div>
@@ -211,6 +264,7 @@ export function AddTradeModal({ isOpen, onClose, onSubmit }: AddTradeModalProps)
                 min="0"
                 placeholder="0.00"
                 className="input w-full"
+                disabled={formData.status === 'open'}
               />
             </div>
           </div>

@@ -4,10 +4,10 @@ import { useState, useEffect } from 'react'
 import { Sidebar } from '@/components/Sidebar'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { Header } from '@/components/Header'
-import { 
-  Calendar, 
-  ChevronLeft, 
-  ChevronRight, 
+import {
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
   Plus,
   Filter,
   Download,
@@ -50,7 +50,7 @@ function JournalContent() {
   const [selectedAccountId, setSelectedAccountId] = useState<string | 'all'>('all')
   const [showAccountDropdown, setShowAccountDropdown] = useState(false)
   const [loading, setLoading] = useState(true)
-  
+
   // Load accounts
   useEffect(() => {
     const loadAccounts = async () => {
@@ -74,7 +74,7 @@ function JournalContent() {
         try {
           const accountIdFilter = selectedAccountId === 'all' ? undefined : selectedAccountId
           const firestoreTrades = await getTrades(user.uid, { accountId: accountIdFilter })
-          
+
           const convertedTrades: Trade[] = firestoreTrades.map(t => ({
             id: parseInt(t.id || '0'),
             symbol: t.symbol,
@@ -92,7 +92,7 @@ function JournalContent() {
             tags: t.tags || [],
             notes: t.notes,
           }))
-          
+
           setTrades(convertedTrades)
         } catch (error) {
           console.error('Error loading trades:', error)
@@ -117,7 +117,7 @@ function JournalContent() {
       alert('אנא בחר תיק לפני הוספת עסקה')
       return
     }
-    
+
     try {
       await createTrade(user.uid, selectedAccountId, {
         symbol: data.symbol,
@@ -130,10 +130,10 @@ function JournalContent() {
         exitPrice: data.exitPrice,
         quantity: data.quantity,
         commission: data.commission || 0,
-        tags: data.tags || [],
+        tags: data.tags ? data.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
         notes: data.notes,
       })
-      
+
       // Reload trades
       const accountIdFilter = selectedAccountId === 'all' ? undefined : selectedAccountId
       const firestoreTrades = await getTrades(user.uid, { accountId: accountIdFilter })
@@ -169,16 +169,16 @@ function JournalContent() {
     const firstDay = new Date(year, month, 1)
     const lastDay = new Date(year, month + 1, 0)
     const days = []
-    
+
     // Add empty days for alignment
     for (let i = 0; i < firstDay.getDay(); i++) {
       days.push(null)
     }
-    
+
     for (let i = 1; i <= lastDay.getDate(); i++) {
       days.push(new Date(year, month, i))
     }
-    
+
     return days
   }
 
@@ -199,20 +199,20 @@ function JournalContent() {
     return dayTrades.reduce((sum, t) => sum + (t.pnlNet || 0), 0)
   }
 
-  const selectedAccount = selectedAccountId === 'all' 
-    ? null 
+  const selectedAccount = selectedAccountId === 'all'
+    ? null
     : accounts.find(a => a.id === selectedAccountId)
 
   return (
     <div className="flex min-h-screen">
       <Sidebar />
-      
+
       <main className="flex-1 ml-64">
-        <Header 
+        <Header
           onUploadClick={() => window.location.href = '/import'}
           onAddTradeClick={() => window.location.href = '/'}
         />
-        
+
         {/* Header */}
         <header className="sticky top-0 z-40 bg-dark-950/80 backdrop-blur-xl border-b border-dark-800/50">
           <div className="flex items-center justify-between px-6 py-4">
@@ -231,11 +231,11 @@ function JournalContent() {
                   {selectedAccount ? selectedAccount.name : 'All Accounts'}
                   <ChevronDown className="w-4 h-4" />
                 </button>
-                
+
                 {showAccountDropdown && (
                   <>
-                    <div 
-                      className="fixed inset-0 z-10" 
+                    <div
+                      className="fixed inset-0 z-10"
                       onClick={() => setShowAccountDropdown(false)}
                     />
                     <div className="absolute right-0 top-full mt-2 w-56 bg-dark-900 border border-dark-700 rounded-xl shadow-xl z-20">
@@ -276,7 +276,7 @@ function JournalContent() {
                   </>
                 )}
               </div>
-              
+
               <button className="btn-secondary flex items-center gap-2">
                 <Filter className="w-4 h-4" />
                 Filter
@@ -327,12 +327,12 @@ function JournalContent() {
                 <div className="grid grid-cols-7 gap-1 p-2">
                   {days.map((day, idx) => {
                     if (!day) return <div key={idx} />
-                    
+
                     const dateStr = day.toISOString().split('T')[0]
                     const dayTrades = tradesByDate[dateStr] || []
                     const pnl = getDayPnL(day)
                     const isToday = day.toDateString() === new Date().toDateString()
-                    
+
                     return (
                       <button
                         key={idx}
@@ -385,9 +385,9 @@ function JournalContent() {
               <div className="chart-container">
                 <div className="p-4 border-b border-dark-800/50">
                   <h3 className="text-lg font-display font-semibold text-white">
-                    {selectedDate.toLocaleDateString('en-US', { 
-                      weekday: 'long', 
-                      month: 'long', 
+                    {selectedDate.toLocaleDateString('en-US', {
+                      weekday: 'long',
+                      month: 'long',
                       day: 'numeric',
                       year: 'numeric'
                     })}
@@ -398,7 +398,7 @@ function JournalContent() {
                     const pnl = dayTrades.reduce((sum, t) => sum + (t.pnlNet || 0), 0)
                     return (
                       <p className="text-sm text-dark-500">
-                        {dayTrades.length} trades · 
+                        {dayTrades.length} trades ·
                         <span className={pnl >= 0 ? 'text-profit' : 'text-loss'}>
                           {' '}{formatCurrency(pnl)}
                         </span>
@@ -411,13 +411,13 @@ function JournalContent() {
                   {(() => {
                     const dateStr = selectedDate.toISOString().split('T')[0]
                     const dayTrades = tradesByDate[dateStr] || []
-                    
+
                     if (dayTrades.length === 0) {
                       return (
                         <div className="p-12 text-center text-dark-500">
                           <Calendar className="w-12 h-12 mx-auto mb-4 text-dark-600" />
                           <p>No trades on this day</p>
-                          <button 
+                          <button
                             onClick={() => setShowAddTrade(true)}
                             className="mt-4 btn-primary"
                           >
@@ -426,9 +426,9 @@ function JournalContent() {
                         </div>
                       )
                     }
-                    
+
                     return dayTrades.map(trade => (
-                      <div 
+                      <div
                         key={trade.id}
                         onClick={() => setSelectedTrade(trade.id)}
                         className={cn(
@@ -474,13 +474,13 @@ function JournalContent() {
                             )}
                           </div>
                         </div>
-                        
+
                         {trade.notes && (
                           <p className="text-sm text-dark-400 mt-2 line-clamp-2">
                             {trade.notes}
                           </p>
                         )}
-                        
+
                         {trade.tags.length > 0 && (
                           <div className="flex gap-1 mt-2">
                             {trade.tags.map(tag => (
@@ -500,7 +500,7 @@ function JournalContent() {
         )}
       </main>
 
-      <AddTradeModal 
+      <AddTradeModal
         isOpen={showAddTrade}
         onClose={() => setShowAddTrade(false)}
         onSubmit={handleAddTrade}
