@@ -12,9 +12,9 @@ from .config import settings
 
 # Create async engine
 if settings.use_sqlite:
-    # SQLite for development
+    # SQLite for development (uses db_url which handles Vercel /tmp path)
     engine = create_async_engine(
-        settings.sqlite_url,
+        settings.db_url,
         echo=settings.debug,
     )
 else:
