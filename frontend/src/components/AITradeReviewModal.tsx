@@ -132,21 +132,68 @@ export function AITradeReviewModal({ isOpen, onClose, trade }: AITradeReviewModa
 
       setChartImages(images)
 
-      // Send to AI API (client-side for GitHub Pages compatibility)
-      const data = await generateTradeReview({
-        images: images,
-        tradeData: {
-          symbol: trade.symbol,
-          direction: trade.direction,
-          entryTime: trade.entryTime,
-          exitTime: trade.exitTime,
-          entryPrice: trade.entryPrice,
-          exitPrice: trade.exitPrice || trade.entryPrice,
-          quantity: trade.quantity,
-          pnl: trade.pnlNet || 0,
-          timeframe: 'multiple',
+      // Try API route first (works on Vercel), fallback to client-side
+      let data: { review: string; model?: string }
+      
+      try {
+        // Try API route
+        const response = await fetch('/api/ai/review-trade', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            images: images,
+            tradeData: {
+              symbol: trade.symbol,
+              direction: trade.direction,
+              entryTime: trade.entryTime,
+              exitTime: trade.exitTime,
+              entryPrice: trade.entryPrice,
+              exitPrice: trade.exitPrice || trade.entryPrice,
+              quantity: trade.quantity,
+              pnl: trade.pnlNet || 0,
+              timeframe: 'multiple',
+            }
+          })
+        })
+
+        if (response.ok) {
+          data = await response.json()
+        } else {
+          // Fallback to client-side
+          data = await generateTradeReview({
+            images: images,
+            tradeData: {
+              symbol: trade.symbol,
+              direction: trade.direction,
+              entryTime: trade.entryTime,
+              exitTime: trade.exitTime,
+              entryPrice: trade.entryPrice,
+              exitPrice: trade.exitPrice || trade.entryPrice,
+              quantity: trade.quantity,
+              pnl: trade.pnlNet || 0,
+              timeframe: 'multiple',
+            }
+          })
         }
-      })
+      } catch (apiError) {
+        // Fallback to client-side if API route fails
+        data = await generateTradeReview({
+          images: images,
+          tradeData: {
+            symbol: trade.symbol,
+            direction: trade.direction,
+            entryTime: trade.entryTime,
+            exitTime: trade.exitTime,
+            entryPrice: trade.entryPrice,
+            exitPrice: trade.exitPrice || trade.entryPrice,
+            quantity: trade.quantity,
+            pnl: trade.pnlNet || 0,
+            timeframe: 'multiple',
+          }
+        })
+      }
 
       setReview(data.review || 'לא התקבלה סקירה')
     } catch (error: any) {

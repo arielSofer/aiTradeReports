@@ -151,21 +151,24 @@ npm run dev
 
 ## 🌐 העלאה לאינטרנט
 
-### GitHub Pages (מומלץ - חינם!)
+### Vercel (מומלץ ביותר! ⭐)
 
-**הדרך הקלה ביותר - הכל דרך GitHub:**
+**הדרך המהירה והקלה ביותר:**
 
-1. לך ל-[GITHUB_PAGES_SETUP.md](./GITHUB_PAGES_SETUP.md) להוראות מפורטות
-2. הפעל GitHub Pages ב-Settings
-3. הפעל GitHub Actions
-4. הוסף Environment Variables
-5. האתר יהיה זמין ב: **https://arielsofer.github.io/aiTradeReports**
+1. לך ל-[VERCEL_DEPLOY.md](./VERCEL_DEPLOY.md) להוראות מפורטות
+2. היכנס ל-https://vercel.com עם GitHub
+3. בחר את ה-repository `arielSofer/aiTradeReports`
+4. הגדר Root Directory: `frontend`
+5. הוסף Environment Variables
+6. לחץ Deploy!
 
-**כל push ל-`main` יעלה אוטומטית!** 🚀
+**האפליקציה תהיה online תוך 2-3 דקות!** 🚀
 
-### Vercel/Netlify (אלטרנטיבה)
+**כל push ל-`main` יעלה אוטומטית!**
 
-להעלאה ל-Vercel/Netlify, עיין ב-[DEPLOYMENT.md](./DEPLOYMENT.md) להוראות מפורטות.
+### GitHub Pages (אלטרנטיבה)
+
+להעלאה ל-GitHub Pages, עיין ב-[GITHUB_PAGES_SETUP.md](./GITHUB_PAGES_SETUP.md) להוראות מפורטות.
 
 ## 📖 שימוש
 
