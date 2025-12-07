@@ -42,6 +42,7 @@ function AccountsContent() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [saving, setSaving] = useState(false)
   const [totalPnL, setTotalPnL] = useState(0)
+  const [accountStats, setAccountStats] = useState<Record<string, { pnl: number; trades: number }>>({})
   const [newAccount, setNewAccount] = useState({
     name: '',
     broker: '',
@@ -66,8 +67,28 @@ function AccountsContent() {
       const userAccounts = await getAccounts(user.uid)
       setAccounts(userAccounts)
       
-      // Calculate total P&L from all trades
+      // Calculate stats for each account from trades
       const allTrades = await getTrades(user.uid)
+      const stats: Record<string, { pnl: number; trades: number }> = {}
+      
+      // Initialize stats for all accounts
+      userAccounts.forEach(account => {
+        if (account.id) {
+          stats[account.id] = { pnl: 0, trades: 0 }
+        }
+      })
+      
+      // Calculate stats from trades
+      allTrades.forEach(trade => {
+        if (trade.accountId && stats[trade.accountId]) {
+          stats[trade.accountId].trades += 1
+          stats[trade.accountId].pnl += (trade.pnlNet || 0)
+        }
+      })
+      
+      setAccountStats(stats)
+      
+      // Calculate total P&L from all trades
       const totalPnl = allTrades.reduce((sum, trade) => sum + (trade.pnlNet || 0), 0)
       setTotalPnL(totalPnl)
     } catch (error) {
@@ -112,11 +133,9 @@ function AccountsContent() {
         name: newAccount.name,
         broker: brokerName,
         currency: newAccount.currency,
+        initialBalance: 0,
         isDemo: newAccount.isDemo,
-        isActive: true,
-        balance: 0,
-        totalPnl: 0,
-        totalTrades: 0
+        isActive: true
       })
       
       console.log('Account created with ID:', accountId)
@@ -241,18 +260,18 @@ function AccountsContent() {
                     <div className="flex items-center gap-8">
                       <div className="text-right">
                         <p className="text-xl font-bold text-white">
-                          {formatCurrency(account.balance || 0)}
+                          {formatCurrency(account.initialBalance || 0)}
                         </p>
                         <p className={cn(
                           'text-sm',
-                          (account.totalPnl || 0) >= 0 ? 'text-profit' : 'text-loss'
+                          (accountStats[account.id || '']?.pnl || 0) >= 0 ? 'text-profit' : 'text-loss'
                         )}>
-                          {(account.totalPnl || 0) >= 0 ? '+' : ''}{formatCurrency(account.totalPnl || 0)} P&L
+                          {(accountStats[account.id || '']?.pnl || 0) >= 0 ? '+' : ''}{formatCurrency(accountStats[account.id || '']?.pnl || 0)} P&L
                         </p>
                       </div>
 
                       <div className="text-right">
-                        <p className="text-lg font-bold text-white">{account.totalTrades || 0}</p>
+                        <p className="text-lg font-bold text-white">{accountStats[account.id || '']?.trades || 0}</p>
                         <p className="text-sm text-dark-500">Trades</p>
                       </div>
 
