@@ -1,5 +1,23 @@
 # 🚀 הוראות העלאה לאינטרנט
 
+## ⚡ הדרך המהירה ביותר (מומלץ)
+
+**Vercel מחובר אוטומטית ל-GitHub!**
+
+1. לך ל-https://vercel.com
+2. לחץ "Sign Up" והיכנס עם GitHub
+3. לחץ "Add New Project"
+4. בחר את `arielSofer/aiTradeReports`
+5. הגדר:
+   - **Root Directory:** `frontend`
+   - **Framework:** Next.js (אוטומטי)
+6. הוסף Environment Variables (ראה למטה)
+7. לחץ "Deploy"
+
+**זה הכל!** כל push ל-`main` יעלה אוטומטית! 🎉
+
+---
+
 ## אפשרות 1: Vercel (מומלץ - הכי קל ל-Next.js)
 
 ### שלב 1: הרשמה ל-Vercel
