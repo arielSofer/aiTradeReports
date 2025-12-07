@@ -6,9 +6,9 @@ TradeTracker - Trade Analysis Platform
 סקריפט ראשי להמרת קבצי CSV לפורמט JSON אחיד.
 
 שימוש:
-    python main.py examples/sample_generic.csv
-    python main.py examples/sample_metatrader.csv --output trades.json
-    python main.py examples/sample_binance.csv --broker binance
+    python scripts/cli_tool.py examples/sample_generic.csv
+    python scripts/cli_tool.py examples/sample_metatrader.csv --output trades.json
+    python scripts/cli_tool.py examples/sample_binance.csv --broker binance
 
 Author: TradeTracker Team
 """
@@ -19,8 +19,8 @@ import sys
 from pathlib import Path
 from decimal import Decimal
 
-# הוסף את תיקיית src ל-path
-sys.path.insert(0, str(Path(__file__).parent))
+# הוסף את תיקיית src ל-path (התיקייה הראשית של הפרויקט)
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.parsers import ParserFactory
 from src.models.account import Broker
@@ -40,9 +40,9 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 דוגמאות שימוש:
-  python main.py examples/sample_generic.csv
-  python main.py trades.csv --output analyzed_trades.json
-  python main.py binance_export.csv --broker binance --stats
+  python scripts/cli_tool.py examples/sample_generic.csv
+  python scripts/cli_tool.py trades.csv --output analyzed_trades.json
+  python scripts/cli_tool.py binance_export.csv --broker binance --stats
 
 ברוקרים נתמכים:
   generic            - פורמט CSV גנרי
@@ -102,7 +102,7 @@ def main():
     
     print(f"📁 מעבד קובץ: {input_path}")
     
-    # פענח את הקובץ
+    # פענח את קובץ
     result = ParserFactory.parse_file(input_path, broker=broker)
     
     # הצג תוצאות
@@ -229,4 +229,3 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
-
