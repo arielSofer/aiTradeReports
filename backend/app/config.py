@@ -39,7 +39,11 @@ class Settings(BaseSettings):
     @property
     def db_url(self) -> str:
         """Get the appropriate database URL"""
+        import os
         if self.use_sqlite:
+            # If running on Vercel (read-only filesystem), use /tmp
+            if os.environ.get("VERCEL"):
+                return "sqlite+aiosqlite:////tmp/tradetracker.db"
             return self.sqlite_url
         return self.database_url
     
