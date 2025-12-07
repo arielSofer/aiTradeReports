@@ -5,6 +5,7 @@ import { X, Sparkles, Loader2, Download, Image as ImageIcon } from 'lucide-react
 import { cn } from '@/lib/utils'
 import { TradeChartGenerator } from './TradeChartGenerator'
 import html2canvas from 'html2canvas'
+import { generateTradeReview } from '@/lib/openrouter'
 
 interface Trade {
   id: number
@@ -131,45 +132,22 @@ export function AITradeReviewModal({ isOpen, onClose, trade }: AITradeReviewModa
 
       setChartImages(images)
 
-      // Send to AI API
-      const response = await fetch('/api/ai/review-trade', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          images: images,
-          tradeData: {
-            symbol: trade.symbol,
-            direction: trade.direction,
-            entryTime: trade.entryTime,
-            exitTime: trade.exitTime,
-            entryPrice: trade.entryPrice,
-            exitPrice: trade.exitPrice || trade.entryPrice,
-            quantity: trade.quantity,
-            pnl: trade.pnlNet || 0,
-            timeframe: 'multiple',
-          }
-        })
+      // Send to AI API (client-side for GitHub Pages compatibility)
+      const data = await generateTradeReview({
+        images: images,
+        tradeData: {
+          symbol: trade.symbol,
+          direction: trade.direction,
+          entryTime: trade.entryTime,
+          exitTime: trade.exitTime,
+          entryPrice: trade.entryPrice,
+          exitPrice: trade.exitPrice || trade.entryPrice,
+          quantity: trade.quantity,
+          pnl: trade.pnlNet || 0,
+          timeframe: 'multiple',
+        }
       })
 
-      if (!response.ok) {
-        const data = await response.json()
-        
-        // Handle rate limiting specifically
-        if (response.status === 429 || data.errorCode === 'RATE_LIMIT') {
-          const retryAfter = data.retryAfter || '60'
-          throw new Error(
-            `יותר מדי בקשות. אנא נסה שוב בעוד ${retryAfter} שניות.` +
-            (data.error ? `\n\n${data.error}` : '')
-          )
-        }
-        
-        // Handle other errors
-        throw new Error(data.error || `שגיאה בקבלת סקירה מ-AI (קוד: ${response.status})`)
-      }
-
-      const data = await response.json()
       setReview(data.review || 'לא התקבלה סקירה')
     } catch (error: any) {
       console.error('Error generating review:', error)
