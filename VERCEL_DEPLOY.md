@@ -11,15 +11,24 @@
 ### שלב 2: יצירת Project חדש
 1. לחץ על **"Add New Project"** או **"Import Project"**
 2. בחר את ה-repository: **`arielSofer/aiTradeReports`**
-3. Vercel יזהה אוטומטית שזה Next.js project ✅
+3. **לפני שאתה לוחץ Deploy**, לחץ על **"Configure Project"** או **"Edit"** ליד Framework Preset
+4. תחת **Root Directory**, לחץ **"Edit"** והזן: `frontend`
+5. לחץ **"Save"** או **"Continue"**
 
 ### שלב 3: הגדרת Build Settings
-בהגדרות הבנייה, ודא:
-- **Framework Preset:** Next.js (אוטומטי)
-- **Root Directory:** `frontend` ⚠️ **חשוב!**
-- **Build Command:** `npm run build` (אוטומטי)
-- **Output Directory:** `.next` (אוטומטי)
-- **Install Command:** `npm install` (אוטומטי)
+לפני ה-Deploy, לחץ על **"Configure Project"** או **"Settings"**:
+
+1. **Root Directory:** לחץ על **"Edit"** ליד Root Directory
+2. הזן: `frontend` ⚠️ **זה קריטי!**
+3. לחץ **"Save"**
+
+Vercel יזהה אוטומטית:
+- **Framework Preset:** Next.js
+- **Build Command:** `npm run build`
+- **Output Directory:** `.next`
+- **Install Command:** `npm install`
+
+**חשוב:** Root Directory חייב להיות `frontend` כי ה-`package.json` נמצא שם!
 
 ### שלב 4: הוספת Environment Variables
 לחץ על **"Environment Variables"** והוסף:
@@ -94,10 +103,18 @@ Vercel מספק:
 
 ## 🆘 פתרון בעיות
 
-### Build Fails
+### Build Fails / "No Next.js version detected"
+**הבעיה הנפוצה ביותר:**
+- ⚠️ **Root Directory לא מוגדר נכון!**
+- לך ל-Project Settings > **General** > **Root Directory**
+- ודא שזה מוגדר ל: `frontend`
+- אם זה ריק או `./`, שנה ל-`frontend`
+- לחץ **Save** ו-Deploy מחדש
+
+**בעיות אחרות:**
 - בדוק את ה-logs ב-Vercel dashboard
-- ודא ש-Root Directory נכון (`frontend`)
 - ודא ש-Environment Variables הוגדרו
+- ודא שה-`package.json` נמצא ב-`frontend/` directory
 
 ### API Routes לא עובדים
 - ודא ש-Environment Variables הוגדרו
