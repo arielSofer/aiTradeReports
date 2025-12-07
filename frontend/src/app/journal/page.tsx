@@ -208,7 +208,10 @@ function JournalContent() {
       <Sidebar />
       
       <main className="flex-1 ml-64">
-        <Header />
+        <Header 
+          onUploadClick={() => window.location.href = '/import'}
+          onAddTradeClick={() => window.location.href = '/'}
+        />
         
         {/* Header */}
         <header className="sticky top-0 z-40 bg-dark-950/80 backdrop-blur-xl border-b border-dark-800/50">
