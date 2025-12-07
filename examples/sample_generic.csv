@@ -1,0 +1,12 @@
+symbol,direction,entry_time,exit_time,entry_price,exit_price,quantity,commission,asset_type,tags,notes
+AAPL,long,2024-01-15 10:30:00,2024-01-15 14:45:00,185.50,188.20,100,2.00,stock,breakout,Nice momentum play
+MSFT,long,2024-01-15 11:00:00,2024-01-15 15:30:00,380.00,378.50,50,2.00,stock,fomo,Entered too late - lesson learned
+TSLA,short,2024-01-16 09:45:00,2024-01-16 11:30:00,215.00,212.50,75,2.50,stock,reversal,Perfect rejection at resistance
+NVDA,long,2024-01-16 10:15:00,2024-01-16 16:00:00,545.00,552.30,30,1.50,stock,trend,Rode the trend all day
+GOOGL,long,2024-01-17 09:30:00,2024-01-17 10:15:00,142.50,141.80,200,3.00,stock,revenge,Bad entry - should have waited
+META,long,2024-01-17 11:00:00,2024-01-17 14:30:00,385.00,392.00,40,2.00,stock,breakout,Strong volume breakout
+AMZN,short,2024-01-18 10:00:00,2024-01-18 12:30:00,155.00,153.20,80,2.50,stock,gap_fade,Gap fade strategy worked
+AMD,long,2024-01-18 13:00:00,2024-01-18 15:45:00,142.00,145.50,100,2.00,stock,,Solid setup
+SPY,long,2024-01-19 09:35:00,2024-01-19 11:00:00,475.50,476.80,150,0.50,stock,scalp,Quick morning scalp
+QQQ,short,2024-01-19 14:00:00,2024-01-19 15:30:00,408.00,406.50,100,0.50,stock,,Afternoon reversal
+

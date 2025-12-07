@@ -1,0 +1,709 @@
+{
+  "summary": {
+    "total_rows": 10,
+    "parsed_successfully": 10,
+    "skipped_rows": 0,
+    "success_rate": "100.0%",
+    "errors_count": 0,
+    "warnings_count": 0,
+    "total_trades": 10,
+    "total_pnl": 1562.0,
+    "win_rate": 80.0
+  },
+  "broker": "generic",
+  "source_file": "examples/sample_generic.csv",
+  "trades": [
+    {
+      "id": "da41af2a-4ce5-4898-9026-67200b196b20",
+      "broker_trade_id": null,
+      "symbol": "AAPL",
+      "asset_type": "stock",
+      "direction": "long",
+      "status": "closed",
+      "entry_time": "2024-01-15T10:30:00",
+      "exit_time": "2024-01-15T14:45:00",
+      "entry_price": 185.5,
+      "exit_price": 188.2,
+      "quantity": 100.0,
+      "commission": 2.0,
+      "tags": [
+        "breakout"
+      ],
+      "notes": "Nice momentum play",
+      "account_id": null,
+      "broker_name": "generic",
+      "raw_data": {
+        "symbol": "AAPL",
+        "direction": "long",
+        "entry_time": "2024-01-15 10:30:00",
+        "exit_time": "2024-01-15 14:45:00",
+        "entry_price": 185.5,
+        "exit_price": 188.2,
+        "quantity": 100,
+        "commission": 2.0,
+        "asset_type": "stock",
+        "tags": "breakout",
+        "notes": "Nice momentum play"
+      },
+      "pnl_gross": 270.0,
+      "pnl_net": 268.0,
+      "pnl_percent": 1.4555256064690028,
+      "r_multiple": null,
+      "duration_minutes": 255,
+      "is_winner": true,
+      "chart_format": {
+        "symbol": "AAPL",
+        "entryTime": 1705307400,
+        "exitTime": 1705322700,
+        "entryPrice": 185.5,
+        "exitPrice": 188.2,
+        "direction": "long",
+        "quantity": 100.0,
+        "pnl": 268.0,
+        "pnlPercent": 1.4555256064690028,
+        "isWinner": true,
+        "tags": [
+          "breakout"
+        ],
+        "markers": [
+          {
+            "time": 1705307400,
+            "position": "belowBar",
+            "color": "#2196F3",
+            "shape": "arrowUp",
+            "text": "Entry @ 185.50"
+          },
+          {
+            "time": 1705322700,
+            "position": "aboveBar",
+            "color": "#4CAF50",
+            "shape": "arrowDown",
+            "text": "Exit @ 188.20"
+          }
+        ]
+      }
+    },
+    {
+      "id": "5adf1fb4-ddcf-4262-a2f1-576c007a84f0",
+      "broker_trade_id": null,
+      "symbol": "MSFT",
+      "asset_type": "stock",
+      "direction": "long",
+      "status": "closed",
+      "entry_time": "2024-01-15T11:00:00",
+      "exit_time": "2024-01-15T15:30:00",
+      "entry_price": 380.0,
+      "exit_price": 378.5,
+      "quantity": 50.0,
+      "commission": 2.0,
+      "tags": [
+        "fomo"
+      ],
+      "notes": "Entered too late - lesson learned",
+      "account_id": null,
+      "broker_name": "generic",
+      "raw_data": {
+        "symbol": "MSFT",
+        "direction": "long",
+        "entry_time": "2024-01-15 11:00:00",
+        "exit_time": "2024-01-15 15:30:00",
+        "entry_price": 380.0,
+        "exit_price": 378.5,
+        "quantity": 50,
+        "commission": 2.0,
+        "asset_type": "stock",
+        "tags": "fomo",
+        "notes": "Entered too late - lesson learned"
+      },
+      "pnl_gross": -75.0,
+      "pnl_net": -77.0,
+      "pnl_percent": -0.39473684210526316,
+      "r_multiple": null,
+      "duration_minutes": 270,
+      "is_winner": false,
+      "chart_format": {
+        "symbol": "MSFT",
+        "entryTime": 1705309200,
+        "exitTime": 1705325400,
+        "entryPrice": 380.0,
+        "exitPrice": 378.5,
+        "direction": "long",
+        "quantity": 50.0,
+        "pnl": -77.0,
+        "pnlPercent": -0.39473684210526316,
+        "isWinner": false,
+        "tags": [
+          "fomo"
+        ],
+        "markers": [
+          {
+            "time": 1705309200,
+            "position": "belowBar",
+            "color": "#2196F3",
+            "shape": "arrowUp",
+            "text": "Entry @ 380.00"
+          },
+          {
+            "time": 1705325400,
+            "position": "aboveBar",
+            "color": "#F44336",
+            "shape": "arrowDown",
+            "text": "Exit @ 378.50"
+          }
+        ]
+      }
+    },
+    {
+      "id": "d8a8a90f-eca8-4ca1-b3aa-7f8c5351be92",
+      "broker_trade_id": null,
+      "symbol": "TSLA",
+      "asset_type": "stock",
+      "direction": "short",
+      "status": "closed",
+      "entry_time": "2024-01-16T09:45:00",
+      "exit_time": "2024-01-16T11:30:00",
+      "entry_price": 215.0,
+      "exit_price": 212.5,
+      "quantity": 75.0,
+      "commission": 2.5,
+      "tags": [
+        "reversal"
+      ],
+      "notes": "Perfect rejection at resistance",
+      "account_id": null,
+      "broker_name": "generic",
+      "raw_data": {
+        "symbol": "TSLA",
+        "direction": "short",
+        "entry_time": "2024-01-16 09:45:00",
+        "exit_time": "2024-01-16 11:30:00",
+        "entry_price": 215.0,
+        "exit_price": 212.5,
+        "quantity": 75,
+        "commission": 2.5,
+        "asset_type": "stock",
+        "tags": "reversal",
+        "notes": "Perfect rejection at resistance"
+      },
+      "pnl_gross": 187.5,
+      "pnl_net": 185.0,
+      "pnl_percent": 1.1627906976744187,
+      "r_multiple": null,
+      "duration_minutes": 105,
+      "is_winner": true,
+      "chart_format": {
+        "symbol": "TSLA",
+        "entryTime": 1705391100,
+        "exitTime": 1705397400,
+        "entryPrice": 215.0,
+        "exitPrice": 212.5,
+        "direction": "short",
+        "quantity": 75.0,
+        "pnl": 185.0,
+        "pnlPercent": 1.1627906976744187,
+        "isWinner": true,
+        "tags": [
+          "reversal"
+        ],
+        "markers": [
+          {
+            "time": 1705391100,
+            "position": "aboveBar",
+            "color": "#2196F3",
+            "shape": "arrowDown",
+            "text": "Entry @ 215.00"
+          },
+          {
+            "time": 1705397400,
+            "position": "belowBar",
+            "color": "#4CAF50",
+            "shape": "arrowUp",
+            "text": "Exit @ 212.50"
+          }
+        ]
+      }
+    },
+    {
+      "id": "6abc7fbe-939c-4991-bcf3-b959bb553321",
+      "broker_trade_id": null,
+      "symbol": "NVDA",
+      "asset_type": "stock",
+      "direction": "long",
+      "status": "closed",
+      "entry_time": "2024-01-16T10:15:00",
+      "exit_time": "2024-01-16T16:00:00",
+      "entry_price": 545.0,
+      "exit_price": 552.3,
+      "quantity": 30.0,
+      "commission": 1.5,
+      "tags": [
+        "trend"
+      ],
+      "notes": "Rode the trend all day",
+      "account_id": null,
+      "broker_name": "generic",
+      "raw_data": {
+        "symbol": "NVDA",
+        "direction": "long",
+        "entry_time": "2024-01-16 10:15:00",
+        "exit_time": "2024-01-16 16:00:00",
+        "entry_price": 545.0,
+        "exit_price": 552.3,
+        "quantity": 30,
+        "commission": 1.5,
+        "asset_type": "stock",
+        "tags": "trend",
+        "notes": "Rode the trend all day"
+      },
+      "pnl_gross": 219.0,
+      "pnl_net": 217.5,
+      "pnl_percent": 1.3394495412844036,
+      "r_multiple": null,
+      "duration_minutes": 345,
+      "is_winner": true,
+      "chart_format": {
+        "symbol": "NVDA",
+        "entryTime": 1705392900,
+        "exitTime": 1705413600,
+        "entryPrice": 545.0,
+        "exitPrice": 552.3,
+        "direction": "long",
+        "quantity": 30.0,
+        "pnl": 217.5,
+        "pnlPercent": 1.3394495412844036,
+        "isWinner": true,
+        "tags": [
+          "trend"
+        ],
+        "markers": [
+          {
+            "time": 1705392900,
+            "position": "belowBar",
+            "color": "#2196F3",
+            "shape": "arrowUp",
+            "text": "Entry @ 545.00"
+          },
+          {
+            "time": 1705413600,
+            "position": "aboveBar",
+            "color": "#4CAF50",
+            "shape": "arrowDown",
+            "text": "Exit @ 552.30"
+          }
+        ]
+      }
+    },
+    {
+      "id": "6100a5ab-1dfe-4a1d-a2e6-ae86e2b428ef",
+      "broker_trade_id": null,
+      "symbol": "GOOGL",
+      "asset_type": "stock",
+      "direction": "long",
+      "status": "closed",
+      "entry_time": "2024-01-17T09:30:00",
+      "exit_time": "2024-01-17T10:15:00",
+      "entry_price": 142.5,
+      "exit_price": 141.8,
+      "quantity": 200.0,
+      "commission": 3.0,
+      "tags": [
+        "revenge"
+      ],
+      "notes": "Bad entry - should have waited",
+      "account_id": null,
+      "broker_name": "generic",
+      "raw_data": {
+        "symbol": "GOOGL",
+        "direction": "long",
+        "entry_time": "2024-01-17 09:30:00",
+        "exit_time": "2024-01-17 10:15:00",
+        "entry_price": 142.5,
+        "exit_price": 141.8,
+        "quantity": 200,
+        "commission": 3.0,
+        "asset_type": "stock",
+        "tags": "revenge",
+        "notes": "Bad entry - should have waited"
+      },
+      "pnl_gross": -140.0,
+      "pnl_net": -143.0,
+      "pnl_percent": -0.49122807017543857,
+      "r_multiple": null,
+      "duration_minutes": 45,
+      "is_winner": false,
+      "chart_format": {
+        "symbol": "GOOGL",
+        "entryTime": 1705476600,
+        "exitTime": 1705479300,
+        "entryPrice": 142.5,
+        "exitPrice": 141.8,
+        "direction": "long",
+        "quantity": 200.0,
+        "pnl": -143.0,
+        "pnlPercent": -0.49122807017543857,
+        "isWinner": false,
+        "tags": [
+          "revenge"
+        ],
+        "markers": [
+          {
+            "time": 1705476600,
+            "position": "belowBar",
+            "color": "#2196F3",
+            "shape": "arrowUp",
+            "text": "Entry @ 142.50"
+          },
+          {
+            "time": 1705479300,
+            "position": "aboveBar",
+            "color": "#F44336",
+            "shape": "arrowDown",
+            "text": "Exit @ 141.80"
+          }
+        ]
+      }
+    },
+    {
+      "id": "b4a5c6ef-4531-4928-ab69-bee95f02d9c8",
+      "broker_trade_id": null,
+      "symbol": "META",
+      "asset_type": "stock",
+      "direction": "long",
+      "status": "closed",
+      "entry_time": "2024-01-17T11:00:00",
+      "exit_time": "2024-01-17T14:30:00",
+      "entry_price": 385.0,
+      "exit_price": 392.0,
+      "quantity": 40.0,
+      "commission": 2.0,
+      "tags": [
+        "breakout"
+      ],
+      "notes": "Strong volume breakout",
+      "account_id": null,
+      "broker_name": "generic",
+      "raw_data": {
+        "symbol": "META",
+        "direction": "long",
+        "entry_time": "2024-01-17 11:00:00",
+        "exit_time": "2024-01-17 14:30:00",
+        "entry_price": 385.0,
+        "exit_price": 392.0,
+        "quantity": 40,
+        "commission": 2.0,
+        "asset_type": "stock",
+        "tags": "breakout",
+        "notes": "Strong volume breakout"
+      },
+      "pnl_gross": 280.0,
+      "pnl_net": 278.0,
+      "pnl_percent": 1.8181818181818181,
+      "r_multiple": null,
+      "duration_minutes": 210,
+      "is_winner": true,
+      "chart_format": {
+        "symbol": "META",
+        "entryTime": 1705482000,
+        "exitTime": 1705494600,
+        "entryPrice": 385.0,
+        "exitPrice": 392.0,
+        "direction": "long",
+        "quantity": 40.0,
+        "pnl": 278.0,
+        "pnlPercent": 1.8181818181818181,
+        "isWinner": true,
+        "tags": [
+          "breakout"
+        ],
+        "markers": [
+          {
+            "time": 1705482000,
+            "position": "belowBar",
+            "color": "#2196F3",
+            "shape": "arrowUp",
+            "text": "Entry @ 385.00"
+          },
+          {
+            "time": 1705494600,
+            "position": "aboveBar",
+            "color": "#4CAF50",
+            "shape": "arrowDown",
+            "text": "Exit @ 392.00"
+          }
+        ]
+      }
+    },
+    {
+      "id": "3153b3dc-c31e-416f-aab7-7ab51fb38d1f",
+      "broker_trade_id": null,
+      "symbol": "AMZN",
+      "asset_type": "stock",
+      "direction": "short",
+      "status": "closed",
+      "entry_time": "2024-01-18T10:00:00",
+      "exit_time": "2024-01-18T12:30:00",
+      "entry_price": 155.0,
+      "exit_price": 153.2,
+      "quantity": 80.0,
+      "commission": 2.5,
+      "tags": [
+        "gap_fade"
+      ],
+      "notes": "Gap fade strategy worked",
+      "account_id": null,
+      "broker_name": "generic",
+      "raw_data": {
+        "symbol": "AMZN",
+        "direction": "short",
+        "entry_time": "2024-01-18 10:00:00",
+        "exit_time": "2024-01-18 12:30:00",
+        "entry_price": 155.0,
+        "exit_price": 153.2,
+        "quantity": 80,
+        "commission": 2.5,
+        "asset_type": "stock",
+        "tags": "gap_fade",
+        "notes": "Gap fade strategy worked"
+      },
+      "pnl_gross": 144.0,
+      "pnl_net": 141.5,
+      "pnl_percent": 1.1612903225806452,
+      "r_multiple": null,
+      "duration_minutes": 150,
+      "is_winner": true,
+      "chart_format": {
+        "symbol": "AMZN",
+        "entryTime": 1705564800,
+        "exitTime": 1705573800,
+        "entryPrice": 155.0,
+        "exitPrice": 153.2,
+        "direction": "short",
+        "quantity": 80.0,
+        "pnl": 141.5,
+        "pnlPercent": 1.1612903225806452,
+        "isWinner": true,
+        "tags": [
+          "gap_fade"
+        ],
+        "markers": [
+          {
+            "time": 1705564800,
+            "position": "aboveBar",
+            "color": "#2196F3",
+            "shape": "arrowDown",
+            "text": "Entry @ 155.00"
+          },
+          {
+            "time": 1705573800,
+            "position": "belowBar",
+            "color": "#4CAF50",
+            "shape": "arrowUp",
+            "text": "Exit @ 153.20"
+          }
+        ]
+      }
+    },
+    {
+      "id": "38c44206-7754-4f2f-8b5e-b99240d0b315",
+      "broker_trade_id": null,
+      "symbol": "AMD",
+      "asset_type": "stock",
+      "direction": "long",
+      "status": "closed",
+      "entry_time": "2024-01-18T13:00:00",
+      "exit_time": "2024-01-18T15:45:00",
+      "entry_price": 142.0,
+      "exit_price": 145.5,
+      "quantity": 100.0,
+      "commission": 2.0,
+      "tags": [],
+      "notes": "Solid setup",
+      "account_id": null,
+      "broker_name": "generic",
+      "raw_data": {
+        "symbol": "AMD",
+        "direction": "long",
+        "entry_time": "2024-01-18 13:00:00",
+        "exit_time": "2024-01-18 15:45:00",
+        "entry_price": 142.0,
+        "exit_price": 145.5,
+        "quantity": 100,
+        "commission": 2.0,
+        "asset_type": "stock",
+        "tags": null,
+        "notes": "Solid setup"
+      },
+      "pnl_gross": 350.0,
+      "pnl_net": 348.0,
+      "pnl_percent": 2.464788732394366,
+      "r_multiple": null,
+      "duration_minutes": 165,
+      "is_winner": true,
+      "chart_format": {
+        "symbol": "AMD",
+        "entryTime": 1705575600,
+        "exitTime": 1705585500,
+        "entryPrice": 142.0,
+        "exitPrice": 145.5,
+        "direction": "long",
+        "quantity": 100.0,
+        "pnl": 348.0,
+        "pnlPercent": 2.464788732394366,
+        "isWinner": true,
+        "tags": [],
+        "markers": [
+          {
+            "time": 1705575600,
+            "position": "belowBar",
+            "color": "#2196F3",
+            "shape": "arrowUp",
+            "text": "Entry @ 142.00"
+          },
+          {
+            "time": 1705585500,
+            "position": "aboveBar",
+            "color": "#4CAF50",
+            "shape": "arrowDown",
+            "text": "Exit @ 145.50"
+          }
+        ]
+      }
+    },
+    {
+      "id": "7337f216-19ed-4971-aca7-ae111d409e0e",
+      "broker_trade_id": null,
+      "symbol": "SPY",
+      "asset_type": "stock",
+      "direction": "long",
+      "status": "closed",
+      "entry_time": "2024-01-19T09:35:00",
+      "exit_time": "2024-01-19T11:00:00",
+      "entry_price": 475.5,
+      "exit_price": 476.8,
+      "quantity": 150.0,
+      "commission": 0.5,
+      "tags": [
+        "scalp"
+      ],
+      "notes": "Quick morning scalp",
+      "account_id": null,
+      "broker_name": "generic",
+      "raw_data": {
+        "symbol": "SPY",
+        "direction": "long",
+        "entry_time": "2024-01-19 09:35:00",
+        "exit_time": "2024-01-19 11:00:00",
+        "entry_price": 475.5,
+        "exit_price": 476.8,
+        "quantity": 150,
+        "commission": 0.5,
+        "asset_type": "stock",
+        "tags": "scalp",
+        "notes": "Quick morning scalp"
+      },
+      "pnl_gross": 195.0,
+      "pnl_net": 194.5,
+      "pnl_percent": 0.2733964248159832,
+      "r_multiple": null,
+      "duration_minutes": 85,
+      "is_winner": true,
+      "chart_format": {
+        "symbol": "SPY",
+        "entryTime": 1705649700,
+        "exitTime": 1705654800,
+        "entryPrice": 475.5,
+        "exitPrice": 476.8,
+        "direction": "long",
+        "quantity": 150.0,
+        "pnl": 194.5,
+        "pnlPercent": 0.2733964248159832,
+        "isWinner": true,
+        "tags": [
+          "scalp"
+        ],
+        "markers": [
+          {
+            "time": 1705649700,
+            "position": "belowBar",
+            "color": "#2196F3",
+            "shape": "arrowUp",
+            "text": "Entry @ 475.50"
+          },
+          {
+            "time": 1705654800,
+            "position": "aboveBar",
+            "color": "#4CAF50",
+            "shape": "arrowDown",
+            "text": "Exit @ 476.80"
+          }
+        ]
+      }
+    },
+    {
+      "id": "97ebc006-c93d-4a8e-b48e-7275ee2cd013",
+      "broker_trade_id": null,
+      "symbol": "QQQ",
+      "asset_type": "stock",
+      "direction": "short",
+      "status": "closed",
+      "entry_time": "2024-01-19T14:00:00",
+      "exit_time": "2024-01-19T15:30:00",
+      "entry_price": 408.0,
+      "exit_price": 406.5,
+      "quantity": 100.0,
+      "commission": 0.5,
+      "tags": [],
+      "notes": "Afternoon reversal",
+      "account_id": null,
+      "broker_name": "generic",
+      "raw_data": {
+        "symbol": "QQQ",
+        "direction": "short",
+        "entry_time": "2024-01-19 14:00:00",
+        "exit_time": "2024-01-19 15:30:00",
+        "entry_price": 408.0,
+        "exit_price": 406.5,
+        "quantity": 100,
+        "commission": 0.5,
+        "asset_type": "stock",
+        "tags": null,
+        "notes": "Afternoon reversal"
+      },
+      "pnl_gross": 150.0,
+      "pnl_net": 149.5,
+      "pnl_percent": 0.36764705882352944,
+      "r_multiple": null,
+      "duration_minutes": 90,
+      "is_winner": true,
+      "chart_format": {
+        "symbol": "QQQ",
+        "entryTime": 1705665600,
+        "exitTime": 1705671000,
+        "entryPrice": 408.0,
+        "exitPrice": 406.5,
+        "direction": "short",
+        "quantity": 100.0,
+        "pnl": 149.5,
+        "pnlPercent": 0.36764705882352944,
+        "isWinner": true,
+        "tags": [],
+        "markers": [
+          {
+            "time": 1705665600,
+            "position": "aboveBar",
+            "color": "#2196F3",
+            "shape": "arrowDown",
+            "text": "Entry @ 408.00"
+          },
+          {
+            "time": 1705671000,
+            "position": "belowBar",
+            "color": "#4CAF50",
+            "shape": "arrowUp",
+            "text": "Exit @ 406.50"
+          }
+        ]
+      }
+    }
+  ]
+}
