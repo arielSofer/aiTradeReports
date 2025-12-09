@@ -21,6 +21,8 @@ export interface TopstepXTrade {
   commission: number
   fees: number
   direction: 'long' | 'short'
+  takeProfit?: number
+  stopLoss?: number
 }
 
 /**
@@ -208,6 +210,14 @@ function parseWithRegex(html: string): TopstepXTrade[] {
         trade.direction = dirText.includes('long') ? 'long' : 'short'
       }
 
+      // Extract Take Profit
+      const tpMatch = rowHtml.match(/data-field="(?:takeProfit|tp|targetPrice)"[^>]*>[\s\S]*?<span[^>]*>([0-9,.]+)<\/span>/i)
+      if (tpMatch) trade.takeProfit = parsePrice(tpMatch[1])
+
+      // Extract Stop Loss
+      const slMatch = rowHtml.match(/data-field="(?:stopLoss|sl)"[^>]*>[\s\S]*?<span[^>]*>([0-9,.]+)<\/span>/i)
+      if (slMatch) trade.stopLoss = parsePrice(slMatch[1])
+
       // Only add if we have valid data (at least ID and symbol)
       if (trade.id && trade.symbol) {
         trades.push(trade)
@@ -296,6 +306,14 @@ export function parseTopstepXHtml(html: string): TopstepXTrade[] {
             case 'direction':
               trade.direction = content.toLowerCase() === 'long' ? 'long' : 'short'
               break
+            case 'takeProfit':
+            case 'tp':
+              trade.takeProfit = parsePrice(content)
+              break
+            case 'stopLoss':
+            case 'sl':
+              trade.stopLoss = parsePrice(content)
+              break
           }
         })
 
@@ -377,7 +395,7 @@ export function convertTopstepXTrades(trades: TopstepXTrade[]): any[] {
       ? ((trade.exitPrice - trade.entryPrice) / trade.entryPrice) * 100 * (trade.direction === 'long' ? 1 : -1)
       : 0,
     tags: ['TopstepX'],
-    notes: `Duration: ${trade.duration}`,
+    notes: `Duration: ${trade.duration}${trade.takeProfit ? ` | TP: ${trade.takeProfit}` : ''}${trade.stopLoss ? ` | SL: ${trade.stopLoss}` : ''}`,
   }))
 }
 
