@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { 
-  Calendar, 
-  Clock, 
+import {
+  Calendar,
+  Clock,
   Plus,
   Trash2,
   Globe,
@@ -13,13 +13,13 @@ import {
 } from 'lucide-react'
 import { cn, formatCurrency } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
-import { 
-  collection, 
-  addDoc, 
-  getDocs, 
-  deleteDoc, 
-  doc, 
-  query, 
+import {
+  collection,
+  addDoc,
+  getDocs,
+  deleteDoc,
+  doc,
+  query,
   where,
   serverTimestamp,
   Timestamp
@@ -109,42 +109,42 @@ export function EconomicCalendar() {
   const loadEvents = async (forceRefresh = false) => {
     setIsLoading(true)
     setApiError(null)
-    
+
     try {
       // Fetch from API (uses cache unless forceRefresh)
       const response = await fetchEconomicCalendarWithStatus(forceRefresh)
-      
+
       if (response.error) {
         setApiError(response.error)
         setNeedsCredits(response.needsCredits || false)
       }
-      
+
       const apiEvents = response.events || []
-      
+
       // Also load custom events from Firebase if user is logged in
       let customEvents: EconomicEvent[] = []
       if (user) {
         const eventsRef = collection(db, 'economic_events')
         const q = query(eventsRef, where('userId', '==', user.uid))
         const snapshot = await getDocs(q)
-        
+
         customEvents = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
           isCustom: true
         })) as EconomicEvent[]
       }
-      
+
       // Combine API events and custom events
       const allEvents = [...apiEvents, ...customEvents]
-      
+
       // Sort by date and time
       allEvents.sort((a, b) => {
         const dateA = new Date(`${a.date} ${a.time}`)
         const dateB = new Date(`${b.date} ${b.time}`)
         return dateA.getTime() - dateB.getTime()
       })
-      
+
       setEvents(allEvents)
     } catch (error) {
       console.error('Error loading events:', error)
@@ -157,7 +157,7 @@ export function EconomicCalendar() {
 
   const addEvent = async () => {
     if (!user || !newEvent.title || !newEvent.date || !newEvent.time) return
-    
+
     try {
       const eventsRef = collection(db, 'economic_events')
       const eventData = {
@@ -165,15 +165,15 @@ export function EconomicCalendar() {
         userId: user.uid,
         createdAt: serverTimestamp()
       }
-      
+
       const docRef = await addDoc(eventsRef, eventData)
-      
+
       // Add to local state
-      setEvents([...events, { 
-        ...eventData, 
-        id: docRef.id 
+      setEvents([...events, {
+        ...eventData,
+        id: docRef.id
       } as EconomicEvent])
-      
+
       setShowAddModal(false)
       setNewEvent({
         impact: 'medium',
@@ -189,7 +189,7 @@ export function EconomicCalendar() {
 
   const deleteEvent = async (eventId: string) => {
     if (!user) return
-    
+
     try {
       await deleteDoc(doc(db, 'economic_events', eventId))
       setEvents(events.filter(e => e.id !== eventId))
@@ -200,9 +200,19 @@ export function EconomicCalendar() {
 
   // Filter events
   const filteredEvents = events.filter(event => {
+    // Impact filter
     if (impactFilter !== 'all' && event.impact !== impactFilter) return false
+
+    // Category filter
     if (categoryFilter !== 'all' && event.category !== categoryFilter) return false
-    if (currencyFilter !== 'all' && event.currency !== currencyFilter) return false
+
+    // Currency filter - check if event has currency property and matches selected
+    if (currencyFilter !== 'all') {
+      if (!event.currency) return false
+      // Strict comparison for currency code (e.g. 'USD' === 'USD')
+      if (event.currency !== currencyFilter) return false
+    }
+
     return true
   })
 
@@ -224,24 +234,24 @@ export function EconomicCalendar() {
     if (!dateStr || dateStr === 'undefined') {
       return 'Unknown Date'
     }
-    
+
     try {
       const date = new Date(dateStr)
       if (isNaN(date.getTime())) {
         return dateStr // Return as-is if invalid
       }
-      
+
       const today = new Date()
       const tomorrow = new Date(today)
       tomorrow.setDate(tomorrow.getDate() + 1)
-      
+
       if (dateStr === today.toISOString().split('T')[0]) return 'Today'
       if (dateStr === tomorrow.toISOString().split('T')[0]) return 'Tomorrow'
-      
-      return date.toLocaleDateString('en-US', { 
-        weekday: 'short', 
-        month: 'short', 
-        day: 'numeric' 
+
+      return date.toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric'
       })
     } catch {
       return dateStr
@@ -261,7 +271,7 @@ export function EconomicCalendar() {
             <p className="text-sm text-dark-500">Add your trading events & news</p>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-2">
           <button
             onClick={() => loadEvents(true)}
@@ -297,7 +307,7 @@ export function EconomicCalendar() {
                 className={cn(
                   'px-2 py-1 text-xs rounded transition-colors',
                   impactFilter === impact
-                    ? impact === 'all' 
+                    ? impact === 'all'
                       ? 'bg-primary text-white'
                       : `${impactColors[impact as Impact].bg} ${impactColors[impact as Impact].text}`
                     : 'bg-dark-800 text-dark-400 hover:bg-dark-700'
@@ -385,10 +395,10 @@ export function EconomicCalendar() {
           <p className="text-sm text-accent-orange">
             ⚠️ {needsCredits ? (
               <>
-                Economic Calendar API requires credits. 
-                <a 
-                  href="https://www.jblanked.com/api/billing/" 
-                  target="_blank" 
+                Economic Calendar API requires credits.
+                <a
+                  href="https://www.jblanked.com/api/billing/"
+                  target="_blank"
                   rel="noopener noreferrer"
                   className="underline ml-1 hover:text-accent-orange/80"
                 >
@@ -469,9 +479,9 @@ export function EconomicCalendar() {
                               </span>
                             )}
                           </div>
-                          
+
                           <h4 className="font-medium text-white mb-1">{event.title}</h4>
-                          
+
                           {event.description && (
                             <p className="text-sm text-dark-500 line-clamp-1">{event.description}</p>
                           )}
@@ -538,11 +548,11 @@ export function EconomicCalendar() {
       {/* Add Event Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div 
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm" 
-            onClick={() => setShowAddModal(false)} 
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowAddModal(false)}
           />
-          
+
           <div className="relative w-full max-w-lg bg-dark-900 rounded-2xl border border-dark-700 shadow-2xl">
             <div className="p-6 border-b border-dark-800">
               <h2 className="text-xl font-display font-bold text-white">Add Economic Event</h2>
@@ -677,7 +687,7 @@ export function EconomicCalendar() {
               <button onClick={() => setShowAddModal(false)} className="btn-secondary">
                 Cancel
               </button>
-              <button 
+              <button
                 onClick={addEvent}
                 disabled={!newEvent.title || !newEvent.date || !newEvent.time}
                 className="btn-primary"
