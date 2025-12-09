@@ -183,25 +183,41 @@ function parseWithRegex(html: string): TopstepXTrade[] {
       const durationMatch = rowHtml.match(/data-field="tradeDurationDisplay"[^>]*>[\s\S]*?<span[^>]*>([^<]+)<\/span>/i)
       if (durationMatch) trade.duration = durationMatch[1].trim()
 
-      // Extract entry price - look for numbers with commas
-      const entryPriceMatch = rowHtml.match(/data-field="entryPrice"[^>]*>[\s\S]*?<span[^>]*>([0-9,.]+)<\/span>/i)
-      if (entryPriceMatch) trade.entryPrice = parsePrice(entryPriceMatch[1])
+      // Extract entry price - more permissive
+      const entryPriceMatch = rowHtml.match(/data-field="entryPrice"[^>]*>([\s\S]*?)<\/div>/i)
+      if (entryPriceMatch) {
+        // Strip HTML tags to get the number
+        const priceText = entryPriceMatch[1].replace(/<[^>]*>/g, '').trim()
+        trade.entryPrice = parsePrice(priceText)
+      }
 
-      // Extract exit price
-      const exitPriceMatch = rowHtml.match(/data-field="exitPrice"[^>]*>[\s\S]*?<span[^>]*>([0-9,.]+)<\/span>/i)
-      if (exitPriceMatch) trade.exitPrice = parsePrice(exitPriceMatch[1])
+      // Extract exit price - more permissive
+      const exitPriceMatch = rowHtml.match(/data-field="exitPrice"[^>]*>([\s\S]*?)<\/div>/i)
+      if (exitPriceMatch) {
+        const priceText = exitPriceMatch[1].replace(/<[^>]*>/g, '').trim()
+        trade.exitPrice = parsePrice(priceText)
+      }
 
-      // Extract P&L - look for $ sign
-      const pnlMatch = rowHtml.match(/data-field="pnL"[^>]*>[\s\S]*?<span[^>]*>\$?([-0-9,.]+)<\/span>/i)
-      if (pnlMatch) trade.pnl = parseMoney(pnlMatch[1])
+      // Extract P&L - more permissive
+      const pnlMatch = rowHtml.match(/data-field="pnL"[^>]*>([\s\S]*?)<\/div>/i)
+      if (pnlMatch) {
+        const text = pnlMatch[1].replace(/<[^>]*>/g, '').trim()
+        trade.pnl = parseMoney(text)
+      }
 
       // Extract commission
-      const commMatch = rowHtml.match(/data-field="commisions"[^>]*>[\s\S]*?<span[^>]*>\$?([-0-9,.]+)<\/span>/i)
-      if (commMatch) trade.commission = Math.abs(parseMoney(commMatch[1]))
+      const commMatch = rowHtml.match(/data-field="commisions"[^>]*>([\s\S]*?)<\/div>/i)
+      if (commMatch) {
+        const text = commMatch[1].replace(/<[^>]*>/g, '').trim()
+        trade.commission = Math.abs(parseMoney(text))
+      }
 
       // Extract fees
-      const feesMatch = rowHtml.match(/data-field="fees"[^>]*>[\s\S]*?<span[^>]*>\$?([-0-9,.]+)<\/span>/i)
-      if (feesMatch) trade.fees = Math.abs(parseMoney(feesMatch[1]))
+      const feesMatch = rowHtml.match(/data-field="fees"[^>]*>([\s\S]*?)<\/div>/i)
+      if (feesMatch) {
+        const text = feesMatch[1].replace(/<[^>]*>/g, '').trim()
+        trade.fees = Math.abs(parseMoney(text))
+      }
 
       // Extract direction
       const dirMatch = rowHtml.match(/data-field="direction"[^>]*>([^<]*(?:Long|Short)[^<]*)/i)
