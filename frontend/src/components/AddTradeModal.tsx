@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { X, Plus, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { TradeDetailsModal } from './TradeDetailsModal'
+import { Trade } from '@/lib/store'
 
 interface AddTradeModalProps {
   isOpen: boolean
@@ -48,6 +50,7 @@ export function AddTradeModal({ isOpen, onClose, onSubmit }: AddTradeModalProps)
   const [formData, setFormData] = useState<TradeFormData>(initialFormData)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target
@@ -331,17 +334,51 @@ export function AddTradeModal({ isOpen, onClose, onSubmit }: AddTradeModalProps)
           </div>
 
           {/* Tags */}
-          <div>
-            <label className="block text-sm font-medium text-dark-300 mb-2">Tags</label>
-            <input
-              type="text"
-              name="tags"
-              value={formData.tags}
-              onChange={handleChange}
-              placeholder="breakout, momentum, fomo (comma separated)"
-              className="input w-full"
-            />
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-dark-300">Tags</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                name="tags"
+                value={formData.tags}
+                onChange={handleChange}
+                placeholder="breakout, momentum, fomo (comma separated)"
+                className="input w-full"
+              />
+              <button
+                type="button"
+                onClick={() => setIsDetailsOpen(true)}
+                className="btn-secondary whitespace-nowrap"
+              >
+                Select Details
+              </button>
+            </div>
+
+            <p className="text-xs text-dark-500">
+              You can also select details from predefined categories.
+            </p>
           </div>
+
+          <TradeDetailsModal
+            isOpen={isDetailsOpen}
+            onClose={() => setIsDetailsOpen(false)}
+            // We need to pass a mock trade object or handle it differently
+            // TradeDetailsModal expects a Trade object but we only have FormData
+            // Let's create a temporary Trade-like object
+            trade={{
+              id: 0,
+              ...initialFormData,
+              ...formData,
+              tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean)
+            } as any}
+            onSave={(updatedTrade) => {
+              setFormData(prev => ({
+                ...prev,
+                tags: updatedTrade.tags.join(', ')
+              }))
+              setIsDetailsOpen(false)
+            }}
+          />
 
           {/* Notes */}
           <div>
