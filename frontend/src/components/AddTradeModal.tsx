@@ -373,10 +373,12 @@ export function AddTradeModal({ isOpen, onClose, onSubmit }: AddTradeModalProps)
               tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean)
             } as any}
             onSave={(updatedTrade) => {
-              setFormData(prev => ({
-                ...prev,
-                tags: updatedTrade.tags.join(', ')
-              }))
+              if (updatedTrade && updatedTrade.tags) {
+                setFormData(prev => ({
+                  ...prev,
+                  tags: updatedTrade.tags.join(', ')
+                }))
+              }
               setIsDetailsOpen(false)
             }}
           />

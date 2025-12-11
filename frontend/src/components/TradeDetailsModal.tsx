@@ -110,7 +110,15 @@ export function TradeDetailsModal({ isOpen, onClose, trade, onSave, isNewTrade }
 
             // Update via API only if it's an existing trade
             if (!isNewTrade) {
-                await tradesApi.update(trade.id, { tags: newTags })
+                if (!trade.id || isNaN(trade.id)) {
+                    console.error('Invalid trade ID for update:', trade.id)
+                    // Do not attempt update if ID is invalid
+                } else {
+                    console.log('Updating existing trade:', trade.id)
+                    await tradesApi.update(trade.id, { tags: newTags })
+                }
+            } else {
+                console.log('Skipping API update for new trade')
             }
 
             onSave(updatedTradeStart)
