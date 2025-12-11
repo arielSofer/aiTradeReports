@@ -12,15 +12,15 @@
 1. לחץ על **"Add New Project"** או **"Import Project"**
 2. בחר את ה-repository: **`arielSofer/aiTradeReports`**
 3. **לפני שאתה לוחץ Deploy**, לחץ על **"Configure Project"** או **"Edit"** ליד Framework Preset
-4. תחת **Root Directory**, לחץ **"Edit"** והזן: `frontend`
-5. לחץ **"Save"** או **"Continue"**
+4: תחת **Root Directory**, השאר את זה ריק (או `./`).
+5. **חשוב:** אל תשנה ל-`frontend` אחרת ה-API לא יעבוד!
+6. לחץ **"Save"** או **"Continue"**
 
 ### שלב 3: הגדרת Build Settings
 לפני ה-Deploy, לחץ על **"Configure Project"** או **"Settings"**:
 
-1. **Root Directory:** לחץ על **"Edit"** ליד Root Directory
-2. הזן: `frontend` ⚠️ **זה קריטי!**
-3. לחץ **"Save"**
+1. **Root Directory:** ודא שזה `./` (ברירת מחדל)
+2. Vercel יקרא את ה-`vercel.json` בתיקייה הראשית ויבנה גם את ה-Frontend וגם את ה-Backend.
 
 Vercel יזהה אוטומטית:
 - **Framework Preset:** Next.js
@@ -107,8 +107,8 @@ Vercel מספק:
 **הבעיה הנפוצה ביותר:**
 - ⚠️ **Root Directory לא מוגדר נכון!**
 - לך ל-Project Settings > **General** > **Root Directory**
-- ודא שזה מוגדר ל: `frontend`
-- אם זה ריק או `./`, שנה ל-`frontend`
+- ודא שזה מוגדר ל: `./` (התיקייה הראשית)
+- **אל תגדיר** את זה ל-`frontend`! (זה יגרום ל-Backend לא לעבוד)
 - לחץ **Save** ו-Deploy מחדש
 
 **בעיות אחרות:**

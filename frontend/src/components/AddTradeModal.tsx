@@ -362,6 +362,7 @@ export function AddTradeModal({ isOpen, onClose, onSubmit }: AddTradeModalProps)
           <TradeDetailsModal
             isOpen={isDetailsOpen}
             onClose={() => setIsDetailsOpen(false)}
+            isNewTrade={true}
             // We need to pass a mock trade object or handle it differently
             // TradeDetailsModal expects a Trade object but we only have FormData
             // Let's create a temporary Trade-like object

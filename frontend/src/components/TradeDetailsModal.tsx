@@ -12,9 +12,10 @@ interface TradeDetailsModalProps {
     onClose: () => void
     trade: Trade
     onSave: (updatedTrade: Trade) => void
+    isNewTrade?: boolean
 }
 
-export function TradeDetailsModal({ isOpen, onClose, trade, onSave }: TradeDetailsModalProps) {
+export function TradeDetailsModal({ isOpen, onClose, trade, onSave, isNewTrade }: TradeDetailsModalProps) {
     const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>({})
     const [isSaving, setIsSaving] = useState(false)
 
@@ -104,11 +105,13 @@ export function TradeDetailsModal({ isOpen, onClose, trade, onSave }: TradeDetai
                 })
             })
 
-            // Update via API
-            const updatedTradeStart = { ...trade, tags: newTags }
-            // Optimistic update calling prop (will be confirmed by API response if we wanted, but here we just wait)
 
-            await tradesApi.update(trade.id, { tags: newTags })
+            const updatedTradeStart = { ...trade, tags: newTags }
+
+            // Update via API only if it's an existing trade
+            if (!isNewTrade) {
+                await tradesApi.update(trade.id, { tags: newTags })
+            }
 
             onSave(updatedTradeStart)
             onClose()
