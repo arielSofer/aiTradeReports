@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60 * 24 * 7  # 7 days
     
     # CORS
-    cors_origins: list = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    cors_origins: list = ["*"]
     
     # File Upload
     max_file_size: int = 10 * 1024 * 1024  # 10MB
