@@ -142,3 +142,6 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 
 **מוכן!** עכשיו תוכל להגדיר את כל ה-Environment Variables ב-Vercel 🚀
 
+
+
+

@@ -217,3 +217,6 @@ export const mockHourlyStats: HourlyStat[] = [
   { hour: 14, trades: 1, wins: 1, pnl: 149.50, winRate: 100 },
 ]
 
+
+
+

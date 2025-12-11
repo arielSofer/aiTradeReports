@@ -129,3 +129,6 @@ class Trade(Base):
         if investment > 0:
             self.pnl_percent = (self.pnl_gross / investment) * 100
 
+
+
+

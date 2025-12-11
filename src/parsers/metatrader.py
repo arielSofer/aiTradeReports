@@ -282,3 +282,6 @@ class MetaTrader5Parser(MetaTrader4Parser):
         "volume": "quantity",
     }
 
+
+
+

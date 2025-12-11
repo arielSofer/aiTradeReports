@@ -96,3 +96,6 @@ async def get_quick_summary(
         "current_streak": stats.current_streak
     }
 
+
+
+

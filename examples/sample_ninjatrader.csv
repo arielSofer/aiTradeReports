@@ -10,3 +10,6 @@ Trade #,Instrument,Account,Strategy,Market pos.,Quantity,Entry price,Exit price,
 9,MNQ 03-24,Sim101,ScalpStrategy,Short,2,17400.00,17385.75,01/18/2024 09:45:00,01/18/2024 10:30:00,Short Entry,Profit Target,57.00,2870.75,1.50,25.00,75.00,0,11
 10,ES 03-24,Sim101,TrendStrategy,Long,1,4870.00,4885.25,01/18/2024 11:00:00,01/18/2024 14:00:00,Long Entry,Profit Target,762.50,3633.25,4.04,62.50,800.00,0,42
 
+
+
+

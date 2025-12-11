@@ -144,3 +144,6 @@ class TradeStats(BaseModel):
     best_streak: int = 0
     worst_streak: int = 0
 
+
+
+

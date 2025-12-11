@@ -391,3 +391,6 @@ class TradeService:
         
         return current_streak, best_streak, abs(worst_streak)
 
+
+
+

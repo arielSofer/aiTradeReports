@@ -262,3 +262,6 @@ async def delete_trade(
     
     await TradeService.delete_trade(db, trade)
 
+
+
+

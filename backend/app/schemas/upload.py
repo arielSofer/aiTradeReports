@@ -41,3 +41,6 @@ class UploadResponse(BaseModel):
     win_rate: Optional[float] = None
     date_range: Optional[Dict[str, str]] = None
 
+
+
+

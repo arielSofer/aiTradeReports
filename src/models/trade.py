@@ -416,3 +416,6 @@ class TradeCollection(BaseModel):
         
         return pd.DataFrame(data)
 
+
+
+

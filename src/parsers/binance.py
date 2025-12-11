@@ -306,3 +306,6 @@ class BinanceParser(BaseParser):
         
         return result
 
+
+
+
