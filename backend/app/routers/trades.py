@@ -226,9 +226,43 @@ async def update_trade(
     """
     Update a trade
     """
+    # region agent log
+    try:
+        with open("/Users/ariels/TradeTracker/.cursor/debug.log", "a") as f:
+            f.write(json.dumps({
+                "sessionId": "debug-session",
+                "runId": "na-id-1",
+                "hypothesisId": "BH1",
+                "location": "backend/app/routers/trades.py:update_trade:entry",
+                "message": "update_trade entry",
+                "data": {
+                    "trade_id": trade_id,
+                    "user_id": current_user.id,
+                    "update_fields": list(update_data.model_dump(exclude_unset=True).keys())
+                },
+                "timestamp": int(datetime.now().timestamp() * 1000)
+            }) + "\n")
+    except Exception:
+        pass
+    # endregion
     trade = await TradeService.get_trade_by_id(db, trade_id, current_user.id)
     
     if not trade:
+        # region agent log
+        try:
+            with open("/Users/ariels/TradeTracker/.cursor/debug.log", "a") as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "na-id-1",
+                    "hypothesisId": "BH2",
+                    "location": "backend/app/routers/trades.py:update_trade:not_found",
+                    "message": "trade not found for user",
+                    "data": {"trade_id": trade_id, "user_id": current_user.id},
+                    "timestamp": int(datetime.now().timestamp() * 1000)
+                }) + "\n")
+        except Exception:
+            pass
+        # endregion
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Trade not found"
@@ -240,6 +274,22 @@ async def update_trade(
         update_data=update_data.model_dump(exclude_unset=True)
     )
     
+    # region agent log
+    try:
+        with open("/Users/ariels/TradeTracker/.cursor/debug.log", "a") as f:
+            f.write(json.dumps({
+                "sessionId": "debug-session",
+                "runId": "na-id-1",
+                "hypothesisId": "BH3",
+                "location": "backend/app/routers/trades.py:update_trade:success",
+                "message": "trade update success",
+                "data": {"trade_id": trade_id, "user_id": current_user.id, "updated_fields": list(update_data.model_dump(exclude_unset=True).keys())},
+                "timestamp": int(datetime.now().timestamp() * 1000)
+            }) + "\n")
+    except Exception:
+        pass
+    # endregion
+
     return TradeResponse.model_validate(updated)
 
 

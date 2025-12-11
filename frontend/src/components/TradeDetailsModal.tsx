@@ -74,6 +74,10 @@ export function TradeDetailsModal({ isOpen, onClose, trade, onSave, isNewTrade }
     const handleSave = async () => {
         setIsSaving(true)
         try {
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/c515b6be-06d5-4b2c-9fd7-edc0f43b741e',{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix-2',hypothesisId:'H1',location:'frontend/src/components/TradeDetailsModal.tsx:handleSave:entry',message:'handleSave entry',data:{tradeId:trade?.id,tradeIdType:typeof trade?.id,isNewTrade,tagCount:trade?.tags?.length ?? 0},timestamp:Date.now()})}).catch(()=>{})
+            // #endregion
+
             // Collect all selected options as tags
             // We will format them as "Category: Option" to avoid collisions and be descriptive,
             // or just "Option" if that's preferred. The user request "split it to the category" implies UI splitting.
@@ -110,21 +114,36 @@ export function TradeDetailsModal({ isOpen, onClose, trade, onSave, isNewTrade }
 
             // Update via API only if it's an existing trade
             if (!isNewTrade) {
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/c515b6be-06d5-4b2c-9fd7-edc0f43b741e',{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix-2',hypothesisId:'H2',location:'frontend/src/components/TradeDetailsModal.tsx:handleSave:preUpdate',message:'About to update trade',data:{tradeId:trade?.id,isIdNaN:isNaN(trade?.id as number),newTagsCount:newTags.length},timestamp:Date.now()})}).catch(()=>{})
+                // #endregion
                 if (!trade.id || isNaN(trade.id)) {
                     console.error('Invalid trade ID for update:', trade.id)
                     // Do not attempt update if ID is invalid
+                    // #region agent log
+                    fetch('http://127.0.0.1:7242/ingest/c515b6be-06d5-4b2c-9fd7-edc0f43b741e',{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix-2',hypothesisId:'H3',location:'frontend/src/components/TradeDetailsModal.tsx:handleSave:invalidId',message:'Invalid trade id, skipping update',data:{tradeId:trade?.id},timestamp:Date.now()})}).catch(()=>{})
+                    // #endregion
                 } else {
                     console.log('Updating existing trade:', trade.id)
                     await tradesApi.update(trade.id, { tags: newTags })
+                    // #region agent log
+                    fetch('http://127.0.0.1:7242/ingest/c515b6be-06d5-4b2c-9fd7-edc0f43b741e',{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix-2',hypothesisId:'H4',location:'frontend/src/components/TradeDetailsModal.tsx:handleSave:updateSuccess',message:'Trade update completed',data:{tradeId:trade?.id,updatedTags:newTags.length},timestamp:Date.now()})}).catch(()=>{})
+                    // #endregion
                 }
             } else {
                 console.log('Skipping API update for new trade')
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/c515b6be-06d5-4b2c-9fd7-edc0f43b741e',{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix-2',hypothesisId:'H5',location:'frontend/src/components/TradeDetailsModal.tsx:handleSave:newTrade',message:'New trade, skip update',data:{tradeId:trade?.id,newTagsCount:newTags.length},timestamp:Date.now()})}).catch(()=>{})
+                // #endregion
             }
 
             onSave(updatedTradeStart)
             onClose()
         } catch (error) {
             console.error('Failed to save trade details:', error)
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/c515b6be-06d5-4b2c-9fd7-edc0f43b741e',{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'pre-fix-2',hypothesisId:'H6',location:'frontend/src/components/TradeDetailsModal.tsx:handleSave:error',message:'Save failed',data:{errorMessage:error instanceof Error ? error.message : String(error)},timestamp:Date.now()})}).catch(()=>{})
+            // #endregion
             alert('Failed to save changes')
         } finally {
             setIsSaving(false)
