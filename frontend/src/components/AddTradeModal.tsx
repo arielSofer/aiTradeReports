@@ -428,3 +428,4 @@ export function AddTradeModal({ isOpen, onClose, onSubmit }: AddTradeModalProps)
 
 
 
+

@@ -150,16 +150,16 @@ class TradovateParser(BaseParser):
     def _parse_row(self, row: pd.Series, row_number: int) -> Optional[Trade]:
         """פענח שורה מ-Tradovate (Trade Breakdown format)"""
         
-        # Symbol
-        symbol_raw = row.get("symbol", row.get("Contract", ""))
+        # Symbol - אחרי המיפוי, העמודה נקראת "symbol"
+        symbol_raw = row.get("symbol", "")
         if pd.isna(symbol_raw) or not str(symbol_raw).strip():
             return None
         
         symbol = self._normalize_symbol(str(symbol_raw))
         
-        # Direction
-        direction_raw = row.get("direction", row.get("B/S", row.get("Action", "")))
-        if pd.isna(direction_raw):
+        # Direction - אחרי המיפוי, העמודה נקראת "direction"
+        direction_raw = row.get("direction", "")
+        if pd.isna(direction_raw) or not str(direction_raw).strip():
             return None
         
         direction_str = str(direction_raw).lower().strip()
@@ -171,34 +171,40 @@ class TradovateParser(BaseParser):
             # זה יכול להיות סגירה - נטפל בזה בהמשך
             return None
         
-        # Quantity
-        quantity_raw = row.get("quantity", row.get("Qty", 1))
+        # Quantity - אחרי המיפוי, העמודה נקראת "quantity"
+        quantity_raw = row.get("quantity", 1)
+        if pd.isna(quantity_raw):
+            return None
         quantity = abs(self._parse_decimal(quantity_raw))
         if quantity <= 0:
             return None
         
-        # Price
-        price_raw = row.get("price", row.get("Price", row.get("avgfillprice", 0)))
+        # Price - אחרי המיפוי, העמודה נקראת "price"
+        price_raw = row.get("price", 0)
+        if pd.isna(price_raw):
+            return None
         price = self._parse_decimal(price_raw)
         if price <= 0:
             raise ValueError(f"Invalid price: {price}")
         
-        # Time
-        datetime_raw = row.get("datetime", row.get("Date", row.get("timestamp", "")))
+        # Time - אחרי המיפוי, העמודה נקראת "datetime"
+        datetime_raw = row.get("datetime", "")
+        if pd.isna(datetime_raw) or not str(datetime_raw).strip():
+            return None
         trade_time = self._parse_tradovate_datetime(datetime_raw)
         
-        # P&L (if available - means trade is closed)
+        # P&L (if available - means trade is closed) - אחרי המיפוי, העמודה נקראת "pnl"
         pnl = None
-        pnl_raw = row.get("pnl", row.get("P&L", None))
-        if pd.notna(pnl_raw) and str(pnl_raw).strip():
+        pnl_raw = row.get("pnl", None)
+        if pd.notna(pnl_raw) and str(pnl_raw).strip() and str(pnl_raw).strip() != "":
             try:
                 pnl = self._parse_decimal(pnl_raw)
             except:
                 pass
         
-        # Commission
+        # Commission - אחרי המיפוי, העמודה נקראת "commission"
         commission = Decimal("0")
-        comm_raw = row.get("commission", row.get("Commission", 0))
+        comm_raw = row.get("commission", 0)
         if pd.notna(comm_raw):
             try:
                 commission = abs(Decimal(str(self._parse_decimal(comm_raw))))
@@ -253,7 +259,218 @@ class TradovateParser(BaseParser):
         if format_type == "order_history":
             return self._parse_order_history(df, source_file)
         else:
-            return super()._parse_dataframe(df, source_file)
+            return self._parse_trade_breakdown(df, source_file)
+    
+    def _parse_trade_breakdown(
+        self, 
+        df: pd.DataFrame, 
+        source_file: Optional[str] = None
+    ) -> ParserResult:
+        """
+        פענח Trade Breakdown format
+        
+        בפורמט זה, כל שורה עם P&L היא עסקה סגורה.
+        שורות ללא P&L הן פתיחות פוזיציות.
+        """
+        result = ParserResult(
+            trades=TradeCollection(
+                source_file=source_file,
+                broker_name=self.BROKER.value
+            ),
+            total_rows=len(df)
+        )
+        
+        # נקה שמות עמודות
+        df.columns = df.columns.str.strip()
+        
+        # בדוק עמודות חובה
+        missing = self._check_required_columns(df)
+        if missing:
+            result.add_error(
+                0, 
+                f"Missing required columns: {', '.join(missing)}"
+            )
+            return result
+        
+        # מפה עמודות
+        df = self._apply_column_mapping(df)
+        
+        # נרמל את הנתונים לפני הפענוח
+        df = self._normalize_dataframe(df)
+        
+        # שמור פוזיציות פתוחות לפי מפתח (symbol + direction)
+        open_positions: Dict[str, List[dict]] = {}
+        
+        # פענח כל שורה
+        for idx, row in df.iterrows():
+            row_num = idx + 2  # +2 כי יש header ו-pandas מתחיל מ-0
+            
+            try:
+                # דלג על שורות ריקות
+                if self._is_empty_row(row):
+                    result.skipped_rows += 1
+                    continue
+                
+                # Symbol
+                symbol_raw = row.get("symbol", "")
+                if pd.isna(symbol_raw) or not str(symbol_raw).strip():
+                    result.skipped_rows += 1
+                    continue
+                
+                symbol = self._normalize_symbol(str(symbol_raw))
+                
+                # Direction
+                direction_raw = row.get("direction", "")
+                if pd.isna(direction_raw) or not str(direction_raw).strip():
+                    result.skipped_rows += 1
+                    continue
+                
+                direction_str = str(direction_raw).lower().strip()
+                if direction_str in ["buy", "b", "long"]:
+                    direction = TradeDirection.LONG
+                elif direction_str in ["sell", "s", "short"]:
+                    direction = TradeDirection.SHORT
+                else:
+                    result.skipped_rows += 1
+                    continue
+                
+                # Quantity
+                quantity_raw = row.get("quantity", 1)
+                if pd.isna(quantity_raw):
+                    result.skipped_rows += 1
+                    continue
+                quantity = abs(self._parse_decimal(quantity_raw))
+                if quantity <= 0:
+                    result.skipped_rows += 1
+                    continue
+                
+                # Price
+                price_raw = row.get("price", 0)
+                if pd.isna(price_raw):
+                    result.skipped_rows += 1
+                    continue
+                price = self._parse_decimal(price_raw)
+                if price <= 0:
+                    result.add_error(row_num, f"Invalid price: {price}")
+                    continue
+                
+                # Time
+                datetime_raw = row.get("datetime", "")
+                if pd.isna(datetime_raw) or not str(datetime_raw).strip():
+                    result.skipped_rows += 1
+                    continue
+                trade_time = self._parse_tradovate_datetime(datetime_raw)
+                
+                # P&L
+                pnl = None
+                pnl_raw = row.get("pnl", None)
+                if pd.notna(pnl_raw) and str(pnl_raw).strip() and str(pnl_raw).strip() != "":
+                    try:
+                        pnl = self._parse_decimal(pnl_raw)
+                    except:
+                        pass
+                
+                # Commission
+                commission = Decimal("0")
+                comm_raw = row.get("commission", 0)
+                if pd.notna(comm_raw):
+                    try:
+                        commission = abs(Decimal(str(self._parse_decimal(comm_raw))))
+                    except:
+                        pass
+                
+                # מפתח לזיהוי פוזיציה
+                position_key = f"{symbol}_{direction.value}"
+                
+                if pnl is not None:
+                    # זו עסקה סגורה - נסה למצוא פוזיציה פתוחה מתאימה
+                    if position_key in open_positions and len(open_positions[position_key]) > 0:
+                        # קח את הפוזיציה הפתוחה הראשונה
+                        open_pos = open_positions[position_key].pop(0)
+                        
+                        # צור עסקה סגורה
+                        trade = Trade(
+                            symbol=symbol,
+                            direction=direction,
+                            status=TradeStatus.CLOSED,
+                            asset_type=self._detect_asset_type(symbol_raw),
+                            entry_time=open_pos["time"],
+                            exit_time=trade_time,
+                            entry_price=Decimal(str(open_pos["price"])),
+                            exit_price=Decimal(str(price)),
+                            quantity=Decimal(str(open_pos["quantity"])),
+                            commission=open_pos["commission"] + commission,
+                            raw_data={"entry": open_pos["raw"], "exit": row.to_dict()}
+                        )
+                        trade.calculate_pnl() if hasattr(trade, 'calculate_pnl') else None
+                        result.trades.trades.append(trade)
+                        result.parsed_successfully += 1
+                    else:
+                        # אין פוזיציה פתוחה - צור עסקה סגורה עם מחיר כניסה מחושב
+                        # חשב מחיר כניסה מה-P&L
+                        if direction == TradeDirection.LONG:
+                            entry_price = Decimal(str(price)) - (Decimal(str(pnl)) / Decimal(str(quantity)))
+                        else:
+                            entry_price = Decimal(str(price)) + (Decimal(str(pnl)) / Decimal(str(quantity)))
+                        
+                        trade = Trade(
+                            symbol=symbol,
+                            direction=direction,
+                            status=TradeStatus.CLOSED,
+                            asset_type=self._detect_asset_type(symbol_raw),
+                            entry_time=trade_time,  # נשתמש באותו זמן כי אין לנו זמן כניסה
+                            exit_time=trade_time,
+                            entry_price=entry_price,
+                            exit_price=Decimal(str(price)),
+                            quantity=Decimal(str(quantity)),
+                            commission=commission,
+                            raw_data=row.to_dict()
+                        )
+                        trade.calculate_pnl() if hasattr(trade, 'calculate_pnl') else None
+                        result.trades.trades.append(trade)
+                        result.parsed_successfully += 1
+                else:
+                    # זו פתיחת פוזיציה - שמור אותה
+                    if position_key not in open_positions:
+                        open_positions[position_key] = []
+                    
+                    open_positions[position_key].append({
+                        "time": trade_time,
+                        "price": price,
+                        "quantity": quantity,
+                        "commission": commission,
+                        "raw": row.to_dict()
+                    })
+                    
+            except ValueError as e:
+                result.add_error(row_num, str(e))
+            except Exception as e:
+                result.add_error(row_num, f"Unexpected error: {str(e)}")
+        
+        # הוסף פוזיציות פתוחות שנותרו
+        for position_key, positions in open_positions.items():
+            for pos in positions:
+                symbol, direction_str = position_key.split("_", 1)
+                direction = TradeDirection(direction_str)
+                
+                trade = Trade(
+                    symbol=symbol,
+                    direction=direction,
+                    status=TradeStatus.OPEN,
+                    asset_type=self._detect_asset_type(symbol),
+                    entry_time=pos["time"],
+                    entry_price=Decimal(str(pos["price"])),
+                    quantity=Decimal(str(pos["quantity"])),
+                    commission=pos["commission"],
+                    raw_data=pos["raw"]
+                )
+                result.trades.trades.append(trade)
+                result.parsed_successfully += 1
+        
+        # מיין לפי תאריך
+        result.trades.trades.sort(key=lambda t: t.entry_time)
+        
+        return result
     
     def _parse_order_history(
         self, 
@@ -398,6 +615,7 @@ class TradovateParser(BaseParser):
             missing.append("Contract")
         
         return missing
+
 
 
 
