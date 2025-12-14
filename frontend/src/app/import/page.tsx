@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { Sidebar } from '@/components/Sidebar'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { TopstepXImportModal } from '@/components/TopstepXImportModal'
@@ -14,9 +14,12 @@ import {
   Download,
   HelpCircle,
   Link as LinkIcon,
-  ExternalLink
+  ExternalLink,
+  ChevronDown
 } from 'lucide-react'
 import { cn, formatCurrency } from '@/lib/utils'
+import { useAuth } from '@/contexts/AuthContext'
+import { accountsApi, uploadApi } from '@/lib/api'
 
 const brokers = [
   { 
@@ -85,11 +88,34 @@ interface ImportResult {
 }
 
 function ImportContent() {
+  const { user } = useAuth()
   const [selectedBroker, setSelectedBroker] = useState<string | null>(null)
   const [file, setFile] = useState<File | null>(null)
   const [status, setStatus] = useState<ImportStatus>('idle')
   const [result, setResult] = useState<ImportResult | null>(null)
   const [showTopstepXModal, setShowTopstepXModal] = useState(false)
+  const [accounts, setAccounts] = useState<any[]>([])
+  const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null)
+  const [showAccountDropdown, setShowAccountDropdown] = useState(false)
+  const [loadingAccounts, setLoadingAccounts] = useState(false)
+  const accountDropdownRef = useRef<HTMLDivElement>(null)
+  
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (accountDropdownRef.current && !accountDropdownRef.current.contains(event.target as Node)) {
+        setShowAccountDropdown(false)
+      }
+    }
+    
+    if (showAccountDropdown) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showAccountDropdown])
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
@@ -109,23 +135,62 @@ function ImportContent() {
     maxFiles: 1,
   })
 
+  // Load accounts on mount
+  useEffect(() => {
+    const loadAccounts = async () => {
+      if (user) {
+        setLoadingAccounts(true)
+        try {
+          const accountsList = await accountsApi.list()
+          setAccounts(accountsList)
+          // Auto-select first account if available
+          if (accountsList.length > 0 && !selectedAccountId) {
+            setSelectedAccountId(accountsList[0].id)
+          }
+        } catch (error) {
+          console.error('Error loading accounts:', error)
+        } finally {
+          setLoadingAccounts(false)
+        }
+      }
+    }
+    loadAccounts()
+  }, [user])
+
   const handleImport = async () => {
-    if (!file) return
+    if (!file || !selectedAccountId) {
+      alert('אנא בחר תיק לפני הייבוא')
+      return
+    }
 
     setStatus('uploading')
     
-    // Simulate upload
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    
-    // Mock result
-    setResult({
-      success: true,
-      tradesCreated: 10,
-      totalPnl: 3633.25,
-      winRate: 80.0,
-      errors: [],
-    })
-    setStatus('success')
+    try {
+      const response = await uploadApi.upload(
+        file,
+        selectedAccountId,
+        selectedBroker || undefined
+      )
+      
+      setResult({
+        success: response.success,
+        tradesCreated: response.trades_created || 0,
+        totalPnl: response.total_pnl || 0,
+        winRate: response.win_rate || null,
+        errors: response.parse_result?.errors?.map((e: any) => e.message) || [],
+      })
+      setStatus('success')
+    } catch (error: any) {
+      console.error('Import error:', error)
+      setResult({
+        success: false,
+        tradesCreated: 0,
+        totalPnl: 0,
+        winRate: null,
+        errors: [error.response?.data?.detail || error.message || 'שגיאה בהעלאת הקובץ'],
+      })
+      setStatus('error')
+    }
   }
 
   const downloadTemplate = () => {
@@ -222,6 +287,20 @@ function ImportContent() {
                 </p>
               </div>
               
+              {result.errors && result.errors.length > 0 && (
+                <div className="mt-4 p-4 bg-dark-800 rounded-lg border border-dark-700 text-left">
+                  <p className="text-sm font-semibold text-dark-300 mb-2">Warnings:</p>
+                  <ul className="text-sm text-dark-400 space-y-1">
+                    {result.errors.slice(0, 5).map((error, idx) => (
+                      <li key={idx}>• {error}</li>
+                    ))}
+                    {result.errors.length > 5 && (
+                      <li className="text-dark-500">... and {result.errors.length - 5} more</li>
+                    )}
+                  </ul>
+                </div>
+              )}
+              
               <div className="grid grid-cols-3 gap-4 max-w-lg mx-auto">
                 <div className="p-4 bg-dark-800 rounded-lg">
                   <p className="text-2xl font-bold text-profit">
@@ -259,6 +338,45 @@ function ImportContent() {
                   className="btn-primary"
                 >
                   View Dashboard
+                </button>
+              </div>
+            </div>
+          ) : status === 'error' && result ? (
+            // Error view
+            <div className="chart-container p-12 text-center space-y-6">
+              <div className="w-20 h-20 mx-auto bg-loss/20 rounded-full flex items-center justify-center">
+                <AlertCircle className="w-10 h-10 text-loss" />
+              </div>
+              <div>
+                <h3 className="text-2xl font-bold text-white">Import Failed</h3>
+                <p className="text-dark-400 mt-2">
+                  {result.errors && result.errors.length > 0 
+                    ? result.errors[0]
+                    : 'An error occurred during import'}
+                </p>
+              </div>
+              
+              {result.errors && result.errors.length > 1 && (
+                <div className="mt-4 p-4 bg-dark-800 rounded-lg border border-dark-700 text-left max-h-60 overflow-auto">
+                  <p className="text-sm font-semibold text-loss mb-2">Errors:</p>
+                  <ul className="text-sm text-dark-400 space-y-1">
+                    {result.errors.map((error, idx) => (
+                      <li key={idx}>• {error}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              
+              <div className="flex justify-center gap-4">
+                <button 
+                  onClick={() => {
+                    setFile(null)
+                    setStatus('idle')
+                    setResult(null)
+                  }}
+                  className="btn-secondary"
+                >
+                  Try Again
                 </button>
               </div>
             </div>
@@ -359,27 +477,95 @@ function ImportContent() {
                 </div>
               </div>
 
-              {/* Step 3: Import */}
+              {/* Step 3: Select Account */}
               <div className={cn(
                 'chart-container p-6 transition-opacity',
                 !file && 'opacity-50 pointer-events-none'
               )}>
                 <div className="flex items-center gap-2 mb-4">
                   <span className="w-6 h-6 rounded-full bg-primary-500 text-white text-sm font-bold flex items-center justify-center">3</span>
+                  <h3 className="text-lg font-display font-semibold text-white">Select Account</h3>
+                </div>
+
+                {loadingAccounts ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-primary-400" />
+                  </div>
+                ) : accounts.length === 0 ? (
+                  <div className="p-4 bg-dark-800 rounded-lg border border-dark-700">
+                    <p className="text-dark-400 text-sm mb-2">אין לך תיקים. אנא צור תיק חדש תחילה.</p>
+                    <a href="/accounts" className="text-primary-400 hover:text-primary-300 text-sm">
+                      צור תיק חדש →
+                    </a>
+                  </div>
+                ) : (
+                  <div className="relative" ref={accountDropdownRef}>
+                    <button
+                      onClick={() => setShowAccountDropdown(!showAccountDropdown)}
+                      className="w-full flex items-center justify-between p-4 bg-dark-800 rounded-lg border border-dark-700 hover:border-primary-500/50 transition-colors"
+                    >
+                      <span className="text-white">
+                        {selectedAccountId 
+                          ? accounts.find(a => a.id === selectedAccountId)?.name || 'בחר תיק'
+                          : 'בחר תיק'}
+                      </span>
+                      <ChevronDown className={cn(
+                        'w-5 h-5 text-dark-400 transition-transform',
+                        showAccountDropdown && 'rotate-180'
+                      )} />
+                    </button>
+                    
+                    {showAccountDropdown && (
+                      <div className="absolute z-10 w-full mt-2 bg-dark-800 rounded-lg border border-dark-700 shadow-xl max-h-60 overflow-auto">
+                        {accounts.map((account) => (
+                          <button
+                            key={account.id}
+                            onClick={() => {
+                              setSelectedAccountId(account.id)
+                              setShowAccountDropdown(false)
+                            }}
+                            className={cn(
+                              'w-full text-left px-4 py-3 hover:bg-dark-700 transition-colors',
+                              selectedAccountId === account.id && 'bg-primary-500/10'
+                            )}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-white">{account.name}</span>
+                              <span className="text-sm text-dark-400">{account.broker}</span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Step 4: Import */}
+              <div className={cn(
+                'chart-container p-6 transition-opacity',
+                (!file || !selectedAccountId) && 'opacity-50 pointer-events-none'
+              )}>
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="w-6 h-6 rounded-full bg-primary-500 text-white text-sm font-bold flex items-center justify-center">4</span>
                   <h3 className="text-lg font-display font-semibold text-white">Import Trades</h3>
                 </div>
 
                 <div className="flex items-center justify-between">
                   <p className="text-dark-400">
-                    {file ? `Ready to import from ${file.name}` : 'Upload a file first'}
+                    {file && selectedAccountId 
+                      ? `Ready to import from ${file.name} to ${accounts.find(a => a.id === selectedAccountId)?.name}`
+                      : file 
+                        ? 'Select an account first'
+                        : 'Upload a file first'}
                   </p>
                   
                   <button
                     onClick={handleImport}
-                    disabled={!file || status === 'uploading'}
+                    disabled={!file || !selectedAccountId || status === 'uploading'}
                     className={cn(
                       'btn-primary flex items-center gap-2',
-                      (!file || status === 'uploading') && 'opacity-50 cursor-not-allowed'
+                      (!file || !selectedAccountId || status === 'uploading') && 'opacity-50 cursor-not-allowed'
                     )}
                   >
                     {status === 'uploading' ? (

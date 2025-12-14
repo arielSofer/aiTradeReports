@@ -69,6 +69,14 @@ class TradovateParser(BaseParser):
         "ordtype": "order_type",
         "filledqty": "quantity",
         "avgfillprice": "price",
+        
+        # Performance format
+        "buyprice": "buy_price",
+        "sellprice": "sell_price",
+        "buyfillid": "buy_fill_id",
+        "sellfillid": "sell_fill_id",
+        "boughttimestamp": "bought_timestamp",
+        "soldtimestamp": "sold_timestamp",
     }
     
     DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
@@ -140,7 +148,10 @@ class TradovateParser(BaseParser):
         """זהה פורמט הקובץ"""
         columns_lower = [c.lower() for c in df.columns]
         
-        if "b/s" in columns_lower or "buy/sell" in columns_lower:
+        # Performance format - יש buyPrice, sellPrice, boughtTimestamp, soldTimestamp
+        if "buyprice" in columns_lower and "sellprice" in columns_lower:
+            return "performance"
+        elif "b/s" in columns_lower or "buy/sell" in columns_lower:
             return "trade_breakdown"
         elif "action" in columns_lower or "ordstatus" in columns_lower:
             return "order_history"
@@ -258,6 +269,8 @@ class TradovateParser(BaseParser):
         
         if format_type == "order_history":
             return self._parse_order_history(df, source_file)
+        elif format_type == "performance":
+            return self._parse_performance(df, source_file)
         else:
             return self._parse_trade_breakdown(df, source_file)
     
@@ -604,15 +617,193 @@ class TradovateParser(BaseParser):
         
         return result
     
+    def _parse_performance(
+        self, 
+        df: pd.DataFrame, 
+        source_file: Optional[str] = None
+    ) -> ParserResult:
+        """
+        פענח Performance format
+        
+        בפורמט זה, כל שורה היא עסקה סגורה עם כל המידע:
+        - buyPrice, sellPrice (מחירי כניסה ויציאה)
+        - boughtTimestamp, soldTimestamp (תאריכי כניסה ויציאה)
+        - pnl (רווח/הפסד)
+        - qty (כמות)
+        """
+        result = ParserResult(
+            trades=TradeCollection(
+                source_file=source_file,
+                broker_name=self.BROKER.value
+            ),
+            total_rows=len(df)
+        )
+        
+        # נקה שמות עמודות
+        df.columns = df.columns.str.strip()
+        
+        # מפה עמודות
+        df = self._apply_column_mapping(df)
+        
+        # נרמל את הנתונים לפני הפענוח
+        df = self._normalize_dataframe(df)
+        
+        # פענח כל שורה
+        for idx, row in df.iterrows():
+            row_num = idx + 2  # +2 כי יש header ו-pandas מתחיל מ-0
+            
+            try:
+                # דלג על שורות ריקות
+                if self._is_empty_row(row):
+                    result.skipped_rows += 1
+                    continue
+                
+                # Symbol
+                symbol_raw = row.get("symbol", "")
+                if pd.isna(symbol_raw) or not str(symbol_raw).strip():
+                    result.skipped_rows += 1
+                    continue
+                
+                symbol = self._normalize_symbol(str(symbol_raw))
+                
+                # Quantity - נבדוק גם את השמות המקוריים
+                quantity_raw = row.get("quantity") or row.get("qty")
+                if pd.isna(quantity_raw):
+                    result.skipped_rows += 1
+                    continue
+                quantity = abs(self._parse_decimal(quantity_raw))
+                if quantity <= 0:
+                    result.skipped_rows += 1
+                    continue
+                
+                # Buy Price (entry price) - נבדוק גם את השמות המקוריים
+                buy_price_raw = row.get("buy_price") or row.get("buyPrice") or row.get("buyprice")
+                if pd.isna(buy_price_raw) or buy_price_raw == 0:
+                    result.skipped_rows += 1
+                    continue
+                buy_price = self._parse_decimal(buy_price_raw)
+                if buy_price <= 0:
+                    result.add_error(row_num, f"Invalid buy price: {buy_price}")
+                    continue
+                
+                # Sell Price (exit price) - נבדוק גם את השמות המקוריים
+                sell_price_raw = row.get("sell_price") or row.get("sellPrice") or row.get("sellprice")
+                if pd.isna(sell_price_raw) or sell_price_raw == 0:
+                    result.skipped_rows += 1
+                    continue
+                sell_price = self._parse_decimal(sell_price_raw)
+                if sell_price <= 0:
+                    result.add_error(row_num, f"Invalid sell price: {sell_price}")
+                    continue
+                
+                # Timestamps - נבדוק גם את השמות המקוריים
+                bought_timestamp_raw = row.get("bought_timestamp") or row.get("boughtTimestamp") or row.get("boughttimestamp")
+                if pd.isna(bought_timestamp_raw) or not str(bought_timestamp_raw).strip():
+                    result.skipped_rows += 1
+                    continue
+                entry_time = self._parse_tradovate_datetime(bought_timestamp_raw)
+                
+                sold_timestamp_raw = row.get("sold_timestamp") or row.get("soldTimestamp") or row.get("soldtimestamp")
+                if pd.isna(sold_timestamp_raw) or not str(sold_timestamp_raw).strip():
+                    result.skipped_rows += 1
+                    continue
+                exit_time = self._parse_tradovate_datetime(sold_timestamp_raw)
+                
+                # Direction - נקבע לפי המחירים והתאריכים
+                # בפורמט Performance, buyPrice הוא מחיר הכניסה ו-sellPrice הוא מחיר היציאה
+                # אם buyPrice < sellPrice = LONG (קנינו נמוך, מכרנו גבוה)
+                # אם buyPrice > sellPrice = SHORT (קנינו גבוה, מכרנו נמוך)
+                # אבל צריך לבדוק את הסדר הכרונולוגי - אם soldTimestamp < boughtTimestamp, זה מוזר
+                if entry_time <= exit_time:
+                    # כניסה לפני או באותו זמן כמו יציאה - נקבע לפי המחירים
+                    if buy_price < sell_price:
+                        direction = TradeDirection.LONG
+                    else:
+                        direction = TradeDirection.SHORT
+                else:
+                    # יציאה לפני כניסה - זה מוזר, אבל נטפל בזה
+                    # במקרה הזה, אולי זה SHORT שסגרנו לפני שפתחנו (לא הגיוני אבל נטפל)
+                    if sell_price < buy_price:
+                        direction = TradeDirection.SHORT
+                    else:
+                        direction = TradeDirection.LONG
+                
+                # P&L
+                pnl = Decimal("0")
+                pnl_raw = row.get("pnl", None)
+                if pd.notna(pnl_raw):
+                    try:
+                        # הסר $ וסוגריים
+                        pnl_str = str(pnl_raw).strip().replace("$", "").replace("(", "-").replace(")", "")
+                        pnl = Decimal(str(self._parse_decimal(pnl_str)))
+                    except:
+                        pass
+                
+                # Commission - לא תמיד יש בפורמט הזה
+                commission = Decimal("0")
+                comm_raw = row.get("commission", 0)
+                if pd.notna(comm_raw):
+                    try:
+                        commission = abs(Decimal(str(self._parse_decimal(comm_raw))))
+                    except:
+                        pass
+                
+                # צור עסקה סגורה
+                trade = Trade(
+                    symbol=symbol,
+                    direction=direction,
+                    status=TradeStatus.CLOSED,
+                    asset_type=self._detect_asset_type(symbol_raw),
+                    entry_time=entry_time,
+                    exit_time=exit_time,
+                    entry_price=Decimal(str(buy_price)),
+                    exit_price=Decimal(str(sell_price)),
+                    quantity=Decimal(str(quantity)),
+                    commission=commission,
+                    raw_data=row.to_dict()
+                )
+                
+                # חשב P&L אם לא סופק
+                if pnl == 0:
+                    trade.calculate_pnl() if hasattr(trade, 'calculate_pnl') else None
+                else:
+                    # אם יש P&L מהקובץ, נשתמש בו (אבל נחשב גם את שלנו לוודא)
+                    trade.calculate_pnl() if hasattr(trade, 'calculate_pnl') else None
+                
+                result.trades.trades.append(trade)
+                result.parsed_successfully += 1
+                    
+            except ValueError as e:
+                result.add_error(row_num, str(e))
+            except Exception as e:
+                result.add_error(row_num, f"Unexpected error: {str(e)}")
+        
+        # מיין לפי תאריך
+        result.trades.trades.sort(key=lambda t: t.entry_time)
+        
+        return result
+    
     def _check_required_columns(self, df: pd.DataFrame) -> List[str]:
         """בדיקת עמודות מותאמת ל-Tradovate"""
         df_columns = [col.lower() for col in df.columns]
         
         missing = []
         
-        # Contract
-        if not any(name in df_columns for name in ["contract", "contractid", "symbol"]):
-            missing.append("Contract")
+        # בדוק לפי פורמט
+        format_type = self._detect_format(pd.DataFrame(columns=df.columns))
+        
+        if format_type == "performance":
+            # Performance format צריך symbol, buyPrice, sellPrice
+            if "symbol" not in df_columns:
+                missing.append("symbol")
+            if "buyprice" not in df_columns and "buy_price" not in df_columns:
+                missing.append("buyPrice")
+            if "sellprice" not in df_columns and "sell_price" not in df_columns:
+                missing.append("sellPrice")
+        else:
+            # Contract
+            if not any(name in df_columns for name in ["contract", "contractid", "symbol"]):
+                missing.append("Contract")
         
         return missing
 
