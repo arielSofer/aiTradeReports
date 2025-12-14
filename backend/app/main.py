@@ -5,12 +5,38 @@ FastAPI Backend for Trade Analysis Platform
 
 Run with: uvicorn app.main:app --reload
 """
-
 import os
-from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import traceback
 
+# Minimal debug version
+app = FastAPI(
+    title="TradeTracker API (Debug)",
+    version="0.1.0"
+)
+
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.get("/api/v1/health")
+@app.get("/")
+async def health_check():
+    return {
+        "status": "healthy",
+        "mode": "debug_minimal",
+        "env": dict(os.environ)
+    }
+
+# Commenting out original code for debugging 500 error
+"""
+from contextlib import asynccontextmanager
 from .config import settings
 from .database import init_db, close_db
 from .routers import (
@@ -69,7 +95,6 @@ Trade Analysis Platform - ניתוח עסקאות מסחר
 # Exception handler for debugging
 from fastapi import Request
 from fastapi.responses import JSONResponse
-import traceback
 
 @app.exception_handler(Exception)
 async def debug_exception_handler(request: Request, exc: Exception):
@@ -123,8 +148,4 @@ async def health_check():
         "database": "connected",
         "api_version": "v1"
     }
-
-
-
-
-
+"""
