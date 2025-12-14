@@ -59,23 +59,31 @@ app = FastAPI(
 ## 🚀 TradeTracker API
 
 Trade Analysis Platform - ניתוח עסקאות מסחר
-
-### Features
-- 📊 Import trades from multiple brokers (IB, MT4, Binance)
-- 📈 Comprehensive trading statistics
-- 🎯 Win rate, profit factor, R-multiple analysis
-- 📅 Daily P&L tracking
-- ⏰ Hourly performance analysis
-
-### Authentication
-All endpoints (except /auth/register and /auth/login) require JWT authentication.
-Use the `/auth/login` endpoint to get an access token.
     """,
     version="0.1.0",
     lifespan=lifespan_handler,
     docs_url="/docs",
     redoc_url="/redoc"
 )
+
+# Exception handler for debugging
+from fastapi import Request
+from fastapi.responses import JSONResponse
+import traceback
+
+@app.exception_handler(Exception)
+async def debug_exception_handler(request: Request, exc: Exception):
+    error_details = traceback.format_exc()
+    print(f"Server Error: {error_details}")
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": "Internal Server Error",
+            "detail": str(exc),
+            "traceback": error_details.split("\n")
+        }
+    )
+
 
 # CORS middleware
 # Use both allow_origins and allow_origin_regex to support Vercel preview URLs
