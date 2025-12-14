@@ -6,6 +6,7 @@ FastAPI Backend for Trade Analysis Platform
 Run with: uvicorn app.main:app --reload
 """
 
+import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,18 +21,35 @@ from .routers import (
     stats_router
 )
 
+# Track if DB is initialized (for serverless environments)
+_db_initialized = False
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Application lifespan handler"""
-    # Startup
-    print("🚀 Starting TradeTracker API...")
-    await init_db()
-    print("✅ Database initialized")
-    yield
-    # Shutdown
-    print("👋 Shutting down...")
-    await close_db()
+
+async def ensure_db_initialized():
+    """Ensure database is initialized (for serverless environments)"""
+    global _db_initialized
+    if not _db_initialized:
+        await init_db()
+        _db_initialized = True
+
+
+# Use lifespan only for non-serverless environments
+if not os.environ.get("VERCEL"):
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        """Application lifespan handler"""
+        # Startup
+        print("🚀 Starting TradeTracker API...")
+        await init_db()
+        print("✅ Database initialized")
+        yield
+        # Shutdown
+        print("👋 Shutting down...")
+        await close_db()
+    
+    lifespan_handler = lifespan
+else:
+    lifespan_handler = None
 
 
 # Create FastAPI app
@@ -54,7 +72,7 @@ All endpoints (except /auth/register and /auth/login) require JWT authentication
 Use the `/auth/login` endpoint to get an access token.
     """,
     version="0.1.0",
-    lifespan=lifespan,
+    lifespan=lifespan_handler,
     docs_url="/docs",
     redoc_url="/redoc"
 )

@@ -4,6 +4,7 @@ Database Configuration
 הגדרת חיבור למסד הנתונים
 """
 
+import os
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 
@@ -42,8 +43,25 @@ class Base(DeclarativeBase):
     pass
 
 
+# Track if DB is initialized (for serverless environments)
+_db_initialized = False
+
+
+async def init_db():
+    """Initialize database tables"""
+    global _db_initialized
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    _db_initialized = True
+
+
 async def get_db() -> AsyncSession:
     """Dependency for getting DB session"""
+    global _db_initialized
+    # On Vercel (serverless), ensure DB is initialized on first request
+    if os.environ.get("VERCEL") and not _db_initialized:
+        await init_db()
+    
     async with AsyncSessionLocal() as session:
         try:
             yield session
@@ -54,11 +72,6 @@ async def get_db() -> AsyncSession:
         finally:
             await session.close()
 
-
-async def init_db():
-    """Initialize database tables"""
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
 
 
 async def close_db():
