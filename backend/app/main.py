@@ -5,38 +5,12 @@ FastAPI Backend for Trade Analysis Platform
 
 Run with: uvicorn app.main:app --reload
 """
+
 import os
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import traceback
 
-# Minimal debug version
-app = FastAPI(
-    title="TradeTracker API (Debug)",
-    version="0.1.0"
-)
-
-# CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-@app.get("/api/v1/health")
-@app.get("/")
-async def health_check():
-    return {
-        "status": "healthy",
-        "mode": "debug_minimal",
-        "env": dict(os.environ)
-    }
-
-# Commenting out original code for debugging 500 error
-"""
-from contextlib import asynccontextmanager
 from .config import settings
 from .database import init_db, close_db
 from .routers import (
@@ -85,6 +59,17 @@ app = FastAPI(
 ## 🚀 TradeTracker API
 
 Trade Analysis Platform - ניתוח עסקאות מסחר
+
+### Features
+- 📊 Import trades from multiple brokers (IB, MT4, Binance)
+- 📈 Comprehensive trading statistics
+- 🎯 Win rate, profit factor, R-multiple analysis
+- 📅 Daily P&L tracking
+- ⏰ Hourly performance analysis
+
+### Authentication
+All endpoints (except /auth/register and /auth/login) require JWT authentication.
+Use the `/auth/login` endpoint to get an access token.
     """,
     version="0.1.0",
     lifespan=lifespan_handler,
