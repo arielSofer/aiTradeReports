@@ -1,6 +1,28 @@
 import axios from 'axios'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
+// Determine API URL based on environment
+const getApiBaseUrl = () => {
+  // If NEXT_PUBLIC_API_URL is set, use it
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL
+  }
+  
+  // If running in browser on Vercel, use relative path
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname
+    if (hostname.includes('vercel.app') || hostname.includes('vercel.com')) {
+      return '/api/v1'
+    }
+    if (hostname.includes('firebaseapp.com') || hostname.includes('web.app')) {
+      return '/api/v1'
+    }
+  }
+  
+  // Default to localhost for development
+  return 'http://localhost:8000/api/v1'
+}
+
+const API_BASE_URL = getApiBaseUrl()
 
 // Create axios instance
 export const api = axios.create({

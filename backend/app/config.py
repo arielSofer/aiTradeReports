@@ -5,8 +5,9 @@ Application Configuration
 """
 
 from functools import lru_cache
-from typing import Optional
+from typing import Optional, List
 from pydantic_settings import BaseSettings
+import os
 
 
 class Settings(BaseSettings):
@@ -29,8 +30,15 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24 * 7  # 7 days
     
-    # CORS
-    cors_origins: list = ["*"]
+    # CORS - Allow specific origins and Vercel preview URLs via regex
+    cors_origins: List[str] = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "https://ai-trade-reports.vercel.app",
+        "https://trade-d720f.web.app",
+        "https://trade-d720f.firebaseapp.com",
+    ]
+    cors_origin_regex: str = r"https://.*\.vercel\.app"  # Allow all Vercel preview deployments
     
     # File Upload
     max_file_size: int = 10 * 1024 * 1024  # 10MB

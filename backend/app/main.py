@@ -60,9 +60,11 @@ Use the `/auth/login` endpoint to get an access token.
 )
 
 # CORS middleware
+# Use both allow_origins and allow_origin_regex to support Vercel preview URLs
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
+    allow_origin_regex=settings.cors_origin_regex if hasattr(settings, 'cors_origin_regex') else None,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
