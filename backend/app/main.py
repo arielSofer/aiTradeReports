@@ -10,6 +10,7 @@ import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import traceback
 
 from .config import settings
 from .database import init_db, close_db
@@ -133,4 +134,3 @@ async def health_check():
         "database": "connected",
         "api_version": "v1"
     }
-"""
