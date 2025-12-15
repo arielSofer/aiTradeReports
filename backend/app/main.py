@@ -13,7 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import traceback
 
 from .config import settings
-from .routers import upload_router
+from .routers import upload, market_data
 
 
 # Create FastAPI app
@@ -63,7 +63,8 @@ app.add_middleware(
 )
 
 # Include routers
-app.include_router(upload_router, prefix=settings.api_prefix)
+app.include_router(upload.router, prefix="/api/v1")
+app.include_router(market_data.router, prefix="/api/v1")
 
 
 @app.get("/")

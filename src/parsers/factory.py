@@ -169,8 +169,15 @@ class ParserFactory:
             "filledqty",
             "b/s",
             "cumulative p&l",
+            "contract", # Common in breakdown
+            "commission",
         ]
         tradovate_count = sum(1 for sig in tradovate_signatures if sig in content_lower)
+        
+        # Specific check for Breakdown format: "Date,Contract,B/S,Qty,Price"
+        if "contract" in content_lower and "b/s" in content_lower and "qty" in content_lower:
+            return Broker.TRADOVATE
+            
         if tradovate_count >= 2:
             return Broker.TRADOVATE
         

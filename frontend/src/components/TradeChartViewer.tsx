@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { Trade } from '@/lib/store'
-import { TrendingUp, TrendingDown, Clock, DollarSign, Maximize2, Minimize2 } from 'lucide-react'
+import { TrendingUp, TrendingDown, Clock, DollarSign, Maximize2, Minimize2, Play, Pause, SkipBack, Loader2 } from 'lucide-react'
 import { formatCurrency, cn } from '@/lib/utils'
+import { IChartApi, ISeriesApi, createChart, ColorType } from 'lightweight-charts'
 
 interface CandleData {
   time: number
@@ -13,7 +14,7 @@ interface CandleData {
   close: number
 }
 
-// Timeframes זמינים
+// Timeframes
 const TIMEFRAMES = [
   { value: '5m', label: '5 דק׳' },
   { value: '15m', label: '15 דק׳' },
@@ -36,144 +37,103 @@ export function TradeChartViewer({
   onToggleFullScreen
 }: TradeChartViewerProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const chartRef = useRef<any>(null)
+  const chartRef = useRef<IChartApi | null>(null)
+  const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null)
   const resizeHandlerRef = useRef<(() => void) | null>(null)
-  const isDisposedRef = useRef(false)
+
   const [marketData, setMarketData] = useState<CandleData[]>([])
-  const [isMounted, setIsMounted] = useState(false)
+  const [displayedData, setDisplayedData] = useState<CandleData[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [timeframe, setTimeframe] = useState<Timeframe>('15m')
 
-  // רק לאחר mount ניתן לגשת ל-window
+  // Playback State
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [playbackIndex, setPlaybackIndex] = useState<number>(-1)
+  const playbackIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Fetch true market data
   useEffect(() => {
-    setIsMounted(true)
-    return () => {
-      isDisposedRef.current = true
-    }
-  }, [])
+    const fetchMarketData = async () => {
+      setIsLoading(true)
+      setError(null)
+      try {
+        const entryTime = new Date(trade.entryTime).getTime() / 1000
+        const exitTime = trade.exitTime ? new Date(trade.exitTime).getTime() / 1000 : entryTime + 3600
 
-  // יצירת נתונים סינתטיים
-  useEffect(() => {
-    // Helper to generate realistic looking candles around trade entry/exit
-    const generateData = () => {
-      const entryTime = new Date(trade.entryTime).getTime() / 1000
-      const exitTime = trade.exitTime ? new Date(trade.exitTime).getTime() / 1000 : entryTime + 3600 // Default 1h duration if open
+        // Request broader range: 1 day before, 1 day after
+        const fromTime = entryTime - 86400
+        const toTime = exitTime + 86400
 
-      const duration = exitTime - entryTime
-      const paddingBefore = 3600 * 4 // Show 4 hours before
-      const paddingAfter = 3600 * 2 // Show 2 hours after
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/market-data/candles?symbol=${trade.symbol}&from_time=${Math.floor(fromTime)}&to_time=${Math.floor(toTime)}&interval=${timeframe}`
+        )
 
-      const startTime = entryTime - paddingBefore
-      const endTime = exitTime + paddingAfter
-
-      const data: CandleData[] = []
-      let currentTime = startTime
-
-      // Interval in seconds
-      const interval = timeframe === '5m' ? 300 : timeframe === '15m' ? 900 : 3600
-
-      // Start price slightly offset from entry to verify we cross it
-      let currentPrice = trade.entryPrice * 0.995
-      let trend = trade.direction === 'long' ? 1 : -1
-
-      // Adjust trend logic:
-      // If winner: price should move in direction
-      // If loser: price should move against direction
-      const isWinner = trade.pnlNet && trade.pnlNet > 0
-      const mainTrend = (trade.direction === 'long' && isWinner) || (trade.direction === 'short' && !isWinner) ? 1 : -1
-
-      // Volatility factor
-      const volatility = trade.entryPrice * 0.001
-
-      while (currentTime <= endTime) {
-        // Simple random walk with trend bias
-        const move = (Math.random() - 0.45) * volatility + (mainTrend * volatility * 0.1)
-        const close = currentPrice + move
-        const high = Math.max(currentPrice, close) + Math.random() * volatility
-        const low = Math.min(currentPrice, close) - Math.random() * volatility
-
-        // Force price to touch entry/exit at correct times
-        // This is "cheating" to make the chart look perfect for the specific trade
-        if (Math.abs(currentTime - entryTime) < interval) {
-          // Close to entry
-          // Ensure candle spans entry price
-          // @ts-ignore
-          if (Math.abs(currentTime - entryTime) <= interval / 2) {
-            // Exact entry candle
-          }
+        if (!res.ok) {
+          throw new Error("Failed to fetch market data")
         }
 
-        data.push({
-          time: currentTime,
-          open: currentPrice,
-          high: high,
-          low: low,
-          close: close
-        })
+        const data: CandleData[] = await res.json()
 
-        currentPrice = close
-        currentTime += interval
-      }
-
-      // 2nd pass: Smooth out and ensure entry/exit visual exactness
-      // Find candle closest to entry
-      const entryIdx = data.findIndex(c => Math.abs(c.time - entryTime) < interval)
-      if (entryIdx !== -1) {
-        // ensure candle body or wick covers entry price
-        data[entryIdx].open = trade.entryPrice - volatility / 2
-        data[entryIdx].close = trade.entryPrice + volatility / 2
-        data[entryIdx].high = Math.max(data[entryIdx].high, trade.entryPrice + volatility)
-        data[entryIdx].low = Math.min(data[entryIdx].low, trade.entryPrice - volatility)
-      }
-
-      if (trade.exitPrice) {
-        const exitIdx = data.findIndex(c => Math.abs(c.time - exitTime) < interval)
-        if (exitIdx !== -1) {
-          // ensure candle body or wick covers exit price
-          data[exitIdx].high = Math.max(data[exitIdx].high, trade.exitPrice)
-          data[exitIdx].low = Math.min(data[exitIdx].low, trade.exitPrice)
-          // Make it close near exit price
-          data[exitIdx].close = trade.exitPrice
+        if (data.length === 0) {
+          setError("No market data found for this period.")
+          return
         }
-      }
 
-      setMarketData(data)
+        // Fix logic ensures uniqueness and sort
+        const uniqueData = Array.from(new Map(data.map(item => [item.time, item])).values())
+          .sort((a, b) => a.time - b.time)
+
+        setMarketData(uniqueData)
+        setDisplayedData(uniqueData) // Default show all
+        setPlaybackIndex(uniqueData.length - 1)
+
+      } catch (err) {
+        console.error(err)
+        setError("שגיאה בטעינת נתוני שוק. וודא שהסימול תקין (Futures נתמכים: ES, NQ, CL, GC).")
+      } finally {
+        setIsLoading(false)
+      }
     }
 
-    generateData()
+    fetchMarketData()
   }, [trade, timeframe])
 
-  // יצירת הגרף
+  // Playback Logic
   useEffect(() => {
-    if (!chartContainerRef.current || marketData.length === 0 || !isMounted) return
-
-    // סימון שהגרף פעיל
-    isDisposedRef.current = false
-
-    // הסרת resize handler קודם
-    if (resizeHandlerRef.current) {
-      window.removeEventListener('resize', resizeHandlerRef.current)
-      resizeHandlerRef.current = null
-    }
-
-    // ניקוי גרף קודם לפני יצירת חדש
-    if (chartRef.current) {
-      try {
-        chartRef.current.remove()
-      } catch {
-        // Ignore if already disposed
+    if (isPlaying) {
+      playbackIntervalRef.current = setInterval(() => {
+        setPlaybackIndex(prev => {
+          if (prev >= marketData.length - 1) {
+            setIsPlaying(false)
+            return prev
+          }
+          return prev + 1
+        })
+      }, 500) // 500ms per candle
+    } else {
+      if (playbackIntervalRef.current) {
+        clearInterval(playbackIntervalRef.current)
       }
-      chartRef.current = null
     }
 
-    // ייבוא דינמי של lightweight-charts
-    const initChart = async () => {
-      const { createChart, ColorType } = await import('lightweight-charts')
+    return () => {
+      if (playbackIntervalRef.current) clearInterval(playbackIntervalRef.current)
+    }
+  }, [isPlaying, marketData.length])
 
-      // בדיקה אם הקומפוננטה נמחקה בזמן הטעינה
-      if (isDisposedRef.current || !chartContainerRef.current) return
+  // Update Displayed Data on Playback
+  useEffect(() => {
+    if (marketData.length > 0 && playbackIndex >= 0) {
+      setDisplayedData(marketData.slice(0, playbackIndex + 1))
+    }
+  }, [playbackIndex, marketData])
 
-      // יצירת גרף חדש עם עיצוב מתקדם
+  // Initialize/Update Chart
+  useEffect(() => {
+    if (!chartContainerRef.current) return
+
+    if (!chartRef.current) {
       const chart = createChart(chartContainerRef.current, {
         layout: {
           background: { type: ColorType.Solid, color: '#0f0f14' },
@@ -185,7 +145,7 @@ export function TradeChartViewer({
           horzLines: { color: 'rgba(55, 65, 81, 0.3)' },
         },
         width: chartContainerRef.current.clientWidth,
-        height: isFullScreen ? window.innerHeight - 100 : 400,
+        height: isFullScreen ? window.innerHeight - 140 : 400,
         timeScale: {
           timeVisible: true,
           secondsVisible: false,
@@ -193,36 +153,10 @@ export function TradeChartViewer({
         },
         rightPriceScale: {
           borderColor: '#374151',
-          scaleMargins: {
-            top: 0.1,
-            bottom: 0.1,
-          },
-        },
-        crosshair: {
-          mode: 1,
-          vertLine: {
-            color: 'rgba(99, 102, 241, 0.5)',
-            width: 1,
-            style: 2,
-          },
-          horzLine: {
-            color: 'rgba(99, 102, 241, 0.5)',
-            width: 1,
-            style: 2,
-          },
         },
       })
 
-      // בדיקה נוספת לאחר יצירת הגרף
-      if (isDisposedRef.current) {
-        chart.remove()
-        return
-      }
-
-      chartRef.current = chart
-
-      // הגדרת סדרת הנרות
-      const candleSeries = chart.addCandlestickSeries({
+      const series = chart.addCandlestickSeries({
         upColor: '#10b981',
         downColor: '#ef4444',
         borderVisible: false,
@@ -230,136 +164,100 @@ export function TradeChartViewer({
         wickDownColor: '#ef4444',
       })
 
-      // הוספת נתוני השוק
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      candleSeries.setData(marketData as any)
+      chartRef.current = chart
+      seriesRef.current = series
 
-      // יצירת markers לכניסה ויציאה של העסקה
+      // Resize logic
+      const handleResize = () => {
+        if (chartContainerRef.current) {
+          chart.applyOptions({
+            width: chartContainerRef.current.clientWidth,
+            height: isFullScreen ? window.innerHeight - 140 : 400
+          })
+        }
+      }
+      window.addEventListener('resize', handleResize)
+      resizeHandlerRef.current = handleResize
+    }
+
+    // Update Data
+    if (seriesRef.current && displayedData.length > 0) {
+      seriesRef.current.setData(displayedData as any)
+
+      // Add Markers (Entry/Exit)
+      // Filter markers that are within displayed range
+      const markers = []
       const entryTime = new Date(trade.entryTime).getTime() / 1000
       const exitTime = trade.exitTime ? new Date(trade.exitTime).getTime() / 1000 : null
 
-      // מציאת הנרות הקרובים ביותר לזמני הכניסה והיציאה
-      const findClosestCandle = (targetTime: number) => {
-        let closest = marketData[0]
-        let minDiff = Math.abs(marketData[0].time - targetTime)
-
-        for (const candle of marketData) {
-          const diff = Math.abs(candle.time - targetTime)
-          if (diff < minDiff) {
-            minDiff = diff
-            closest = candle
-          }
-        }
-        return closest
-      }
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const markers: any[] = []
-
-      // Entry marker
-      const entryCandle = findClosestCandle(entryTime)
-      const isLong = trade.direction === 'long'
-
-      markers.push({
-        time: entryCandle.time,
-        position: isLong ? 'belowBar' : 'aboveBar',
-        color: '#3b82f6',
-        shape: isLong ? 'arrowUp' : 'arrowDown',
-        text: `כניסה @ ${trade.entryPrice.toFixed(2)}`,
-        size: 2,
-      })
-
-      // Exit marker
-      if (exitTime && trade.exitPrice) {
-        const exitCandle = findClosestCandle(exitTime)
-        const isProfit = trade.pnlNet !== undefined && trade.pnlNet >= 0
-
+      // Find closest candle for entry
+      const entryCandle = displayedData.find(c => Math.abs(c.time - entryTime) < (timeframe === '5m' ? 300 : 3600))
+      if (entryCandle) {
         markers.push({
-          time: exitCandle.time,
-          position: isLong ? 'aboveBar' : 'belowBar',
-          color: isProfit ? '#10b981' : '#ef4444',
-          shape: isLong ? 'arrowDown' : 'arrowUp',
-          text: `יציאה @ ${trade.exitPrice.toFixed(2)}`,
-          size: 2,
+          time: entryCandle.time,
+          position: trade.direction === 'long' ? 'belowBar' : 'aboveBar',
+          color: '#3b82f6',
+          shape: trade.direction === 'long' ? 'arrowUp' : 'arrowDown',
+          text: `Entry @ ${trade.entryPrice}`,
         })
       }
 
-      // הוספת קו רמה לכניסה
-      candleSeries.createPriceLine({
-        price: trade.entryPrice,
-        color: '#3b82f6',
-        lineWidth: 1,
-        lineStyle: 2,
-        axisLabelVisible: true,
-        title: 'Entry',
-      })
-
-      // הוספת קו רמה ליציאה
-      if (trade.exitPrice) {
-        candleSeries.createPriceLine({
-          price: trade.exitPrice,
-          color: trade.pnlNet && trade.pnlNet >= 0 ? '#10b981' : '#ef4444',
-          lineWidth: 1,
-          lineStyle: 2,
-          axisLabelVisible: true,
-          title: 'Exit',
-        })
-      }
-
-      candleSeries.setMarkers(markers)
-
-      // מרכוז הגרף סביב העסקה
-      chart.timeScale().fitContent()
-
-      // Resize handler - שמירה ב-ref כדי שנוכל להסיר אותו ב-cleanup
-      resizeHandlerRef.current = () => {
-        if (!isDisposedRef.current && chartContainerRef.current && chartRef.current) {
-          try {
-            chartRef.current.applyOptions({
-              width: chartContainerRef.current.clientWidth,
-              height: isFullScreen ? window.innerHeight - 100 : 400,
-            })
-          } catch {
-            // Ignore if disposed
-          }
+      if (exitTime) {
+        const exitCandle = displayedData.find(c => Math.abs(c.time - exitTime) < (timeframe === '5m' ? 300 : 3600))
+        if (exitCandle) {
+          markers.push({
+            time: exitCandle.time,
+            position: trade.direction === 'long' ? 'aboveBar' : 'belowBar',
+            color: (trade.pnlNet || 0) >= 0 ? '#10b981' : '#ef4444',
+            shape: trade.direction === 'long' ? 'arrowDown' : 'arrowUp',
+            text: `Exit @ ${trade.exitPrice}`,
+          })
         }
       }
 
-      window.addEventListener('resize', resizeHandlerRef.current)
+      seriesRef.current.setMarkers(markers as any)
+
+      if (playbackIndex === marketData.length - 1 && !isPlaying) {
+        chartRef.current?.timeScale().fitContent()
+      } else if (isPlaying) {
+        // Auto-scroll logic during playback could go here
+        // For now let's just fit content periodically or let user scroll?
+        // fitContent might be annoying if it zooms out too much.
+        // Maybe perform setVisibleRange to last X candles?
+        // keeping it simple for now.
+      }
     }
 
-    initChart()
-
     return () => {
-      // סימון שהגרף disposed
-      isDisposedRef.current = true
+      // cleanup on unmount handled by ensuring effect runs
+    }
 
-      // הסרת event listener
-      if (resizeHandlerRef.current) {
-        window.removeEventListener('resize', resizeHandlerRef.current)
-        resizeHandlerRef.current = null
-      }
+  }, [displayedData, isFullScreen, trade, timeframe, isPlaying, marketData.length, playbackIndex])
 
-      // ניקוי הגרף
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (resizeHandlerRef.current) window.removeEventListener('resize', resizeHandlerRef.current)
       if (chartRef.current) {
-        try {
-          chartRef.current.remove()
-        } catch {
-          // Ignore if already disposed
-        }
+        chartRef.current.remove()
         chartRef.current = null
       }
     }
-  }, [marketData, trade, isFullScreen, isMounted])
+  }, [])
 
-  if (!isMounted) {
-    return (
-      <div className="bg-dark-900 rounded-xl border border-dark-800 p-8 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-        </div>
-      </div>
-    )
+  const togglePlayback = () => {
+    if (playbackIndex >= marketData.length - 1) {
+      // Restart
+      setPlaybackIndex(0)
+      setIsPlaying(true)
+    } else {
+      setIsPlaying(!isPlaying)
+    }
+  }
+
+  const resetPlayback = () => {
+    setIsPlaying(false)
+    setPlaybackIndex(marketData.length - 1)
   }
 
   return (
@@ -376,30 +274,11 @@ export function TradeChartViewer({
               ? "bg-accent-blue/20 text-accent-blue"
               : "bg-accent-orange/20 text-accent-orange"
           )}>
-            {trade.direction === 'long' ? (
-              <TrendingUp className="w-4 h-4" />
-            ) : (
-              <TrendingDown className="w-4 h-4" />
-            )}
-            {trade.symbol} - {trade.direction.toUpperCase()}
+            {trade.direction === 'long' ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
+            {trade.symbol}
           </div>
 
-          {trade.pnlNet !== undefined && (
-            <div className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold",
-              trade.pnlNet >= 0 ? "bg-profit/20 text-profit" : "bg-loss/20 text-loss"
-            )}>
-              <DollarSign className="w-4 h-4" />
-              {trade.pnlNet >= 0 ? '+' : ''}{formatCurrency(trade.pnlNet)}
-            </div>
-          )}
-
-          {trade.durationMinutes && (
-            <div className="flex items-center gap-1.5 text-sm text-dark-400">
-              <Clock className="w-4 h-4" />
-              {Math.floor(trade.durationMinutes / 60)}h {trade.durationMinutes % 60}m
-            </div>
-          )}
+          <div className="h-6 w-px bg-dark-700" />
 
           {/* Timeframe Selector */}
           <div className="flex items-center gap-1 bg-dark-800 rounded-lg p-1">
@@ -418,135 +297,105 @@ export function TradeChartViewer({
               </button>
             ))}
           </div>
+
+          <div className="h-6 w-px bg-dark-700" />
+
+          {/* Playback Controls */}
+          {marketData.length > 0 && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={togglePlayback}
+                className="p-2 hover:bg-dark-700 rounded-lg text-dark-200 transition-colors"
+                title={isPlaying ? "Pause" : "Play Replay"}
+              >
+                {isPlaying ? <Pause size={18} /> : <Play size={18} />}
+              </button>
+              <button
+                onClick={resetPlayback}
+                className="p-2 hover:bg-dark-700 rounded-lg text-dark-200 transition-colors"
+                title="Reset View"
+              >
+                <SkipBack size={18} />
+              </button>
+
+              {isPlaying && (
+                <span className="text-xs text-primary animate-pulse">
+                  Replaying...
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
           {onToggleFullScreen && (
-            <button
-              onClick={onToggleFullScreen}
-              className="p-2 hover:bg-dark-800 rounded-lg transition-colors"
-            >
-              {isFullScreen ? (
-                <Minimize2 className="w-5 h-5 text-dark-400" />
-              ) : (
-                <Maximize2 className="w-5 h-5 text-dark-400" />
-              )}
+            <button onClick={onToggleFullScreen} className="p-2 hover:bg-dark-800 rounded-lg text-dark-400">
+              {isFullScreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
             </button>
           )}
-
           {onClose && (
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-dark-800 rounded-lg transition-colors"
-            >
-              <Minimize2 className="w-5 h-5 text-dark-400" />
+            <button onClick={onClose} className="p-2 hover:bg-dark-800 rounded-lg text-dark-400">
+              <Minimize2 size={20} />
             </button>
           )}
         </div>
       </div>
 
-      {/* Chart */}
-      <div className="flex flex-1 min-h-0">
+      <div className="flex flex-1 min-h-0 relative">
+
+        {isLoading && (
+          <div className="absolute inset-0 z-10 bg-dark-900/50 backdrop-blur-sm flex items-center justify-center">
+            <div className="flex flex-col items-center gap-2">
+              <Loader2 className="w-8 h-8 text-primary animate-spin" />
+              <span className="text-sm text-dark-300">טוען נתוני שוק חיו...</span>
+            </div>
+          </div>
+        )}
+
+        {error && !isLoading && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+            <div className="bg-dark-900 border border-loss/20 p-4 rounded-xl shadow-xl max-w-sm text-center">
+              <p className="text-loss mb-2">{error}</p>
+              <p className="text-xs text-dark-400">נסה לרענן או לבדוק את הסימול.</p>
+            </div>
+          </div>
+        )}
+
         <div className="flex-1 min-w-0">
           <div ref={chartContainerRef} className="w-full h-full" />
         </div>
 
-        {/* Trade Details Panel */}
-        <div className="w-64 bg-dark-850 border-l border-dark-800/50 p-4 overflow-y-auto">
-          <h4 className="text-sm font-semibold text-dark-300 mb-4">פרטי העסקה</h4>
-
-          <div className="space-y-3">
-            <div className="flex justify-between">
-              <span className="text-dark-500 text-sm">זמן כניסה</span>
-              <span className="text-dark-200 text-sm">{new Date(trade.entryTime).toLocaleString('he-IL')}</span>
-            </div>
-
-            <div className="flex justify-between">
-              <span className="text-dark-500 text-sm">מחיר כניסה</span>
-              <span className="text-accent-blue text-sm font-medium">${trade.entryPrice.toFixed(2)}</span>
-            </div>
-
-            {trade.exitTime && (
-              <div className="flex justify-between">
-                <span className="text-dark-500 text-sm">זמן יציאה</span>
-                <span className="text-dark-200 text-sm">{new Date(trade.exitTime).toLocaleString('he-IL')}</span>
-              </div>
-            )}
-
-            {trade.exitPrice && (
-              <div className="flex justify-between">
-                <span className="text-dark-500 text-sm">מחיר יציאה</span>
-                <span className={cn(
-                  "text-sm font-medium",
-                  trade.pnlNet && trade.pnlNet >= 0 ? "text-profit" : "text-loss"
-                )}>
-                  ${trade.exitPrice.toFixed(2)}
-                </span>
-              </div>
-            )}
-
-            <div className="flex justify-between">
-              <span className="text-dark-500 text-sm">כמות</span>
-              <span className="text-dark-200 text-sm">{trade.quantity}</span>
-            </div>
-
-            <div className="flex justify-between">
-              <span className="text-dark-500 text-sm">עמלות</span>
-              <span className="text-dark-400 text-sm">${trade.commission.toFixed(2)}</span>
-            </div>
-
-            {trade.pnlPercent !== undefined && (
-              <div className="flex justify-between">
-                <span className="text-dark-500 text-sm">שינוי %</span>
-                <span className={cn(
-                  "text-sm font-medium",
-                  trade.pnlPercent >= 0 ? "text-profit" : "text-loss"
-                )}>
-                  {trade.pnlPercent >= 0 ? '+' : ''}{trade.pnlPercent.toFixed(2)}%
-                </span>
-              </div>
-            )}
-
-            <div className="pt-3 border-t border-dark-700">
-              <div className="flex justify-between items-center">
-                <span className="text-dark-400 font-medium">P&L נטו</span>
-                {trade.pnlNet !== undefined && (
-                  <span className={cn(
-                    "text-lg font-bold",
-                    trade.pnlNet >= 0 ? "text-profit" : "text-loss"
-                  )}>
-                    {trade.pnlNet >= 0 ? '+' : ''}{formatCurrency(trade.pnlNet)}
-                  </span>
-                )}
+        {/* Trade Info Sidebar */}
+        <div className="w-64 bg-dark-850 border-l border-dark-800/50 p-4 overflow-y-auto hidden md:block">
+          <div className="space-y-4">
+            <div className="pb-4 border-b border-dark-800">
+              <span className="text-xs text-dark-500 uppercase tracking-wider">Net P&L</span>
+              <div className={cn("text-2xl font-bold mt-1", (trade.pnlNet || 0) >= 0 ? "text-profit" : "text-loss")}>
+                {(trade.pnlNet || 0) >= 0 ? "+" : ""}{formatCurrency(trade.pnlNet || 0)}
               </div>
             </div>
 
-            {trade.tags.length > 0 && (
-              <div className="pt-3 border-t border-dark-700">
-                <span className="text-dark-500 text-sm block mb-2">תגיות</span>
-                <div className="flex flex-wrap gap-1">
-                  {trade.tags.map(tag => (
-                    <span
-                      key={tag}
-                      className="px-2 py-0.5 bg-dark-700 text-dark-300 rounded text-xs"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
+            <div className="space-y-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-dark-400">Entry Price</span>
+                <span className="text-white font-mono">{trade.entryPrice}</span>
               </div>
-            )}
-
-            {trade.notes && (
-              <div className="pt-3 border-t border-dark-700">
-                <span className="text-dark-500 text-sm block mb-2">הערות</span>
-                <p className="text-dark-300 text-sm italic">&quot;{trade.notes}&quot;</p>
+              <div className="flex justify-between text-sm">
+                <span className="text-dark-400">Exit Price</span>
+                <span className="text-white font-mono">{trade.exitPrice || '-'}</span>
               </div>
-            )}
+              <div className="flex justify-between text-sm">
+                <span className="text-dark-400">Date</span>
+                <span className="text-white">{new Date(trade.entryTime).toLocaleDateString()}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-dark-400">Time</span>
+                <span className="text-white">{new Date(trade.entryTime).toLocaleTimeString()}</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
   )
 }
-
