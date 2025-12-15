@@ -36,7 +36,7 @@ export function TradesTable({ trades, onTradeDeleted }: TradesTableProps) {
   const [sortField, setSortField] = useState<SortField>('entryTime')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [selectedTrade, setSelectedTrade] = useState<string | null>(null)
-  const [chartTrade, setChartTrade] = useState<Trade | null>(null)
+  const [expandedTradeId, setExpandedTradeId] = useState<string | null>(null)
   const [isChartFullScreen, setIsChartFullScreen] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -137,21 +137,14 @@ export function TradesTable({ trades, onTradeDeleted }: TradesTableProps) {
         </div>
       )}
 
-      {/* Chart Viewer Modal/Panel */}
-      {chartTrade && (
-        <div className={cn(
-          isChartFullScreen
-            ? "fixed inset-0 z-50 bg-black/80 p-4"
-            : "relative"
-        )}>
+      {/* Full Screen Chart Modal */}
+      {isChartFullScreen && expandedTradeId && (
+        <div className="fixed inset-0 z-50 bg-black/80 p-4">
           <TradeChartViewer
-            trade={chartTrade}
-            onClose={() => {
-              setChartTrade(null)
-              setIsChartFullScreen(false)
-            }}
-            isFullScreen={isChartFullScreen}
-            onToggleFullScreen={() => setIsChartFullScreen(!isChartFullScreen)}
+            trade={trades.find(t => t.id === expandedTradeId)!}
+            onClose={() => setIsChartFullScreen(false)}
+            isFullScreen={true}
+            onToggleFullScreen={() => setIsChartFullScreen(false)}
           />
         </div>
       )}
@@ -175,7 +168,7 @@ export function TradesTable({ trades, onTradeDeleted }: TradesTableProps) {
 
         {/* Table */}
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full border-collapse">
             <thead>
               <tr className="border-b border-dark-800/50 text-left">
                 <th className="px-4 py-3 text-xs font-medium text-dark-500 uppercase tracking-wider">
@@ -240,180 +233,205 @@ export function TradesTable({ trades, onTradeDeleted }: TradesTableProps) {
                     </div>
                   </td>
                 </tr>
-              ) : sortedTrades.map((trade, index) => (
-                <tr
-                  key={trade.id}
-                  className={cn(
-                    'table-row cursor-pointer',
-                    selectedTrade === trade.id && 'bg-dark-800/50'
-                  )}
-                  onClick={() => setSelectedTrade(trade.id)}
-                  style={{ animationDelay: `${index * 50}ms` }}
-                >
-                  {/* Date/Time */}
-                  <td className="px-4 py-3">
-                    <div className="text-sm text-dark-200">{formatDateTime(trade.entryTime)}</div>
-                  </td>
+              ) : sortedTrades.map((trade, index) => {
+                const isExpanded = expandedTradeId === trade.id;
 
-                  {/* Symbol */}
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <div className={cn(
-                        'w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold',
-                        trade.isWinner ? 'bg-profit/20 text-profit' : 'bg-loss/20 text-loss'
-                      )}>
-                        {trade.symbol.slice(0, 2)}
-                      </div>
-                      <span className="font-medium text-white">{trade.symbol}</span>
-                    </div>
-                  </td>
-
-                  {/* Direction */}
-                  <td className="px-4 py-3">
-                    <div className={cn(
-                      'inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium',
-                      trade.direction === 'long'
-                        ? 'bg-accent-blue/20 text-accent-blue'
-                        : 'bg-accent-orange/20 text-accent-orange'
-                    )}>
-                      {trade.direction === 'long' ? (
-                        <ArrowUpRight className="w-3 h-3" />
-                      ) : (
-                        <ArrowDownRight className="w-3 h-3" />
+                return (
+                  <>
+                    <tr
+                      key={trade.id}
+                      className={cn(
+                        'table-row cursor-pointer transition-colors',
+                        (selectedTrade === trade.id || isExpanded) ? 'bg-dark-800/50' : 'hover:bg-dark-800/30',
+                        isExpanded && 'border-b-0'
                       )}
-                      {trade.direction.toUpperCase()}
-                    </div>
-                  </td>
+                      onClick={() => setSelectedTrade(trade.id)}
+                    >
+                      {/* Date/Time */}
+                      <td className="px-4 py-3">
+                        <div className="text-sm text-dark-200">{formatDateTime(trade.entryTime)}</div>
+                      </td>
 
-                  {/* Entry / Exit */}
-                  <td className="px-4 py-3">
-                    <div className="text-sm">
-                      {trade.entryPrice > 0 ? (
-                        <>
-                          <div className="text-dark-300">
-                            ${trade.entryPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </div>
-                          {trade.exitPrice && trade.exitPrice > 0 && (
-                            <div className="text-dark-500">
-                              → ${trade.exitPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        <span className="text-dark-500 italic">N/A</span>
-                      )}
-                    </div>
-                  </td>
-
-                  {/* Size */}
-                  <td className="px-4 py-3">
-                    <span className="text-sm text-dark-300">{trade.quantity}</span>
-                  </td>
-
-                  {/* P&L */}
-                  <td className="px-4 py-3">
-                    {trade.pnlNet !== undefined && (
-                      <div>
-                        <div className={cn(
-                          'text-sm font-medium',
-                          trade.pnlNet >= 0 ? 'text-profit' : 'text-loss'
-                        )}>
-                          {trade.pnlNet >= 0 ? '+' : ''}{formatCurrency(trade.pnlNet)}
-                        </div>
-                        {trade.pnlPercent !== undefined && trade.pnlPercent !== 0 && (
+                      {/* Symbol */}
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
                           <div className={cn(
-                            'text-xs',
-                            trade.pnlPercent >= 0 ? 'text-profit/70' : 'text-loss/70'
+                            'w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold',
+                            trade.isWinner ? 'bg-profit/20 text-profit' : 'bg-loss/20 text-loss'
                           )}>
-                            {trade.pnlPercent >= 0 ? '+' : ''}{trade.pnlPercent.toFixed(2)}%
+                            {trade.symbol.slice(0, 2)}
+                          </div>
+                          <span className="font-medium text-white">{trade.symbol}</span>
+                        </div>
+                      </td>
+
+                      {/* Direction */}
+                      <td className="px-4 py-3">
+                        <div className={cn(
+                          'inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium',
+                          trade.direction === 'long'
+                            ? 'bg-accent-blue/20 text-accent-blue'
+                            : 'bg-accent-orange/20 text-accent-orange'
+                        )}>
+                          {trade.direction === 'long' ? (
+                            <ArrowUpRight className="w-3 h-3" />
+                          ) : (
+                            <ArrowDownRight className="w-3 h-3" />
+                          )}
+                          {trade.direction.toUpperCase()}
+                        </div>
+                      </td>
+
+                      {/* Entry / Exit */}
+                      <td className="px-4 py-3">
+                        <div className="text-sm">
+                          {trade.entryPrice > 0 ? (
+                            <>
+                              <div className="text-dark-300">
+                                ${trade.entryPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </div>
+                              {trade.exitPrice && trade.exitPrice > 0 && (
+                                <div className="text-dark-500">
+                                  → ${trade.exitPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-dark-500 italic">N/A</span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Size */}
+                      <td className="px-4 py-3">
+                        <span className="text-sm text-dark-300">{trade.quantity}</span>
+                      </td>
+
+                      {/* P&L */}
+                      <td className="px-4 py-3">
+                        {trade.pnlNet !== undefined && (
+                          <div>
+                            <div className={cn(
+                              'text-sm font-medium',
+                              trade.pnlNet >= 0 ? 'text-profit' : 'text-loss'
+                            )}>
+                              {trade.pnlNet >= 0 ? '+' : ''}{formatCurrency(trade.pnlNet)}
+                            </div>
+                            {trade.pnlPercent !== undefined && trade.pnlPercent !== 0 && (
+                              <div className={cn(
+                                'text-xs',
+                                trade.pnlPercent >= 0 ? 'text-profit/70' : 'text-loss/70'
+                              )}>
+                                {trade.pnlPercent >= 0 ? '+' : ''}{trade.pnlPercent.toFixed(2)}%
+                              </div>
+                            )}
                           </div>
                         )}
-                      </div>
+                      </td>
+
+                      {/* Duration */}
+                      <td className="px-4 py-3">
+                        <span className="text-sm text-dark-400">
+                          {trade.durationMinutes ? formatDuration(trade.durationMinutes) : '—'}
+                        </span>
+                      </td>
+
+                      {/* Tags */}
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-1">
+                          {trade.tags.slice(0, 2).map(tag => (
+                            <span
+                              key={tag}
+                              className="px-2 py-0.5 bg-dark-700 text-dark-300 rounded text-xs"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                          {trade.tags.length > 2 && (
+                            <span className="px-2 py-0.5 bg-dark-700 text-dark-400 rounded text-xs">
+                              +{trade.tags.length - 2}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Actions */}
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setExpandedTradeId(isExpanded ? null : trade.id)
+                            }}
+                            className={cn(
+                              "p-1.5 rounded transition-colors group/btn",
+                              isExpanded ? "bg-primary/20" : "hover:bg-primary/20"
+                            )}
+                            title="הצג על גרף"
+                          >
+                            <BarChart3 className={cn(
+                              "w-4 h-4 group-hover/btn:text-primary",
+                              isExpanded ? "text-primary" : "text-dark-400"
+                            )} />
+                          </button>
+                          {trade.status === 'closed' && trade.exitTime && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setAiReviewTrade(trade)
+                              }}
+                              className="p-1.5 hover:bg-purple-500/20 rounded transition-colors group/ai"
+                              title="סקירת AI"
+                            >
+                              <Sparkles className="w-4 h-4 text-dark-400 group-hover/ai:text-purple-400" />
+                            </button>
+                          )}
+                          <button
+                            onClick={(e) => e.stopPropagation()}
+                            className="p-1.5 hover:bg-dark-700 rounded transition-colors"
+                            title="צפה"
+                          >
+                            <Eye className="w-4 h-4 text-dark-400" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setDetailsTrade(trade)
+                            }}
+                            className="p-1.5 hover:bg-dark-700 rounded transition-colors"
+                            title="ערוך"
+                          >
+                            <Edit className="w-4 h-4 text-dark-400" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setDeleteConfirm(String(trade.id))
+                            }}
+                            className="p-1.5 hover:bg-loss/20 rounded transition-colors group/del"
+                            title="מחק"
+                          >
+                            <Trash2 className="w-4 h-4 text-dark-400 group-hover/del:text-loss" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+
+                    {isExpanded && (
+                      <tr className="bg-dark-800/30">
+                        <td colSpan={9} className="p-4 border-t border-dark-700/50">
+                          <TradeChartViewer
+                            trade={trade}
+                            onClose={() => setExpandedTradeId(null)}
+                            isFullScreen={false}
+                            onToggleFullScreen={() => setIsChartFullScreen(true)}
+                          />
+                        </td>
+                      </tr>
                     )}
-                  </td>
-
-                  {/* Duration */}
-                  <td className="px-4 py-3">
-                    <span className="text-sm text-dark-400">
-                      {trade.durationMinutes ? formatDuration(trade.durationMinutes) : '—'}
-                    </span>
-                  </td>
-
-                  {/* Tags */}
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-1">
-                      {trade.tags.slice(0, 2).map(tag => (
-                        <span
-                          key={tag}
-                          className="px-2 py-0.5 bg-dark-700 text-dark-300 rounded text-xs"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                      {trade.tags.length > 2 && (
-                        <span className="px-2 py-0.5 bg-dark-700 text-dark-400 rounded text-xs">
-                          +{trade.tags.length - 2}
-                        </span>
-                      )}
-                    </div>
-                  </td>
-
-                  {/* Actions */}
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setChartTrade(trade)
-                        }}
-                        className="p-1.5 hover:bg-primary/20 rounded transition-colors group/btn"
-                        title="הצג על גרף"
-                      >
-                        <BarChart3 className="w-4 h-4 text-dark-400 group-hover/btn:text-primary" />
-                      </button>
-                      {trade.status === 'closed' && trade.exitTime && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setAiReviewTrade(trade)
-                          }}
-                          className="p-1.5 hover:bg-purple-500/20 rounded transition-colors group/ai"
-                          title="סקירת AI"
-                        >
-                          <Sparkles className="w-4 h-4 text-dark-400 group-hover/ai:text-purple-400" />
-                        </button>
-                      )}
-                      <button
-                        onClick={(e) => e.stopPropagation()}
-                        className="p-1.5 hover:bg-dark-700 rounded transition-colors"
-                        title="צפה"
-                      >
-                        <Eye className="w-4 h-4 text-dark-400" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setDetailsTrade(trade)
-                        }}
-                        className="p-1.5 hover:bg-dark-700 rounded transition-colors"
-                        title="ערוך"
-                      >
-                        <Edit className="w-4 h-4 text-dark-400" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setDeleteConfirm(String(trade.id))
-                        }}
-                        className="p-1.5 hover:bg-loss/20 rounded transition-colors group/del"
-                        title="מחק"
-                      >
-                        <Trash2 className="w-4 h-4 text-dark-400 group-hover/del:text-loss" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                  </>
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -444,25 +462,8 @@ export function TradesTable({ trades, onTradeDeleted }: TradesTableProps) {
           onClose={() => setDetailsTrade(null)}
           trade={detailsTrade}
           onSave={(updatedTrade) => {
-            // Update local state if needed
-            // The table likely assumes props 'trades' is source of truth, 
-            // but we can try to bubble up the change if we had an onTradeUpdated prop,
-            // or just reload page?
-            // Since trades are passed as props, we can't easily update them locally without parent doing it.
-            // But we can trigger a refresh if we had a callback.
-            // For now, let's just close. The user might need to refresh or we can try to call a parent refresh.
-            // Actually, best practice is to call a callback.
-            // TradesTable has `onTradeDeleted`, let's check if we can add `onTradeUpdated`.
-            // Seeing the props: interface TradesTableProps { trades: Trade[], onTradeDeleted?: () => void }
-            // So we can't update the list here.
-            // BUT, modifying the trade via API works. If we want UI update, we need to refresh.
-            // I'll leave it as is for now, maybe finding a way to notify parent would be better later.
-            // Or I can force a router refresh.
             setDetailsTrade(null)
             if (onTradeDeleted) {
-              // HACK: Re-using onTradeDeleted to trigger a refresh if the parent uses it to re-fetch.
-              // Usually it's named 'onRefresh' or similar if it's generic.
-              // Let's assume onTradeDeleted triggers a re-fetch.
               onTradeDeleted()
             }
           }}
