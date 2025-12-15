@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 
 export interface Trade {
-  id: number
+  id: string
   symbol: string
   direction: 'long' | 'short'
   status: 'open' | 'closed'
@@ -58,17 +58,17 @@ interface StoreState {
   // User
   user: { email: string; fullName: string } | null
   token: string | null
-  
+
   // Data
   trades: Trade[]
   stats: Stats | null
   dailyPnL: DailyPnL[]
   hourlyStats: HourlyStat[]
-  
+
   // UI
-  selectedAccount: number | null
+  selectedAccount: string | null
   isLoading: boolean
-  
+
   // Actions
   setUser: (user: { email: string; fullName: string } | null) => void
   setToken: (token: string | null) => void
@@ -76,7 +76,7 @@ interface StoreState {
   setStats: (stats: Stats) => void
   setDailyPnL: (data: DailyPnL[]) => void
   setHourlyStats: (data: HourlyStat[]) => void
-  setSelectedAccount: (id: number | null) => void
+  setSelectedAccount: (id: string | null) => void
   setIsLoading: (loading: boolean) => void
   logout: () => void
 }
@@ -91,7 +91,7 @@ export const useStore = create<StoreState>((set) => ({
   hourlyStats: [],
   selectedAccount: null,
   isLoading: false,
-  
+
   // Actions
   setUser: (user) => set({ user }),
   setToken: (token) => {

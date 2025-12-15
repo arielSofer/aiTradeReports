@@ -5,11 +5,11 @@ import { Sidebar } from '@/components/Sidebar'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { TopstepXImportModal } from '@/components/TopstepXImportModal'
 import { useDropzone } from 'react-dropzone'
-import { 
-  Upload, 
-  FileText, 
-  Check, 
-  AlertCircle, 
+import {
+  Upload,
+  FileText,
+  Check,
+  AlertCircle,
   Loader2,
   Download,
   HelpCircle,
@@ -19,47 +19,49 @@ import {
 } from 'lucide-react'
 import { cn, formatCurrency } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
-import { accountsApi, uploadApi } from '@/lib/api'
+import { uploadApi } from '@/lib/api'
+import { getAccounts, batchCreateTrades } from '@/lib/firebase/firestore'
+import { Timestamp } from 'firebase/firestore'
 
 const brokers = [
-  { 
-    id: 'generic', 
-    name: 'Generic CSV', 
+  {
+    id: 'generic',
+    name: 'Generic CSV',
     description: 'Standard CSV format with symbol, direction, price, quantity',
     icon: '📁',
     columns: ['symbol', 'direction', 'entry_time', 'exit_time', 'entry_price', 'exit_price', 'quantity']
   },
-  { 
-    id: 'interactive_brokers', 
-    name: 'Interactive Brokers', 
+  {
+    id: 'interactive_brokers',
+    name: 'Interactive Brokers',
     description: 'Flex Query or Activity Statement export',
     icon: '🏦',
     columns: ['Date/Time', 'Symbol', 'Quantity', 'Price', 'Comm/Fee', 'Realized P/L']
   },
-  { 
-    id: 'ninja_trader', 
-    name: 'NinjaTrader 8', 
+  {
+    id: 'ninja_trader',
+    name: 'NinjaTrader 8',
     description: 'Trade Performance export from NT8',
     icon: '🥷',
     columns: ['Trade #', 'Instrument', 'Market pos.', 'Quantity', 'Entry price', 'Exit price', 'Profit']
   },
-  { 
-    id: 'tradovate', 
-    name: 'Tradovate', 
+  {
+    id: 'tradovate',
+    name: 'Tradovate',
     description: 'Trade History or Order History export',
     icon: '📈',
     columns: ['Date', 'Contract', 'B/S', 'Qty', 'Price', 'P&L', 'Commission']
   },
-  { 
-    id: 'metatrader4', 
-    name: 'MetaTrader 4/5', 
+  {
+    id: 'metatrader4',
+    name: 'MetaTrader 4/5',
     description: 'Account History export from MT4/MT5 terminal',
     icon: '📊',
     columns: ['Ticket', 'Open Time', 'Type', 'Size', 'Symbol', 'Price', 'Close Price']
   },
-  { 
-    id: 'binance', 
-    name: 'Binance', 
+  {
+    id: 'binance',
+    name: 'Binance',
     description: 'Spot or Futures Trade History export',
     icon: '🪙',
     columns: ['Date(UTC)', 'Pair', 'Side', 'Price', 'Executed', 'Fee']
@@ -95,11 +97,11 @@ function ImportContent() {
   const [result, setResult] = useState<ImportResult | null>(null)
   const [showTopstepXModal, setShowTopstepXModal] = useState(false)
   const [accounts, setAccounts] = useState<any[]>([])
-  const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null)
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)
   const [showAccountDropdown, setShowAccountDropdown] = useState(false)
   const [loadingAccounts, setLoadingAccounts] = useState(false)
   const accountDropdownRef = useRef<HTMLDivElement>(null)
-  
+
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -107,11 +109,11 @@ function ImportContent() {
         setShowAccountDropdown(false)
       }
     }
-    
+
     if (showAccountDropdown) {
       document.addEventListener('mousedown', handleClickOutside)
     }
-    
+
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
@@ -141,11 +143,11 @@ function ImportContent() {
       if (user) {
         setLoadingAccounts(true)
         try {
-          const accountsList = await accountsApi.list()
+          const accountsList = await getAccounts(user.uid)
           setAccounts(accountsList)
           // Auto-select first account if available
           if (accountsList.length > 0 && !selectedAccountId) {
-            setSelectedAccountId(accountsList[0].id)
+            setSelectedAccountId(accountsList[0].id || null)
           }
         } catch (error) {
           console.error('Error loading accounts:', error)
@@ -163,19 +165,52 @@ function ImportContent() {
       return
     }
 
+    if (!user) return
+
     setStatus('uploading')
-    
+
     try {
-      const response = await uploadApi.upload(
+      // 1. Parse file on backend (Stateless)
+      const response = await uploadApi.parse(
         file,
-        selectedAccountId,
         selectedBroker || undefined
       )
-      
+
+      if (!response.success || !response.trades || response.trades.length === 0) {
+        throw new Error(response.message || 'No trades parsed')
+      }
+
+      // 2. Format trades for Firestore
+      const trades = response.trades.map((t: any) => ({
+        symbol: t.symbol,
+        direction: t.direction,
+        status: t.status,
+        assetType: t.assetType,
+        entryTime: t.entry_time ? Timestamp.fromDate(new Date(t.entry_time)) : Timestamp.now(),
+        exitTime: t.exit_time ? Timestamp.fromDate(new Date(t.exit_time)) : undefined,
+        entryPrice: t.entry_price,
+        exitPrice: t.exit_price,
+        quantity: t.quantity,
+        commission: t.commission,
+        tags: t.tags || [],
+        notes: t.notes,
+        raw_data: t.raw_data
+        // pnlGross/Net/Percent are calculated by batchCreateTrades logic if needed,
+        // or we can pass them if the parser calculated them.
+        // For now relying on firestore.ts logic to recalculate to be safe.
+      }))
+
+      // 3. Save to Firestore
+      const createdCount = await batchCreateTrades(
+        user.uid,
+        selectedAccountId.toString(), // Ensure string
+        trades
+      )
+
       setResult({
-        success: response.success,
-        tradesCreated: response.trades_created || 0,
-        totalPnl: response.total_pnl || 0,
+        success: true,
+        tradesCreated: createdCount,
+        totalPnl: 0, // TODO: Sum from trades if needed
         winRate: response.win_rate || null,
         errors: response.parse_result?.errors?.map((e: any) => e.message) || [],
       })
@@ -196,7 +231,7 @@ function ImportContent() {
   const downloadTemplate = () => {
     const broker = brokers.find(b => b.id === selectedBroker) || brokers[0]
     const headers = broker.columns.join(',')
-    
+
     let example = ''
     if (broker.id === 'generic') {
       example = 'AAPL,long,2024-01-15 10:30:00,2024-01-15 14:45:00,185.50,188.20,100'
@@ -205,7 +240,7 @@ function ImportContent() {
     } else if (broker.id === 'tradovate') {
       example = '2024-01-15 10:30:00,ESH4,Buy,1,4850.25,,,'
     }
-    
+
     const content = `${headers}\n${example}`
     const blob = new Blob([content], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
@@ -218,7 +253,7 @@ function ImportContent() {
   return (
     <div className="flex min-h-screen">
       <Sidebar />
-      
+
       <main className="flex-1 ml-64">
         {/* Header */}
         <header className="sticky top-0 z-40 bg-dark-950/80 backdrop-blur-xl border-b border-dark-800/50">
@@ -239,7 +274,7 @@ function ImportContent() {
               <span className="tag tag-primary text-xs">NEW</span>
             </div>
             <p className="text-dark-400 text-sm mb-4">Import trades directly from your prop firm or broker's share page</p>
-            
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {urlImportSources.map((source) => (
                 <button
@@ -286,7 +321,7 @@ function ImportContent() {
                   {result.tradesCreated} trades imported successfully
                 </p>
               </div>
-              
+
               {result.errors && result.errors.length > 0 && (
                 <div className="mt-4 p-4 bg-dark-800 rounded-lg border border-dark-700 text-left">
                   <p className="text-sm font-semibold text-dark-300 mb-2">Warnings:</p>
@@ -300,7 +335,7 @@ function ImportContent() {
                   </ul>
                 </div>
               )}
-              
+
               <div className="grid grid-cols-3 gap-4 max-w-lg mx-auto">
                 <div className="p-4 bg-dark-800 rounded-lg">
                   <p className="text-2xl font-bold text-profit">
@@ -323,7 +358,7 @@ function ImportContent() {
               </div>
 
               <div className="flex justify-center gap-4">
-                <button 
+                <button
                   onClick={() => {
                     setFile(null)
                     setStatus('idle')
@@ -333,7 +368,7 @@ function ImportContent() {
                 >
                   Import More
                 </button>
-                <button 
+                <button
                   onClick={() => window.location.href = '/'}
                   className="btn-primary"
                 >
@@ -350,12 +385,12 @@ function ImportContent() {
               <div>
                 <h3 className="text-2xl font-bold text-white">Import Failed</h3>
                 <p className="text-dark-400 mt-2">
-                  {result.errors && result.errors.length > 0 
+                  {result.errors && result.errors.length > 0
                     ? result.errors[0]
                     : 'An error occurred during import'}
                 </p>
               </div>
-              
+
               {result.errors && result.errors.length > 1 && (
                 <div className="mt-4 p-4 bg-dark-800 rounded-lg border border-dark-700 text-left max-h-60 overflow-auto">
                   <p className="text-sm font-semibold text-loss mb-2">Errors:</p>
@@ -366,9 +401,9 @@ function ImportContent() {
                   </ul>
                 </div>
               )}
-              
+
               <div className="flex justify-center gap-4">
-                <button 
+                <button
                   onClick={() => {
                     setFile(null)
                     setStatus('idle')
@@ -388,7 +423,7 @@ function ImportContent() {
                   <span className="w-6 h-6 rounded-full bg-primary-500 text-white text-sm font-bold flex items-center justify-center">1</span>
                   <h3 className="text-lg font-display font-semibold text-white">Select Broker Format</h3>
                 </div>
-                
+
                 <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
                   {brokers.map((broker) => (
                     <button
@@ -412,7 +447,7 @@ function ImportContent() {
 
                 {selectedBroker && (
                   <div className="mt-4 flex items-center gap-2">
-                    <button 
+                    <button
                       onClick={downloadTemplate}
                       className="flex items-center gap-2 text-sm text-primary-400 hover:text-primary-300"
                     >
@@ -437,19 +472,19 @@ function ImportContent() {
                   <span className="w-6 h-6 rounded-full bg-primary-500 text-white text-sm font-bold flex items-center justify-center">2</span>
                   <h3 className="text-lg font-display font-semibold text-white">Upload File</h3>
                 </div>
-                
+
                 <div
                   {...getRootProps()}
                   className={cn(
                     'border-2 border-dashed rounded-xl p-12 text-center transition-all duration-200 cursor-pointer',
-                    isDragActive 
-                      ? 'border-primary-500 bg-primary-500/10' 
+                    isDragActive
+                      ? 'border-primary-500 bg-primary-500/10'
                       : 'border-dark-700 hover:border-dark-600',
                     file && 'border-primary-500/50'
                   )}
                 >
                   <input {...getInputProps()} />
-                  
+
                   {file ? (
                     <div className="flex items-center justify-center gap-4">
                       <div className="w-14 h-14 bg-primary-500/20 rounded-xl flex items-center justify-center">
@@ -505,7 +540,7 @@ function ImportContent() {
                       className="w-full flex items-center justify-between p-4 bg-dark-800 rounded-lg border border-dark-700 hover:border-primary-500/50 transition-colors"
                     >
                       <span className="text-white">
-                        {selectedAccountId 
+                        {selectedAccountId
                           ? accounts.find(a => a.id === selectedAccountId)?.name || 'בחר תיק'
                           : 'בחר תיק'}
                       </span>
@@ -514,7 +549,7 @@ function ImportContent() {
                         showAccountDropdown && 'rotate-180'
                       )} />
                     </button>
-                    
+
                     {showAccountDropdown && (
                       <div className="absolute z-10 w-full mt-2 bg-dark-800 rounded-lg border border-dark-700 shadow-xl max-h-60 overflow-auto">
                         {accounts.map((account) => (
@@ -553,13 +588,13 @@ function ImportContent() {
 
                 <div className="flex items-center justify-between">
                   <p className="text-dark-400">
-                    {file && selectedAccountId 
+                    {file && selectedAccountId
                       ? `Ready to import from ${file.name} to ${accounts.find(a => a.id === selectedAccountId)?.name}`
-                      : file 
+                      : file
                         ? 'Select an account first'
                         : 'Upload a file first'}
                   </p>
-                  
+
                   <button
                     onClick={handleImport}
                     disabled={!file || !selectedAccountId || status === 'uploading'}
@@ -589,7 +624,7 @@ function ImportContent() {
                   <h3 className="text-lg font-display font-semibold text-white mb-4">
                     How to export from {brokers.find(b => b.id === selectedBroker)?.name}
                   </h3>
-                  
+
                   {selectedBroker === 'ninja_trader' && (
                     <div className="text-sm text-dark-400 space-y-2">
                       <p>1. Open NinjaTrader 8</p>
@@ -599,7 +634,7 @@ function ImportContent() {
                       <p className="text-dark-500 mt-4">Expected columns: Trade #, Instrument, Market pos., Quantity, Entry/Exit price, Profit, MAE, MFE</p>
                     </div>
                   )}
-                  
+
                   {selectedBroker === 'tradovate' && (
                     <div className="text-sm text-dark-400 space-y-2">
                       <p>1. Log in to Tradovate</p>
@@ -609,7 +644,7 @@ function ImportContent() {
                       <p className="text-dark-500 mt-4">Expected columns: Date, Contract, B/S, Qty, Price, P&L, Commission</p>
                     </div>
                   )}
-                  
+
                   {selectedBroker === 'interactive_brokers' && (
                     <div className="text-sm text-dark-400 space-y-2">
                       <p>1. Log in to IB Account Management</p>
@@ -618,7 +653,7 @@ function ImportContent() {
                       <p>4. Export as CSV</p>
                     </div>
                   )}
-                  
+
                   {selectedBroker === 'metatrader4' && (
                     <div className="text-sm text-dark-400 space-y-2">
                       <p>1. Open MetaTrader 4/5 terminal</p>
@@ -627,7 +662,7 @@ function ImportContent() {
                       <p>4. Save as CSV file</p>
                     </div>
                   )}
-                  
+
                   {selectedBroker === 'binance' && (
                     <div className="text-sm text-dark-400 space-y-2">
                       <p>1. Log in to Binance</p>
@@ -636,7 +671,7 @@ function ImportContent() {
                       <p>4. Download CSV file</p>
                     </div>
                   )}
-                  
+
                   {selectedBroker === 'generic' && (
                     <div className="text-sm text-dark-400 space-y-2">
                       <p>Use our generic format for any broker not listed above.</p>

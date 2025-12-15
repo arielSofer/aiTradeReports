@@ -1,7 +1,7 @@
 """
 TradeTracker API
 ================
-FastAPI Backend for Trade Analysis Platform
+FastAPI Backend for Trade Analysis Platform (Stateless Parser)
 
 Run with: uvicorn app.main:app --reload
 """
@@ -13,67 +13,22 @@ from fastapi.middleware.cors import CORSMiddleware
 import traceback
 
 from .config import settings
-from .database import init_db, close_db
-from .routers import (
-    auth_router,
-    accounts_router,
-    trades_router,
-    upload_router,
-    stats_router
-)
-
-# Track if DB is initialized (for serverless environments)
-_db_initialized = False
-
-
-async def ensure_db_initialized():
-    """Ensure database is initialized (for serverless environments)"""
-    global _db_initialized
-    if not _db_initialized:
-        await init_db()
-        _db_initialized = True
-
-
-# Use lifespan only for non-serverless environments
-if not os.environ.get("VERCEL"):
-    @asynccontextmanager
-    async def lifespan(app: FastAPI):
-        """Application lifespan handler"""
-        # Startup
-        print("🚀 Starting TradeTracker API...")
-        await init_db()
-        print("✅ Database initialized")
-        yield
-        # Shutdown
-        print("👋 Shutting down...")
-        await close_db()
-    
-    lifespan_handler = lifespan
-else:
-    lifespan_handler = None
+from .routers import upload_router
 
 
 # Create FastAPI app
 app = FastAPI(
     title=settings.app_name,
     description="""
-## 🚀 TradeTracker API
+## 🚀 TradeTracker Parser API
 
-Trade Analysis Platform - ניתוח עסקאות מסחר
+Stateless API for parsing trade CSVs. Persistence is handled by Frontend (Firebase).
 
 ### Features
-- 📊 Import trades from multiple brokers (IB, MT4, Binance)
-- 📈 Comprehensive trading statistics
-- 🎯 Win rate, profit factor, R-multiple analysis
-- 📅 Daily P&L tracking
-- ⏰ Hourly performance analysis
-
-### Authentication
-All endpoints (except /auth/register and /auth/login) require JWT authentication.
-Use the `/auth/login` endpoint to get an access token.
+- 📊 Parse trades from multiple brokers (IB, MT4, Binance)
+- 🔄 Returns JSON for frontend processing
     """,
-    version="0.1.0",
-    lifespan=lifespan_handler,
+    version="0.2.0",
     docs_url="/docs",
     redoc_url="/redoc"
 )
@@ -108,11 +63,7 @@ app.add_middleware(
 )
 
 # Include routers
-app.include_router(auth_router, prefix=settings.api_prefix)
-app.include_router(accounts_router, prefix=settings.api_prefix)
-app.include_router(trades_router, prefix=settings.api_prefix)
 app.include_router(upload_router, prefix=settings.api_prefix)
-app.include_router(stats_router, prefix=settings.api_prefix)
 
 
 @app.get("/")
@@ -121,7 +72,7 @@ async def root():
     return {
         "status": "healthy",
         "app": settings.app_name,
-        "version": "0.1.0",
+        "version": "0.2.0",
         "docs": "/docs"
     }
 
@@ -132,6 +83,6 @@ async def health_check():
     """Detailed health check"""
     return {
         "status": "healthy",
-        "database": "connected",
-        "api_version": "v1"
+        "mode": "stateless",
+        "api_version": "v2"
     }

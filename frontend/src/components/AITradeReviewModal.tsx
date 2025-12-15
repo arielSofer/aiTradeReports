@@ -7,17 +7,7 @@ import { TradeChartGenerator } from './TradeChartGenerator'
 import html2canvas from 'html2canvas'
 import { generateTradeReview } from '@/lib/openrouter'
 
-interface Trade {
-  id: number
-  symbol: string
-  direction: 'long' | 'short'
-  entryTime: string
-  exitTime?: string
-  entryPrice: number
-  exitPrice?: number
-  quantity: number
-  pnlNet?: number
-}
+import { Trade } from '@/lib/store'
 
 interface AITradeReviewModalProps {
   isOpen: boolean
@@ -31,7 +21,7 @@ export function AITradeReviewModal({ isOpen, onClose, trade }: AITradeReviewModa
   const [error, setError] = useState<string>('')
   const [generatingCharts, setGeneratingCharts] = useState(false)
   const [chartImages, setChartImages] = useState<string[]>([])
-  
+
   const chart5minRef = useRef<HTMLDivElement>(null)
   const chart15minRef = useRef<HTMLDivElement>(null)
   const chart1hRef = useRef<HTMLDivElement>(null)
@@ -46,7 +36,7 @@ export function AITradeReviewModal({ isOpen, onClose, trade }: AITradeReviewModa
 
   const captureChart = async (element: HTMLElement | null): Promise<string> => {
     if (!element) return ''
-    
+
     try {
       // Find the canvas inside the element (lightweight-charts renders to canvas)
       const canvas = element.querySelector('canvas')
@@ -54,7 +44,7 @@ export function AITradeReviewModal({ isOpen, onClose, trade }: AITradeReviewModa
         // Directly export canvas as image
         return canvas.toDataURL('image/png')
       }
-      
+
       // Fallback to html2canvas if no canvas found
       const htmlCanvas = await html2canvas(element, {
         backgroundColor: '#0f172a',
@@ -72,14 +62,14 @@ export function AITradeReviewModal({ isOpen, onClose, trade }: AITradeReviewModa
 
   const generateCharts = async () => {
     if (!trade) return []
-    
+
     setGeneratingCharts(true)
     try {
       // Wait for charts to fully render (lightweight-charts needs more time)
       await new Promise(resolve => setTimeout(resolve, 2000))
-      
+
       const images: string[] = []
-      
+
       // Capture each chart with retry
       const captureWithRetry = async (element: HTMLElement | null, retries = 3): Promise<string> => {
         if (!element) return ''
@@ -90,22 +80,22 @@ export function AITradeReviewModal({ isOpen, onClose, trade }: AITradeReviewModa
         }
         return ''
       }
-      
+
       if (chart5minRef.current) {
         const img5min = await captureWithRetry(chart5minRef.current)
         if (img5min) images.push(img5min)
       }
-      
+
       if (chart15minRef.current) {
         const img15min = await captureWithRetry(chart15minRef.current)
         if (img15min) images.push(img15min)
       }
-      
+
       if (chart1hRef.current) {
         const img1h = await captureWithRetry(chart1hRef.current)
         if (img1h) images.push(img1h)
       }
-      
+
       return images
     } finally {
       setGeneratingCharts(false)
@@ -125,7 +115,7 @@ export function AITradeReviewModal({ isOpen, onClose, trade }: AITradeReviewModa
     try {
       // First generate chart images
       const images = await generateCharts()
-      
+
       if (images.length === 0) {
         throw new Error('לא הצלחתי ליצור את הגרפים')
       }
@@ -134,7 +124,7 @@ export function AITradeReviewModal({ isOpen, onClose, trade }: AITradeReviewModa
 
       // Try API route first (works on Vercel), fallback to client-side
       let data: { review: string; model?: string }
-      
+
       try {
         // Try API route
         const response = await fetch('/api/ai/review-trade', {
@@ -198,17 +188,17 @@ export function AITradeReviewModal({ isOpen, onClose, trade }: AITradeReviewModa
       setReview(data.review || 'לא התקבלה סקירה')
     } catch (error: any) {
       console.error('Error generating review:', error)
-      
+
       // Show user-friendly error message
       let errorMessage = error.message || 'שגיאה ביצירת סקירה'
-      
+
       // Add retry suggestion for rate limits
       if (error.message?.includes('יותר מדי בקשות')) {
         errorMessage = error.message
       } else if (error.message?.includes('429')) {
         errorMessage = 'יותר מדי בקשות. אנא נסה שוב בעוד כמה דקות.'
       }
-      
+
       setError(errorMessage)
     } finally {
       setLoading(false)
@@ -220,7 +210,7 @@ export function AITradeReviewModal({ isOpen, onClose, trade }: AITradeReviewModa
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      
+
       <div className="relative w-full max-w-4xl bg-dark-900 rounded-2xl border border-dark-700 shadow-2xl max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-dark-800">
@@ -386,7 +376,7 @@ export function AITradeReviewModal({ isOpen, onClose, trade }: AITradeReviewModa
                   הורד
                 </button>
               </div>
-              
+
               <div className="p-6 bg-dark-800/50 rounded-xl border border-dark-700">
                 <div className="prose prose-invert max-w-none">
                   <pre className="text-sm text-dark-200 whitespace-pre-wrap font-sans">
@@ -405,8 +395,8 @@ export function AITradeReviewModal({ isOpen, onClose, trade }: AITradeReviewModa
                   <div className="grid grid-cols-3 gap-4">
                     {chartImages.map((img, idx) => (
                       <div key={idx} className="border border-dark-700 rounded-lg overflow-hidden">
-                        <img 
-                          src={img} 
+                        <img
+                          src={img}
                           alt={`Chart ${idx + 1}`}
                           className="w-full h-auto"
                         />

@@ -35,7 +35,7 @@ type SortDirection = 'asc' | 'desc'
 export function TradesTable({ trades, onTradeDeleted }: TradesTableProps) {
   const [sortField, setSortField] = useState<SortField>('entryTime')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
-  const [selectedTrade, setSelectedTrade] = useState<number | null>(null)
+  const [selectedTrade, setSelectedTrade] = useState<string | null>(null)
   const [chartTrade, setChartTrade] = useState<Trade | null>(null)
   const [isChartFullScreen, setIsChartFullScreen] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)

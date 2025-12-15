@@ -29,9 +29,9 @@ function DashboardContent() {
   const [isLoading, setIsLoading] = useState(true)
   const { user } = useAuth()
   const { trades, stats, setTrades, setStats, setDailyPnL, setHourlyStats } = useStore()
-  
+
   const refreshData = useCallback(() => setRefreshKey(prev => prev + 1), [])
-  
+
   // Debounce account selection for better performance
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -64,14 +64,14 @@ function DashboardContent() {
           // Load from Firebase - filter by account if selected
           // Limit to last 1000 trades for performance
           const accountIdFilter = debouncedAccountId === 'all' ? undefined : debouncedAccountId
-          const firestoreTrades = await getTrades(user.uid, { 
+          const firestoreTrades = await getTrades(user.uid, {
             accountId: accountIdFilter,
             limitCount: 1000 // Limit for performance
           })
-          
+
           // Convert Firestore trades to our format
           const convertedTrades = firestoreTrades.map(t => ({
-            id: parseInt(t.id || '0'),
+            id: t.id || 'temp-' + Math.random(),
             symbol: t.symbol,
             direction: t.direction,
             status: t.status,
@@ -88,9 +88,9 @@ function DashboardContent() {
             tags: t.tags || [],
             notes: t.notes,
           }))
-          
+
           setTrades(convertedTrades)
-          
+
           // Calculate stats from trades - filter by account if selected
           const firebaseStats = await calculateStats(user.uid, accountIdFilter)
           setStats({
@@ -110,7 +110,7 @@ function DashboardContent() {
             bestStreak: 0,
             worstStreak: 0,
           })
-          
+
           // Generate daily P&L from trades
           const dailyPnLMap: Record<string, { pnl: number; trades: number; winners: number; losers: number }> = {}
           convertedTrades.forEach(trade => {
@@ -125,7 +125,7 @@ function DashboardContent() {
               else if (trade.pnlNet < 0) dailyPnLMap[date].losers += 1
             }
           })
-          
+
           const sortedDates = Object.keys(dailyPnLMap).sort()
           let cumulative = 0
           const dailyPnLData = sortedDates.map(date => {
@@ -141,7 +141,7 @@ function DashboardContent() {
             }
           })
           setDailyPnL(dailyPnLData)
-          
+
           // Generate hourly stats from trades
           const hourlyMap: Record<number, { pnl: number; trades: number; wins: number }> = {}
           for (let h = 0; h < 24; h++) {
@@ -155,7 +155,7 @@ function DashboardContent() {
               if (trade.pnlNet > 0) hourlyMap[hour].wins += 1
             }
           })
-          
+
           const hourlyStatsData = Object.entries(hourlyMap).map(([hour, data]) => ({
             hour: parseInt(hour),
             pnl: data.pnl,
@@ -164,7 +164,7 @@ function DashboardContent() {
             winRate: data.trades > 0 ? (data.wins / data.trades) * 100 : 0
           }))
           setHourlyStats(hourlyStatsData)
-          
+
         } catch (error) {
           console.error('Error loading data:', error)
           // Start with empty data on error
@@ -216,16 +216,16 @@ function DashboardContent() {
         setIsLoading(false)
       }
     }
-    
+
     loadData()
   }, [user, debouncedAccountId, refreshKey, setTrades, setStats, setDailyPnL, setHourlyStats])
 
   const handleAddTrade = async (data: TradeFormData) => {
     if (!user) return
-    
+
     try {
       // Save to Firebase
-      await createTrade(user.uid, 'default', {
+      const newTradeId = await createTrade(user.uid, 'default', {
         symbol: data.symbol.toUpperCase(),
         direction: data.direction,
         status: data.exitPrice ? 'closed' : 'open',
@@ -241,10 +241,10 @@ function DashboardContent() {
         tags: data.tags ? data.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
         notes: data.notes || undefined,
       })
-      
+
       // Add to local state
       const newTrade = {
-        id: trades.length + 1,
+        id: newTradeId,
         symbol: data.symbol.toUpperCase(),
         direction: data.direction,
         status: data.exitPrice ? 'closed' as const : 'open' as const,
@@ -254,20 +254,20 @@ function DashboardContent() {
         exitPrice: data.exitPrice,
         quantity: data.quantity,
         commission: data.commission,
-        pnlNet: data.exitPrice 
-          ? (data.direction === 'long' 
-              ? (data.exitPrice - data.entryPrice) * data.quantity - data.commission
-              : (data.entryPrice - data.exitPrice) * data.quantity - data.commission)
+        pnlNet: data.exitPrice
+          ? (data.direction === 'long'
+            ? (data.exitPrice - data.entryPrice) * data.quantity - data.commission
+            : (data.entryPrice - data.exitPrice) * data.quantity - data.commission)
           : undefined,
         pnlPercent: data.exitPrice
-          ? ((data.direction === 'long' 
-              ? (data.exitPrice - data.entryPrice) 
-              : (data.entryPrice - data.exitPrice)) / data.entryPrice) * 100
+          ? ((data.direction === 'long'
+            ? (data.exitPrice - data.entryPrice)
+            : (data.entryPrice - data.exitPrice)) / data.entryPrice) * 100
           : undefined,
         isWinner: data.exitPrice
-          ? (data.direction === 'long' 
-              ? data.exitPrice > data.entryPrice 
-              : data.exitPrice < data.entryPrice)
+          ? (data.direction === 'long'
+            ? data.exitPrice > data.entryPrice
+            : data.exitPrice < data.entryPrice)
           : undefined,
         durationMinutes: data.exitTime && data.entryTime
           ? Math.round((new Date(data.exitTime).getTime() - new Date(data.entryTime).getTime()) / 60000)
@@ -275,7 +275,7 @@ function DashboardContent() {
         tags: data.tags ? data.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
         notes: data.notes || undefined,
       }
-      
+
       setTrades([newTrade, ...trades])
     } catch (error) {
       console.error('Error adding trade:', error)
@@ -286,13 +286,13 @@ function DashboardContent() {
   return (
     <div className="flex min-h-screen">
       <Sidebar />
-      
+
       <main className="flex-1 ml-64">
-        <Header 
-          onUploadClick={() => setShowUpload(true)} 
+        <Header
+          onUploadClick={() => setShowUpload(true)}
           onAddTradeClick={() => setShowAddTrade(true)}
         />
-        
+
         <div className="p-6 space-y-6">
           {/* Account Selector */}
           <div className="flex items-center justify-between">
@@ -307,8 +307,8 @@ function DashboardContent() {
                 <div className="text-right">
                   <p className="text-xs text-dark-500">מציג סטטיסטיקות של</p>
                   <p className="text-sm font-medium text-white">
-                    {selectedAccountId === 'all' 
-                      ? 'כל התיקים' 
+                    {selectedAccountId === 'all'
+                      ? 'כל התיקים'
                       : accounts.find(a => a.id === selectedAccountId)?.name || 'בחר תיק'}
                   </p>
                 </div>
@@ -318,9 +318,9 @@ function DashboardContent() {
               {/* Dropdown */}
               {showAccountDropdown && (
                 <>
-                  <div 
-                    className="fixed inset-0 z-40" 
-                    onClick={() => setShowAccountDropdown(false)} 
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowAccountDropdown(false)}
                   />
                   <div className="absolute top-full left-0 mt-2 w-64 bg-dark-800 border border-dark-700 rounded-xl shadow-2xl z-50 overflow-hidden">
                     <div className="p-2">
@@ -329,11 +329,10 @@ function DashboardContent() {
                           setSelectedAccountId('all')
                           setShowAccountDropdown(false)
                         }}
-                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${
-                          selectedAccountId === 'all' 
-                            ? 'bg-primary-500/20 text-primary-400' 
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${selectedAccountId === 'all'
+                            ? 'bg-primary-500/20 text-primary-400'
                             : 'hover:bg-dark-700 text-dark-300'
-                        }`}
+                          }`}
                       >
                         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500/30 to-accent-purple/30 flex items-center justify-center">
                           <Wallet className="w-4 h-4" />
@@ -355,15 +354,13 @@ function DashboardContent() {
                             setSelectedAccountId(account.id || 'all')
                             setShowAccountDropdown(false)
                           }}
-                          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${
-                            selectedAccountId === account.id 
-                              ? 'bg-primary-500/20 text-primary-400' 
+                          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${selectedAccountId === account.id
+                              ? 'bg-primary-500/20 text-primary-400'
                               : 'hover:bg-dark-700 text-dark-300'
-                          }`}
+                            }`}
                         >
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                            account.isDemo ? 'bg-accent-purple/20' : 'bg-primary-500/20'
-                          }`}>
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${account.isDemo ? 'bg-accent-purple/20' : 'bg-primary-500/20'
+                            }`}>
                             <Wallet className={`w-4 h-4 ${account.isDemo ? 'text-accent-purple' : 'text-primary-400'}`} />
                           </div>
                           <div className="text-right flex-1">
@@ -404,36 +401,36 @@ function DashboardContent() {
             <>
               {/* Stats Overview */}
               <StatsOverview stats={stats} />
-              
+
               {/* Calendar and Equity Curve Row */}
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                 {/* Trading Calendar */}
                 <TradingCalendar />
-                
+
                 {/* Equity Curve */}
                 <EquityCurve />
               </div>
-              
+
               {/* Economic Calendar and Hourly Heatmap */}
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                 {/* Economic Calendar */}
                 <EconomicCalendar />
-                
+
                 {/* Hourly Heatmap */}
                 <HourlyHeatmap />
               </div>
-              
+
               {/* Trades Table - Limit to 100 most recent for performance */}
               <TradesTable trades={trades.slice(0, 100)} onTradeDeleted={refreshData} />
             </>
           )}
         </div>
       </main>
-      
+
       {/* Upload Modal */}
-      <UploadModal 
-        isOpen={showUpload} 
-        onClose={() => setShowUpload(false)} 
+      <UploadModal
+        isOpen={showUpload}
+        onClose={() => setShowUpload(false)}
       />
 
       {/* Add Trade Modal */}

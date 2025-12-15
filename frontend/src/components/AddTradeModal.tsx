@@ -367,7 +367,7 @@ export function AddTradeModal({ isOpen, onClose, onSubmit }: AddTradeModalProps)
             // TradeDetailsModal expects a Trade object but we only have FormData
             // Let's create a temporary Trade-like object
             trade={{
-              id: 0,
+              id: 'temp-new',
               ...initialFormData,
               ...formData,
               tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean)

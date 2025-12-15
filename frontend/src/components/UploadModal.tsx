@@ -1,9 +1,13 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useDropzone } from 'react-dropzone'
-import { X, Upload, FileText, Check, AlertCircle, Loader2 } from 'lucide-react'
+import { X, Upload, FileText, Check, AlertCircle, Loader2, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useAuth } from '@/contexts/AuthContext'
+import { uploadApi } from '@/lib/api'
+import { getAccounts, batchCreateTrades, FirestoreAccount } from '@/lib/firebase/firestore'
+import { Timestamp } from 'firebase/firestore'
 
 interface UploadModalProps {
   isOpen: boolean
@@ -22,10 +26,38 @@ const brokers = [
 type UploadStatus = 'idle' | 'uploading' | 'success' | 'error'
 
 export function UploadModal({ isOpen, onClose }: UploadModalProps) {
+  const { user } = useAuth()
   const [selectedBroker, setSelectedBroker] = useState<string | null>(null)
   const [file, setFile] = useState<File | null>(null)
   const [status, setStatus] = useState<UploadStatus>('idle')
   const [result, setResult] = useState<any>(null)
+
+  // Account selection
+  const [accounts, setAccounts] = useState<FirestoreAccount[]>([])
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)
+  const [showAccountDropdown, setShowAccountDropdown] = useState(false)
+  const [loadingAccounts, setLoadingAccounts] = useState(false)
+
+  // Load accounts when modal opens
+  useEffect(() => {
+    const loadAccounts = async () => {
+      if (user && isOpen) {
+        setLoadingAccounts(true)
+        try {
+          const accountsList = await getAccounts(user.uid)
+          setAccounts(accountsList)
+          if (accountsList.length > 0 && !selectedAccountId) {
+            setSelectedAccountId(accountsList[0].id || null)
+          }
+        } catch (error) {
+          console.error('Error loading accounts:', error)
+        } finally {
+          setLoadingAccounts(false)
+        }
+      }
+    }
+    loadAccounts()
+  }, [user, isOpen])
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
@@ -46,25 +78,61 @@ export function UploadModal({ isOpen, onClose }: UploadModalProps) {
   })
 
   const handleUpload = async () => {
-    if (!file) return
+    if (!file || !user || !selectedAccountId) return
 
     setStatus('uploading')
-    
-    // Simulate upload - replace with actual API call
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    
-    // Mock result
-    setResult({
-      success: true,
-      tradesCreated: 10,
-      totalPnl: 3633.25,
-      winRate: 80.0,
-      dateRange: {
-        start: '2024-01-15',
-        end: '2024-01-18',
-      },
-    })
-    setStatus('success')
+
+    try {
+      // 1. Parse file on backend
+      const response = await uploadApi.parse(
+        file,
+        selectedBroker || undefined
+      )
+
+      if (!response.success || !response.trades || response.trades.length === 0) {
+        throw new Error(response.message || 'No trades parsed')
+      }
+
+      // 2. Format trades
+      const trades = response.trades.map((t: any) => ({
+        symbol: t.symbol,
+        direction: t.direction,
+        status: t.status,
+        assetType: t.assetType,
+        entryTime: t.entry_time ? Timestamp.fromDate(new Date(t.entry_time)) : Timestamp.now(),
+        exitTime: t.exit_time ? Timestamp.fromDate(new Date(t.exit_time)) : undefined,
+        entryPrice: t.entry_price,
+        exitPrice: t.exit_price,
+        quantity: t.quantity,
+        commission: t.commission,
+        tags: t.tags || [],
+        notes: t.notes,
+        raw_data: t.raw_data
+      }))
+
+      // 3. Save to Firestore
+      const createdCount = await batchCreateTrades(
+        user.uid,
+        selectedAccountId,
+        trades
+      )
+
+      setResult({
+        success: true,
+        tradesCreated: createdCount,
+        totalPnl: 0, // Could calculate if needed
+        winRate: response.win_rate || null,
+      })
+      setStatus('success')
+    } catch (error: any) {
+      console.error('Upload error:', error)
+      setResult({
+        success: false,
+        tradesCreated: 0,
+        errors: [error.response?.data?.detail || error.message || 'Upload failed']
+      })
+      setStatus('error')
+    }
   }
 
   const resetModal = () => {
@@ -80,7 +148,7 @@ export function UploadModal({ isOpen, onClose }: UploadModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div 
+      <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={resetModal}
       />
@@ -93,7 +161,7 @@ export function UploadModal({ isOpen, onClose }: UploadModalProps) {
             <h2 className="text-xl font-display font-bold text-white">Import Trades</h2>
             <p className="text-sm text-dark-500">Upload a CSV file with your trade history</p>
           </div>
-          <button 
+          <button
             onClick={resetModal}
             className="p-2 hover:bg-dark-800 rounded-lg transition-colors"
           >
@@ -115,37 +183,60 @@ export function UploadModal({ isOpen, onClose }: UploadModalProps) {
                   {result.tradesCreated} trades imported successfully
                 </p>
               </div>
-              
-              <div className="grid grid-cols-3 gap-4 py-4">
-                <div className="p-4 bg-dark-800 rounded-lg">
-                  <p className="text-2xl font-bold text-profit">
-                    ${result.totalPnl.toFixed(2)}
-                  </p>
-                  <p className="text-xs text-dark-500">Total P&L</p>
-                </div>
-                <div className="p-4 bg-dark-800 rounded-lg">
-                  <p className="text-2xl font-bold text-white">
-                    {result.winRate}%
-                  </p>
-                  <p className="text-xs text-dark-500">Win Rate</p>
-                </div>
-                <div className="p-4 bg-dark-800 rounded-lg">
-                  <p className="text-2xl font-bold text-white">
-                    {result.tradesCreated}
-                  </p>
-                  <p className="text-xs text-dark-500">Trades</p>
-                </div>
-              </div>
 
-              <button 
-                onClick={resetModal}
-                className="btn-primary"
-              >
-                View Dashboard
-              </button>
+              <div className="flex justify-center gap-4 py-4">
+                <button
+                  onClick={resetModal}
+                  className="btn-primary"
+                >
+                  View Dashboard
+                </button>
+              </div>
             </div>
           ) : (
             <>
+              {/* Account Selection */}
+              <div>
+                <label className="block text-sm font-medium text-dark-300 mb-2">Select Account</label>
+                <div className="relative">
+                  <button
+                    onClick={() => setShowAccountDropdown(!showAccountDropdown)}
+                    className="w-full flex items-center justify-between p-3 bg-dark-800 border border-dark-700 rounded-lg text-left"
+                  >
+                    <span className="text-white">
+                      {selectedAccountId
+                        ? accounts.find(a => a.id === selectedAccountId)?.name || 'Select Account'
+                        : 'Select Account'}
+                    </span>
+                    <ChevronDown className="w-4 h-4 text-dark-400" />
+                  </button>
+
+                  {showAccountDropdown && (
+                    <div className="absolute z-10 w-full mt-2 bg-dark-800 border border-dark-700 rounded-lg shadow-xl max-h-60 overflow-auto">
+                      {accounts.map(acc => (
+                        <button
+                          key={acc.id}
+                          onClick={() => {
+                            setSelectedAccountId(acc.id || null)
+                            setShowAccountDropdown(false)
+                          }}
+                          className={cn(
+                            "w-full text-left px-4 py-2 hover:bg-dark-700",
+                            selectedAccountId === acc.id && "bg-primary-500/10 text-primary-400"
+                          )}
+                        >
+                          {acc.name}
+                          <span className="ml-2 text-xs text-dark-500">{acc.broker}</span>
+                        </button>
+                      ))}
+                      {accounts.length === 0 && (
+                        <div className="p-4 text-center text-sm text-dark-400">No accounts found. Create one first.</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* Broker Selection */}
               <div>
                 <label className="block text-sm font-medium text-dark-300 mb-3">
@@ -181,14 +272,14 @@ export function UploadModal({ isOpen, onClose }: UploadModalProps) {
                   {...getRootProps()}
                   className={cn(
                     'border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200 cursor-pointer',
-                    isDragActive 
-                      ? 'border-primary-500 bg-primary-500/10' 
+                    isDragActive
+                      ? 'border-primary-500 bg-primary-500/10'
                       : 'border-dark-700 hover:border-dark-600',
                     file && 'border-primary-500/50'
                   )}
                 >
                   <input {...getInputProps()} />
-                  
+
                   {file ? (
                     <div className="flex items-center justify-center gap-3">
                       <div className="w-12 h-12 bg-primary-500/20 rounded-lg flex items-center justify-center">
@@ -215,6 +306,12 @@ export function UploadModal({ isOpen, onClose }: UploadModalProps) {
                   )}
                 </div>
               </div>
+
+              {status === 'error' && result?.errors && (
+                <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-lg">
+                  <p className="text-red-400 text-sm">{result.errors[0]}</p>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -222,18 +319,18 @@ export function UploadModal({ isOpen, onClose }: UploadModalProps) {
         {/* Footer */}
         {status !== 'success' && (
           <div className="flex items-center justify-end gap-3 p-6 border-t border-dark-800">
-            <button 
+            <button
               onClick={resetModal}
               className="btn-secondary"
             >
               Cancel
             </button>
-            <button 
+            <button
               onClick={handleUpload}
-              disabled={!file || status === 'uploading'}
+              disabled={!file || !selectedAccountId || status === 'uploading'}
               className={cn(
                 'btn-primary flex items-center gap-2',
-                (!file || status === 'uploading') && 'opacity-50 cursor-not-allowed'
+                (!file || !selectedAccountId || status === 'uploading') && 'opacity-50 cursor-not-allowed'
               )}
             >
               {status === 'uploading' ? (

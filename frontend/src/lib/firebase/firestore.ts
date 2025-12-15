@@ -11,7 +11,8 @@ import {
   limit,
   serverTimestamp,
   Timestamp,
-  QueryConstraint
+  QueryConstraint,
+  writeBatch
 } from 'firebase/firestore'
 import { db } from './config'
 
@@ -35,14 +36,14 @@ export async function createAccount(
   data: Omit<FirestoreAccount, 'id' | 'userId' | 'createdAt' | 'updatedAt'>
 ): Promise<string> {
   const accountsRef = collection(db, 'accounts')
-  
+
   const docRef = await addDoc(accountsRef, {
     ...data,
     userId,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   })
-  
+
   return docRef.id
 }
 
@@ -52,13 +53,13 @@ export async function getAccounts(userId: string): Promise<FirestoreAccount[]> {
     accountsRef,
     where('userId', '==', userId)
   )
-  
+
   const snapshot = await getDocs(q)
   const accounts = snapshot.docs.map(doc => ({
     id: doc.id,
     ...doc.data()
   } as FirestoreAccount))
-  
+
   // Sort client-side by createdAt descending
   return accounts.sort((a, b) => {
     const aTime = a.createdAt?.toMillis?.() || 0
@@ -70,7 +71,7 @@ export async function getAccounts(userId: string): Promise<FirestoreAccount[]> {
 export async function getAccount(accountId: string): Promise<FirestoreAccount | null> {
   const accountRef = doc(db, 'accounts', accountId)
   const snapshot = await getDoc(accountRef)
-  
+
   if (snapshot.exists()) {
     return { id: snapshot.id, ...snapshot.data() } as FirestoreAccount
   }
@@ -93,10 +94,10 @@ export async function deleteAccount(accountId: string): Promise<void> {
   const tradesRef = collection(db, 'trades')
   const q = query(tradesRef, where('accountId', '==', accountId))
   const snapshot = await getDocs(q)
-  
+
   const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref))
   await Promise.all(deletePromises)
-  
+
   // Delete account
   const accountRef = doc(db, 'accounts', accountId)
   await deleteDoc(accountRef)
@@ -135,12 +136,12 @@ export async function createTrade(
   data: Omit<FirestoreTrade, 'id' | 'userId' | 'accountId' | 'createdAt' | 'updatedAt'>
 ): Promise<string> {
   const tradesRef = collection(db, 'trades')
-  
+
   // Calculate P&L if closed
   let pnlGross: number = 0
   let pnlNet: number = 0
   let pnlPercent: number = 0
-  
+
   if (data.exitPrice && data.status === 'closed') {
     if (data.direction === 'long') {
       pnlGross = (data.exitPrice - data.entryPrice) * data.quantity
@@ -148,21 +149,21 @@ export async function createTrade(
       pnlGross = (data.entryPrice - data.exitPrice) * data.quantity
     }
     pnlNet = pnlGross - (data.commission || 0)
-    pnlPercent = data.entryPrice > 0 
-      ? (pnlGross / (data.entryPrice * data.quantity)) * 100 
+    pnlPercent = data.entryPrice > 0
+      ? (pnlGross / (data.entryPrice * data.quantity)) * 100
       : 0
   }
-  
+
   // Use provided pnl values if they exist in data
   const finalPnlGross = data.pnlGross !== undefined ? data.pnlGross : pnlGross
   const finalPnlNet = data.pnlNet !== undefined ? data.pnlNet : pnlNet
   const finalPnlPercent = data.pnlPercent !== undefined ? data.pnlPercent : pnlPercent
-  
+
   // Remove undefined values from data before saving
   const cleanData = Object.fromEntries(
     Object.entries(data).filter(([_, v]) => v !== undefined)
   )
-  
+
   const docRef = await addDoc(tradesRef, {
     ...cleanData,
     userId,
@@ -173,8 +174,74 @@ export async function createTrade(
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   })
-  
+
   return docRef.id
+}
+
+export async function batchCreateTrades(
+  userId: string,
+  accountId: string,
+  trades: Omit<FirestoreTrade, 'id' | 'userId' | 'accountId' | 'createdAt' | 'updatedAt'>[]
+): Promise<number> {
+  // Firestore batch limit is 500 operations
+  const BATCH_SIZE = 450
+  const chunks = []
+
+  for (let i = 0; i < trades.length; i += BATCH_SIZE) {
+    chunks.push(trades.slice(i, i + BATCH_SIZE))
+  }
+
+  let totalCreated = 0
+
+  for (const chunk of chunks) {
+    const batch = writeBatch(db)
+    const tradesRef = collection(db, 'trades')
+
+    for (const data of chunk) {
+      const docRef = doc(tradesRef)
+
+      // Calculate P&L logic (simplified duplication for batch)
+      let pnlGross: number = 0
+      let pnlNet: number = 0
+      let pnlPercent: number = 0
+
+      if (data.exitPrice && data.status === 'closed') {
+        if (data.direction === 'long') {
+          pnlGross = (data.exitPrice - data.entryPrice) * data.quantity
+        } else {
+          pnlGross = (data.entryPrice - data.exitPrice) * data.quantity
+        }
+        pnlNet = pnlGross - (data.commission || 0)
+        pnlPercent = data.entryPrice > 0
+          ? (pnlGross / (data.entryPrice * data.quantity)) * 100
+          : 0
+      }
+
+      const finalPnlGross = data.pnlGross !== undefined ? data.pnlGross : pnlGross
+      const finalPnlNet = data.pnlNet !== undefined ? data.pnlNet : pnlNet
+      const finalPnlPercent = data.pnlPercent !== undefined ? data.pnlPercent : pnlPercent
+
+      const cleanData = Object.fromEntries(
+        Object.entries(data).filter(([_, v]) => v !== undefined)
+      )
+
+      batch.set(docRef, {
+        ...cleanData,
+        userId,
+        accountId,
+        pnlGross: finalPnlGross,
+        pnlNet: finalPnlNet,
+        pnlPercent: finalPnlPercent,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      })
+    }
+
+    await batch.commit()
+    totalCreated += chunk.length
+  }
+
+  return totalCreated
 }
 
 export async function getTrades(
@@ -187,33 +254,33 @@ export async function getTrades(
   }
 ): Promise<FirestoreTrade[]> {
   const tradesRef = collection(db, 'trades')
-  
+
   // Simple query with just userId filter - no orderBy to avoid index requirement
   const constraints: QueryConstraint[] = [
     where('userId', '==', userId)
   ]
-  
+
   if (options?.limitCount) {
     constraints.push(limit(options.limitCount))
   }
-  
+
   const q = query(tradesRef, ...constraints)
   const snapshot = await getDocs(q)
-  
+
   let trades = snapshot.docs.map(doc => ({
     id: doc.id,
     ...doc.data()
   } as FirestoreTrade))
-  
+
   // Filter client-side for additional options
   if (options?.accountId) {
     trades = trades.filter(t => t.accountId === options.accountId)
   }
-  
+
   if (options?.status) {
     trades = trades.filter(t => t.status === options.status)
   }
-  
+
   // Sort client-side by entryTime descending
   return trades.sort((a, b) => {
     const aTime = a.entryTime?.toMillis?.() || 0
@@ -225,7 +292,7 @@ export async function getTrades(
 export async function getTrade(tradeId: string): Promise<FirestoreTrade | null> {
   const tradeRef = doc(db, 'trades', tradeId)
   const snapshot = await getDoc(tradeRef)
-  
+
   if (snapshot.exists()) {
     return { id: snapshot.id, ...snapshot.data() } as FirestoreTrade
   }
@@ -237,7 +304,7 @@ export async function updateTrade(
   data: Partial<FirestoreTrade>
 ): Promise<void> {
   const tradeRef = doc(db, 'trades', tradeId)
-  
+
   // Recalculate P&L if prices changed
   if (data.exitPrice || data.entryPrice) {
     const trade = await getTrade(tradeId)
@@ -247,7 +314,7 @@ export async function updateTrade(
       const quantity = data.quantity || trade.quantity
       const commission = data.commission || trade.commission
       const direction = data.direction || trade.direction
-      
+
       if (exitPrice) {
         let pnlGross: number
         if (direction === 'long') {
@@ -261,7 +328,7 @@ export async function updateTrade(
       }
     }
   }
-  
+
   await updateDoc(tradeRef, {
     ...data,
     updatedAt: serverTimestamp()
@@ -292,19 +359,19 @@ export interface TradeStats {
 
 export async function calculateStats(userId: string, accountId?: string): Promise<TradeStats> {
   const trades = await getTrades(userId, { accountId })
-  
+
   const closedTrades = trades.filter(t => t.status === 'closed')
   const openTrades = trades.filter(t => t.status === 'open')
-  
+
   const winners = closedTrades.filter(t => t.pnlNet && t.pnlNet > 0)
   const losers = closedTrades.filter(t => t.pnlNet && t.pnlNet < 0)
-  
+
   const totalPnl = closedTrades.reduce((sum, t) => sum + (t.pnlNet || 0), 0)
   const totalCommission = trades.reduce((sum, t) => sum + t.commission, 0)
-  
+
   const grossProfit = winners.reduce((sum, t) => sum + (t.pnlNet || 0), 0)
   const grossLoss = Math.abs(losers.reduce((sum, t) => sum + (t.pnlNet || 0), 0))
-  
+
   return {
     totalTrades: trades.length,
     winningTrades: winners.length,
@@ -343,13 +410,13 @@ export async function createImportRecord(
   data: Omit<ImportRecord, 'id' | 'userId' | 'createdAt'>
 ): Promise<string> {
   const importsRef = collection(db, 'imports')
-  
+
   const docRef = await addDoc(importsRef, {
     ...data,
     userId,
     createdAt: serverTimestamp()
   })
-  
+
   return docRef.id
 }
 
@@ -359,13 +426,13 @@ export async function getImportHistory(userId: string): Promise<ImportRecord[]> 
     importsRef,
     where('userId', '==', userId)
   )
-  
+
   const snapshot = await getDocs(q)
   const records = snapshot.docs.map(doc => ({
     id: doc.id,
     ...doc.data()
   } as ImportRecord))
-  
+
   // Sort client-side by createdAt descending
   return records.sort((a, b) => {
     const aTime = a.createdAt?.toMillis?.() || 0

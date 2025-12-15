@@ -2,7 +2,7 @@ import { Trade, Stats, DailyPnL, HourlyStat } from './store'
 
 export const mockTrades: Trade[] = [
   {
-    id: 1,
+    id: '1',
     symbol: 'AAPL',
     direction: 'long',
     status: 'closed',
@@ -20,7 +20,7 @@ export const mockTrades: Trade[] = [
     notes: 'Nice momentum play, caught the breakout',
   },
   {
-    id: 2,
+    id: '2',
     symbol: 'MSFT',
     direction: 'long',
     status: 'closed',
@@ -38,7 +38,7 @@ export const mockTrades: Trade[] = [
     notes: 'Entered too late, lesson learned',
   },
   {
-    id: 3,
+    id: '3',
     symbol: 'TSLA',
     direction: 'short',
     status: 'closed',
@@ -56,7 +56,7 @@ export const mockTrades: Trade[] = [
     notes: 'Perfect rejection at resistance',
   },
   {
-    id: 4,
+    id: '4',
     symbol: 'NVDA',
     direction: 'long',
     status: 'closed',
@@ -74,7 +74,7 @@ export const mockTrades: Trade[] = [
     notes: 'Rode the trend all day',
   },
   {
-    id: 5,
+    id: '5',
     symbol: 'GOOGL',
     direction: 'long',
     status: 'closed',
@@ -92,7 +92,7 @@ export const mockTrades: Trade[] = [
     notes: 'Bad entry, revenge trade after previous loss',
   },
   {
-    id: 6,
+    id: '6',
     symbol: 'META',
     direction: 'long',
     status: 'closed',
@@ -110,7 +110,7 @@ export const mockTrades: Trade[] = [
     notes: 'Strong volume breakout',
   },
   {
-    id: 7,
+    id: '7',
     symbol: 'AMZN',
     direction: 'short',
     status: 'closed',
@@ -128,7 +128,7 @@ export const mockTrades: Trade[] = [
     notes: 'Gap fade strategy worked perfectly',
   },
   {
-    id: 8,
+    id: '8',
     symbol: 'AMD',
     direction: 'long',
     status: 'closed',
@@ -146,7 +146,7 @@ export const mockTrades: Trade[] = [
     notes: 'Solid setup, good execution',
   },
   {
-    id: 9,
+    id: '9',
     symbol: 'SPY',
     direction: 'long',
     status: 'closed',
@@ -164,7 +164,7 @@ export const mockTrades: Trade[] = [
     notes: 'Quick morning scalp',
   },
   {
-    id: 10,
+    id: '10',
     symbol: 'QQQ',
     direction: 'short',
     status: 'closed',
