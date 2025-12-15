@@ -269,7 +269,13 @@ export async function getTrades(
 
   let trades = snapshot.docs.map(doc => ({
     id: doc.id,
-    ...doc.data()
+    ...doc.data(),
+    entryPrice: Number(doc.data().entryPrice),
+    exitPrice: doc.data().exitPrice ? Number(doc.data().exitPrice) : undefined,
+    quantity: Number(doc.data().quantity),
+    commission: Number(doc.data().commission),
+    pnlNet: doc.data().pnlNet ? Number(doc.data().pnlNet) : undefined,
+    pnlPercent: doc.data().pnlPercent ? Number(doc.data().pnlPercent) : undefined,
   } as FirestoreTrade))
 
   // Filter client-side for additional options

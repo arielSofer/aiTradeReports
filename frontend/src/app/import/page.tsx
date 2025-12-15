@@ -188,16 +188,13 @@ function ImportContent() {
         assetType: t.assetType,
         entryTime: t.entry_time ? Timestamp.fromDate(new Date(t.entry_time)) : Timestamp.now(),
         exitTime: t.exit_time ? Timestamp.fromDate(new Date(t.exit_time)) : undefined,
-        entryPrice: t.entry_price,
-        exitPrice: t.exit_price,
-        quantity: t.quantity,
-        commission: t.commission,
+        entryPrice: typeof t.entry_price === 'string' ? parseFloat(t.entry_price) : t.entry_price,
+        exitPrice: typeof t.exit_price === 'string' ? parseFloat(t.exit_price) : t.exit_price,
+        quantity: typeof t.quantity === 'string' ? parseFloat(t.quantity) : t.quantity,
+        commission: typeof t.commission === 'string' ? parseFloat(t.commission) : t.commission,
         tags: t.tags || [],
         notes: t.notes,
         raw_data: t.raw_data
-        // pnlGross/Net/Percent are calculated by batchCreateTrades logic if needed,
-        // or we can pass them if the parser calculated them.
-        // For now relying on firestore.ts logic to recalculate to be safe.
       }))
 
       // 3. Save to Firestore
