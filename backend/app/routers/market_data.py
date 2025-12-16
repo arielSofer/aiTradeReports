@@ -1,6 +1,13 @@
 from fastapi import APIRouter, HTTPException, Query
 from typing import List, Optional
 import yfinance as yf
+# Configure yfinance to use /tmp for caching (Vercel has read-only FS)
+try:
+    import os
+    yf.set_tz_cache_location("/tmp/yf_cache")
+except:
+    pass
+
 from datetime import datetime, timedelta
 import pandas as pd
 from pydantic import BaseModel

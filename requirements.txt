@@ -4,6 +4,7 @@
 # Data Processing
 pandas>=2.1.0
 numpy>=1.26.0
+yfinance>=0.2.36
 
 # Date & Time Handling
 python-dateutil>=2.8.2
