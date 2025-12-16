@@ -65,9 +65,9 @@ export function TradeChartViewer({
         const fromTime = entryTime - 86400
         const toTime = exitTime + 86400
 
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+        // Use relative path - handled by Next.js rewrites (local) or Vercel routes (prod)
         const res = await fetch(
-          `${apiUrl}/api/v1/market-data/candles?symbol=${trade.symbol}&from_time=${Math.floor(fromTime)}&to_time=${Math.floor(toTime)}&interval=${timeframe}`
+          `/api/v1/market-data/candles?symbol=${trade.symbol}&from_time=${Math.floor(fromTime)}&to_time=${Math.floor(toTime)}&interval=${timeframe}`
         )
 
         if (!res.ok) {
