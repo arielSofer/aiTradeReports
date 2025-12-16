@@ -4,7 +4,10 @@ import yfinance as yf
 # Configure yfinance to use /tmp for caching (Vercel has read-only FS)
 try:
     import os
-    yf.set_tz_cache_location("/tmp/yf_cache")
+    cache_dir = "/tmp/yf_cache"
+    if not os.path.exists(cache_dir):
+        os.makedirs(cache_dir, exist_ok=True)
+    yf.set_tz_cache_location(cache_dir)
 except:
     pass
 
@@ -99,5 +102,8 @@ async def get_candles(
         return candles
 
     except Exception as e:
-        print(f"Error fetching market data: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback
+        error_msg = f"Error fetching market data: {str(e)}\n{traceback.format_exc()}"
+        print(error_msg)
+        # Return the error details to the client for debugging
+        raise HTTPException(status_code=500, detail=error_msg)
