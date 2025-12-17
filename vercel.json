@@ -11,7 +11,10 @@
             "config": {
                 "includeFiles": [
                     "src/**",
-                    "backend/**"
+                    "src/**/*",
+                    "backend/**",
+                    "backend/**/*",
+                    "Performance.csv"
                 ]
             }
         }

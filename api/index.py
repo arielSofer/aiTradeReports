@@ -32,6 +32,14 @@ except Exception:
         if scope['type'] != 'http':
             return
             
+        # Check specifically for src directory
+        src_exists = os.path.exists("src")
+        src_contents = []
+        if src_exists:
+            for root, dirs, files in os.walk("src"):
+                for file in files:
+                    src_contents.append(os.path.join(root, file))
+
         error_data = {
             "error": startup_error,
             "detail": "Failed to import application or dependencies",
@@ -39,8 +47,9 @@ except Exception:
             "sys_path": sys.path,
             "cwd": os.getcwd(),
             "files_in_root": os.listdir(os.getcwd()) if os.path.exists(os.getcwd()) else [],
-            # recursively list backend dir to prove files exist
-            "backend_files": [] 
+            "backend_files": [],
+            "src_exists": src_exists,
+            "src_files": src_contents[:50]  # limit output
         }
         
         # Try to list backend files to debug structure
