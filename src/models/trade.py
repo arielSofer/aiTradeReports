@@ -88,6 +88,9 @@ class Trade(BaseModel):
     tags: List[str] = Field(default_factory=list)
     notes: Optional[str] = None
     
+    # שדה לעקיפת חישוב PnL (למשל בחוזים עתידיים עם מכפיל)
+    override_pnl: Optional[Decimal] = None
+    
     # מידע על החשבון והברוקר
     account_id: Optional[str] = None
     broker_name: Optional[str] = None
@@ -108,7 +111,7 @@ class Trade(BaseModel):
         """נרמל את הסימול - אותיות גדולות, ללא רווחים"""
         return v.strip().upper()
     
-    @field_validator("entry_price", "exit_price", "quantity", "commission", mode="before")
+    @field_validator("entry_price", "exit_price", "quantity", "commission", "override_pnl", mode="before")
     @classmethod
     def convert_to_decimal(cls, v):
         """המר מספרים ל-Decimal לדיוק מקסימלי"""
@@ -124,9 +127,14 @@ class Trade(BaseModel):
         """
         רווח/הפסד גולמי (לפני עמלות)
         
+        אם יש overrid_pnl, נשתמש בו (למשל עבור חוזים עתידיים).
+        אחרת:
         Long: (exit - entry) * quantity
         Short: (entry - exit) * quantity
         """
+        if self.override_pnl is not None:
+            return self.override_pnl
+            
         if self.exit_price is None:
             return None
         

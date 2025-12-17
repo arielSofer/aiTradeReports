@@ -696,50 +696,56 @@ class TradovateParser(BaseParser):
                     result.add_error(row_num, f"Invalid sell price: {sell_price}")
                     continue
                 
-                # Timestamps - נבדוק גם את השמות המקוריים
+                # Timestamps
                 bought_timestamp_raw = row.get("bought_timestamp") or row.get("boughtTimestamp") or row.get("boughttimestamp")
                 if pd.isna(bought_timestamp_raw) or not str(bought_timestamp_raw).strip():
                     result.skipped_rows += 1
                     continue
-                entry_time = self._parse_tradovate_datetime(bought_timestamp_raw)
+                bought_time = self._parse_tradovate_datetime(bought_timestamp_raw)
                 
                 sold_timestamp_raw = row.get("sold_timestamp") or row.get("soldTimestamp") or row.get("soldtimestamp")
                 if pd.isna(sold_timestamp_raw) or not str(sold_timestamp_raw).strip():
                     result.skipped_rows += 1
                     continue
-                exit_time = self._parse_tradovate_datetime(sold_timestamp_raw)
-                
-                # Direction - נקבע לפי המחירים והתאריכים
-                # בפורמט Performance, buyPrice הוא מחיר הכניסה ו-sellPrice הוא מחיר היציאה
-                # אם buyPrice < sellPrice = LONG (קנינו נמוך, מכרנו גבוה)
-                # אם buyPrice > sellPrice = SHORT (קנינו גבוה, מכרנו נמוך)
-                # אבל צריך לבדוק את הסדר הכרונולוגי - אם soldTimestamp < boughtTimestamp, זה מוזר
-                if entry_time <= exit_time:
-                    # כניסה לפני או באותו זמן כמו יציאה - נקבע לפי המחירים
-                    if buy_price < sell_price:
-                        direction = TradeDirection.LONG
-                    else:
-                        direction = TradeDirection.SHORT
+                sold_time = self._parse_tradovate_datetime(sold_timestamp_raw)
+
+                # Determine Direction based on timestamps & Assign Prices
+                if bought_time < sold_time:
+                    direction = TradeDirection.LONG
+                    entry_time = bought_time
+                    exit_time = sold_time
+                    entry_price = Decimal(str(buy_price))
+                    exit_price = Decimal(str(sell_price))
                 else:
-                    # יציאה לפני כניסה - זה מוזר, אבל נטפל בזה
-                    # במקרה הזה, אולי זה SHORT שסגרנו לפני שפתחנו (לא הגיוני אבל נטפל)
-                    if sell_price < buy_price:
-                        direction = TradeDirection.SHORT
-                    else:
-                        direction = TradeDirection.LONG
-                
-                # P&L
+                    direction = TradeDirection.SHORT
+                    entry_time = sold_time
+                    exit_time = bought_time
+                    entry_price = Decimal(str(sell_price))
+                    exit_price = Decimal(str(buy_price))
+
+                # P&L - Clean currency formatting including (val) -> -val
                 pnl = Decimal("0")
                 pnl_raw = row.get("pnl", None)
                 if pd.notna(pnl_raw):
                     try:
-                        # הסר $ וסוגריים
-                        pnl_str = str(pnl_raw).strip().replace("$", "").replace("(", "-").replace(")", "")
-                        pnl = Decimal(str(self._parse_decimal(pnl_str)))
+                        pnl_str = str(pnl_raw).strip()
+                        # Handle negative in parens: (30$) -> -30$
+                        is_negative = False
+                        if "(" in pnl_str and ")" in pnl_str:
+                            is_negative = True
+                            pnl_str = pnl_str.replace("(", "").replace(")", "")
+                        
+                        # Remove currency symbol and commas
+                        pnl_str = pnl_str.replace("$", "").replace(",", "")
+                        
+                        val = self._parse_decimal(pnl_str)
+                        if is_negative:
+                            val = -abs(val)
+                        pnl = Decimal(str(val))
                     except:
                         pass
                 
-                # Commission - לא תמיד יש בפורמט הזה
+                # Commission
                 commission = Decimal("0")
                 comm_raw = row.get("commission", 0)
                 if pd.notna(comm_raw):
@@ -748,7 +754,7 @@ class TradovateParser(BaseParser):
                     except:
                         pass
                 
-                # צור עסקה סגורה
+                # Create Trade
                 trade = Trade(
                     symbol=symbol,
                     direction=direction,
@@ -756,19 +762,13 @@ class TradovateParser(BaseParser):
                     asset_type=self._detect_asset_type(symbol_raw),
                     entry_time=entry_time,
                     exit_time=exit_time,
-                    entry_price=Decimal(str(buy_price)),
-                    exit_price=Decimal(str(sell_price)),
+                    entry_price=entry_price,
+                    exit_price=exit_price,
                     quantity=Decimal(str(quantity)),
                     commission=commission,
+                    override_pnl=pnl if pnl != 0 else None,
                     raw_data=row.to_dict()
                 )
-                
-                # חשב P&L אם לא סופק
-                if pnl == 0:
-                    trade.calculate_pnl() if hasattr(trade, 'calculate_pnl') else None
-                else:
-                    # אם יש P&L מהקובץ, נשתמש בו (אבל נחשב גם את שלנו לוודא)
-                    trade.calculate_pnl() if hasattr(trade, 'calculate_pnl') else None
                 
                 result.trades.trades.append(trade)
                 result.parsed_successfully += 1
