@@ -39,8 +39,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (user) {
         // Fetch user profile from Firestore
-        const userProfile = await getUserProfile(user.uid)
-        setProfile(userProfile)
+        // Wrap in try-catch for guest users who may not have profile permissions
+        try {
+          const userProfile = await getUserProfile(user.uid)
+          setProfile(userProfile)
+        } catch (error) {
+          console.warn('Could not fetch user profile:', error)
+          // Create a minimal profile for guest users
+          setProfile({
+            uid: user.uid,
+            email: user.email || '',
+            displayName: user.isAnonymous ? 'Guest User' : user.displayName,
+            photoURL: user.photoURL,
+            createdAt: null,
+            lastLogin: null,
+            settings: {
+              currency: 'USD',
+              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+              theme: 'dark'
+            }
+          })
+        }
       } else {
         setProfile(null)
       }
