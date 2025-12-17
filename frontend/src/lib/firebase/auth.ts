@@ -7,6 +7,7 @@ import {
   sendPasswordResetEmail,
   GoogleAuthProvider,
   signInWithPopup,
+  signInAnonymously as firebaseSignInAnonymously,
   User,
   UserCredential
 } from 'firebase/auth'
@@ -30,30 +31,30 @@ export interface UserProfile {
 
 // Register new user
 export async function registerUser(
-  email: string, 
-  password: string, 
+  email: string,
+  password: string,
   displayName?: string
 ): Promise<UserCredential> {
   const userCredential = await createUserWithEmailAndPassword(auth, email, password)
-  
+
   // Update profile
   if (displayName) {
     await updateProfile(userCredential.user, { displayName })
   }
-  
+
   // Create user document in Firestore
   await createUserProfile(userCredential.user, displayName)
-  
+
   return userCredential
 }
 
 // Sign in
 export async function signIn(email: string, password: string): Promise<UserCredential> {
   const userCredential = await signInWithEmailAndPassword(auth, email, password)
-  
+
   // Update last login
   await updateLastLogin(userCredential.user.uid)
-  
+
   return userCredential
 }
 
@@ -62,9 +63,9 @@ export async function signInWithGoogle(): Promise<UserCredential> {
   const provider = new GoogleAuthProvider()
   provider.addScope('email')
   provider.addScope('profile')
-  
+
   const userCredential = await signInWithPopup(auth, provider)
-  
+
   // Create or update user profile
   const profileExists = await checkUserProfile(userCredential.user.uid)
   if (!profileExists) {
@@ -72,7 +73,7 @@ export async function signInWithGoogle(): Promise<UserCredential> {
   } else {
     await updateLastLogin(userCredential.user.uid)
   }
-  
+
   return userCredential
 }
 
@@ -86,10 +87,23 @@ export async function resetPassword(email: string): Promise<void> {
   await sendPasswordResetEmail(auth, email)
 }
 
+// Sign in anonymously (Guest)
+export async function signInAnonymously(): Promise<UserCredential> {
+  const userCredential = await firebaseSignInAnonymously(auth)
+
+  // Create a guest profile if new
+  const profileExists = await checkUserProfile(userCredential.user.uid)
+  if (!profileExists) {
+    await createUserProfile(userCredential.user, 'Guest User')
+  }
+
+  return userCredential
+}
+
 // Create user profile in Firestore
 async function createUserProfile(user: User, displayName?: string): Promise<void> {
   const userRef = doc(db, 'users', user.uid)
-  
+
   const profile: UserProfile = {
     uid: user.uid,
     email: user.email || '',
@@ -103,7 +117,7 @@ async function createUserProfile(user: User, displayName?: string): Promise<void
       theme: 'dark'
     }
   }
-  
+
   await setDoc(userRef, profile)
 }
 
@@ -124,7 +138,7 @@ async function updateLastLogin(uid: string): Promise<void> {
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {
   const userRef = doc(db, 'users', uid)
   const userSnap = await getDoc(userRef)
-  
+
   if (userSnap.exists()) {
     return userSnap.data() as UserProfile
   }
@@ -133,7 +147,7 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
 
 // Update user profile
 export async function updateUserProfile(
-  uid: string, 
+  uid: string,
   data: Partial<UserProfile>
 ): Promise<void> {
   const userRef = doc(db, 'users', uid)

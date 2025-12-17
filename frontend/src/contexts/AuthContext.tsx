@@ -2,12 +2,13 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import { User } from 'firebase/auth'
-import { 
-  onAuthChange, 
-  signIn, 
-  signOut, 
-  registerUser, 
+import {
+  onAuthChange,
+  signIn,
+  signOut,
+  registerUser,
   signInWithGoogle,
+  signInAnonymously,
   resetPassword,
   getUserProfile,
   UserProfile
@@ -20,6 +21,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>
   signUp: (email: string, password: string, displayName?: string) => Promise<void>
   signInWithGoogle: () => Promise<void>
+  signInAnonymously: () => Promise<void>
   signOut: () => Promise<void>
   resetPassword: (email: string) => Promise<void>
 }
@@ -34,7 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const unsubscribe = onAuthChange(async (user) => {
       setUser(user)
-      
+
       if (user) {
         // Fetch user profile from Firestore
         const userProfile = await getUserProfile(user.uid)
@@ -42,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setProfile(null)
       }
-      
+
       setLoading(false)
     })
 
@@ -69,6 +71,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await resetPassword(email)
   }
 
+  const handleSignInAnonymously = async () => {
+    await signInAnonymously()
+  }
+
   const value = {
     user,
     profile,
@@ -76,6 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signIn: handleSignIn,
     signUp: handleSignUp,
     signInWithGoogle: handleSignInWithGoogle,
+    signInAnonymously: handleSignInAnonymously,
     signOut: handleSignOut,
     resetPassword: handleResetPassword
   }
