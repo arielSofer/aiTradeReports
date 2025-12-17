@@ -1,45 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// Symbol mapping for futures contracts
+// Symbol mapping for futures contracts - map to stock equivalents for data
 const SYMBOL_MAP: Record<string, string> = {
-    // Micro E-mini futures
-    'MNQ': 'NQ=F',  // Micro Nasdaq
-    'MES': 'ES=F',  // Micro S&P 500
-    'M2K': 'RTY=F', // Micro Russell
-    'MYM': 'YM=F',  // Micro Dow
-    'MCL': 'CL=F',  // Micro Crude Oil
-    'MGC': 'GC=F',  // Micro Gold
+    // Micro E-mini futures -> ETF/Index proxy
+    'MNQ': 'QQQ',   // Micro Nasdaq -> Nasdaq ETF
+    'MES': 'SPY',   // Micro S&P 500 -> S&P ETF
+    'M2K': 'IWM',   // Micro Russell -> Russell ETF
+    'MYM': 'DIA',   // Micro Dow -> Dow ETF
+    'MCL': 'USO',   // Micro Crude -> Oil ETF
+    'MGC': 'GLD',   // Micro Gold -> Gold ETF
 
     // E-mini futures
-    'NQ': 'NQ=F',
-    'ES': 'ES=F',
-    'RTY': 'RTY=F',
-    'YM': 'YM=F',
+    'NQ': 'QQQ',
+    'ES': 'SPY',
+    'RTY': 'IWM',
+    'YM': 'DIA',
 
     // Commodities
-    'GC': 'GC=F',
-    'CL': 'CL=F',
-    'SI': 'SI=F',
-    'NG': 'NG=F',
-
-    // Forex
-    'EUR': 'EURUSD=X',
-    'GBP': 'GBPUSD=X',
-    'JPY': 'USDJPY=X',
+    'GC': 'GLD',
+    'CL': 'USO',
+    'SI': 'SLV',
 
     // Crypto
-    'BTC': 'BTC-USD',
-    'ETH': 'ETH-USD',
+    'BTC': 'COIN',
+    'ETH': 'COIN',
 }
 
-// Convert interval to Yahoo format
-const INTERVAL_MAP: Record<string, string> = {
-    '1m': '1m',
-    '5m': '5m',
-    '15m': '15m',
-    '30m': '30m',
-    '1h': '60m',
-    '1d': '1d',
+// Convert interval to Finnhub format
+const FINNHUB_RESOLUTION: Record<string, string> = {
+    '1m': '1',
+    '5m': '5',
+    '15m': '15',
+    '30m': '30',
+    '1h': '60',
+    '1d': 'D',
 }
 
 // Normalize symbol (handle variations like F.US.MNQ, MNQ, etc.)
@@ -59,7 +53,7 @@ function normalizeSymbol(rawSymbol: string): string {
         return SYMBOL_MAP[symbol]
     }
 
-    // If it looks like a stock, return as-is
+    // If it looks like a stock ticker, return as-is
     if (/^[A-Z]{1,5}$/.test(symbol)) {
         return symbol
     }
@@ -76,98 +70,58 @@ export async function GET(request: NextRequest) {
     const interval = searchParams.get('interval') || '15m'
 
     const symbol = normalizeSymbol(rawSymbol)
-    const yahooInterval = INTERVAL_MAP[interval] || '15m'
+    const resolution = FINNHUB_RESOLUTION[interval] || '15'
+
+    // Finnhub API (free tier: 60 calls/minute)
+    const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY || 'demo'
 
     try {
-        // Calculate range based on time difference
-        const timeDiff = toTime - fromTime
-        let range = '5d' // default
+        // Expand time range to ensure we get 30+ candles before and after
+        const intervalSeconds = parseInt(resolution) * 60 || 3600
+        const expandedFrom = fromTime - (30 * intervalSeconds)
+        const expandedTo = toTime + (30 * intervalSeconds)
 
-        if (timeDiff <= 3600) { // 1 hour
-            range = '1d'
-        } else if (timeDiff <= 86400) { // 1 day
-            range = '5d'
-        } else if (timeDiff <= 604800) { // 1 week
-            range = '1mo'
-        } else {
-            range = '3mo'
-        }
+        // Fetch from Finnhub
+        const finnhubUrl = `https://finnhub.io/api/v1/stock/candle?symbol=${encodeURIComponent(symbol)}&resolution=${resolution}&from=${expandedFrom}&to=${expandedTo}&token=${FINNHUB_API_KEY}`
 
-        // For intraday intervals, we need to use the right range
-        if (yahooInterval.includes('m')) {
-            // Intraday data is limited on Yahoo
-            range = '5d' // Max for 1m/5m/15m is 7 days
-        }
+        console.log(`Fetching Finnhub: symbol=${symbol}, resolution=${resolution}`)
 
-        // Fetch from Yahoo Finance chart API
-        const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${yahooInterval}&range=${range}&includePrePost=true`
-
-        console.log(`Fetching Yahoo Finance: ${yahooUrl}`)
-
-        const response = await fetch(yahooUrl, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            },
+        const response = await fetch(finnhubUrl, {
             next: { revalidate: 60 } // Cache for 1 minute
         })
 
         if (!response.ok) {
-            console.error(`Yahoo Finance returned status ${response.status}`)
-            return NextResponse.json(
-                { error: `Failed to fetch data for ${symbol}` },
-                { status: response.status }
-            )
+            throw new Error(`Finnhub returned status ${response.status}`)
         }
 
         const data = await response.json()
 
-        if (data.chart?.error) {
-            console.error('Yahoo Finance error:', data.chart.error)
-            return NextResponse.json(
-                { error: data.chart.error.description || 'Symbol not found' },
-                { status: 404 }
-            )
+        if (data.s === 'no_data' || !data.t || data.t.length === 0) {
+            console.log(`No data from Finnhub for ${symbol}, returning empty...`)
+            // Return empty array - frontend will use synthetic data
+            return NextResponse.json([])
         }
-
-        const result = data.chart?.result?.[0]
-        if (!result) {
-            return NextResponse.json(
-                { error: 'No data returned' },
-                { status: 404 }
-            )
-        }
-
-        const timestamps = result.timestamp || []
-        const quote = result.indicators?.quote?.[0] || {}
 
         // Build candle data
-        const candles = timestamps.map((time: number, i: number) => ({
+        const candles = data.t.map((time: number, i: number) => ({
             time,
-            open: quote.open?.[i] || 0,
-            high: quote.high?.[i] || 0,
-            low: quote.low?.[i] || 0,
-            close: quote.close?.[i] || 0,
+            open: data.o[i],
+            high: data.h[i],
+            low: data.l[i],
+            close: data.c[i],
         }))
-            .filter((c: any) => c.open > 0 && c.high > 0 && c.low > 0 && c.close > 0)
+            .filter((c: { open: number; high: number; low: number; close: number }) =>
+                c.open > 0 && c.high > 0 && c.low > 0 && c.close > 0
+            )
+            .sort((a: { time: number }, b: { time: number }) => a.time - b.time)
 
-        // Filter to requested time range (with some buffer)
-        const bufferSeconds = yahooInterval.includes('m') ? 3600 : 86400
-        const filteredCandles = candles.filter((c: any) =>
-            c.time >= fromTime - bufferSeconds && c.time <= toTime + bufferSeconds
-        )
+        console.log(`Returning ${candles.length} candles for ${symbol}`)
 
-        // If no candles in range, return all (better than empty)
-        const finalCandles = filteredCandles.length > 0 ? filteredCandles : candles.slice(-60)
-
-        console.log(`Returning ${finalCandles.length} candles for ${symbol}`)
-
-        return NextResponse.json(finalCandles)
+        return NextResponse.json(candles)
 
     } catch (error) {
         console.error('Error fetching market data:', error)
-        return NextResponse.json(
-            { error: 'Failed to fetch market data' },
-            { status: 500 }
-        )
+        // Return empty array instead of error - frontend will use synthetic data
+        return NextResponse.json([])
     }
 }
