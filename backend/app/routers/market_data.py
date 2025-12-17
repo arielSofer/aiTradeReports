@@ -1,19 +1,12 @@
 from fastapi import APIRouter, HTTPException, Query
 from typing import List, Optional
-import yfinance as yf
-# Configure yfinance to use /tmp for caching (Vercel has read-only FS)
-try:
-    import os
-    cache_dir = "/tmp/yf_cache"
-    if not os.path.exists(cache_dir):
-        os.makedirs(cache_dir, exist_ok=True)
-    yf.set_tz_cache_location(cache_dir)
-except:
-    pass
+import os
 
 from datetime import datetime, timedelta
 import pandas as pd
 from pydantic import BaseModel
+
+# yfinance is optionally imported inside the endpoint to prevent app crash if not installed
 
 router = APIRouter(
     prefix="/market-data",
@@ -39,6 +32,20 @@ async def get_candles(
     Fetch historical candle data from Yahoo Finance.
     """
     try:
+        # Lazy import yfinance to prevent app crash if not installed
+        try:
+            import yfinance as yf
+            # Configure cache location for Vercel's read-only filesystem
+            cache_dir = "/tmp/yf_cache"
+            if not os.path.exists(cache_dir):
+                os.makedirs(cache_dir, exist_ok=True)
+            yf.set_tz_cache_location(cache_dir)
+        except ImportError:
+            raise HTTPException(
+                status_code=503, 
+                detail="Market data service unavailable - yfinance not installed"
+            )
+        
         # Convert timestamps to datetime
         start_dt = datetime.fromtimestamp(from_time)
         end_dt = datetime.fromtimestamp(to_time)
