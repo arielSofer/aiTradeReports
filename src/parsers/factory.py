@@ -178,6 +178,10 @@ class ParserFactory:
         if "contract" in content_lower and "b/s" in content_lower and "qty" in content_lower:
             return Broker.TRADOVATE
             
+        # Specific check for Performance format: "symbol,buyPrice,sellPrice"
+        if "buyprice" in content_lower and "sellprice" in content_lower and "boughttimestamp" in content_lower:
+            return Broker.TRADOVATE
+            
         if tradovate_count >= 2:
             return Broker.TRADOVATE
         
