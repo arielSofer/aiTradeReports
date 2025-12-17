@@ -50,40 +50,38 @@ async def get_candles(
         start_dt = datetime.fromtimestamp(from_time)
         end_dt = datetime.fromtimestamp(to_time)
         
-        # Adjust symbol for Yahoo Finance
-        yf_symbol = symbol
+        # Normalize symbol: handle Tradovate and other formats
+        # F.US.MNQ -> MNQ, MNQZ5 -> MNQ, etc.
+        import re
+        normalized_symbol = symbol.upper().strip()
         
-        # Mappings for Futures
-        # Full contracts
-        if symbol == "ES": yf_symbol = "ES=F"
-        elif symbol == "NQ": yf_symbol = "NQ=F"
-        elif symbol == "YM": yf_symbol = "YM=F"
-        elif symbol == "RTY": yf_symbol = "RTY=F"
-        elif symbol == "CL": yf_symbol = "CL=F"
-        elif symbol == "GC": yf_symbol = "GC=F"
-        elif symbol == "SI": yf_symbol = "SI=F"
-        elif symbol == "HG": yf_symbol = "HG=F"
-        elif symbol == "NG": yf_symbol = "NG=F"
-        elif symbol == "ZB": yf_symbol = "ZB=F"
-        elif symbol == "ZN": yf_symbol = "ZN=F"
-        elif symbol == "ZF": yf_symbol = "ZF=F"
-        elif symbol == "ZT": yf_symbol = "ZT=F"
-        elif symbol == "6E": yf_symbol = "6E=F" # Euro
-        elif symbol == "6B": yf_symbol = "6B=F" # British Pound
-        elif symbol == "6J": yf_symbol = "6J=F" # Japanese Yen
-        elif symbol == "6A": yf_symbol = "6A=F" # Australian Dollar
+        # Strip "F.US." or similar prefixes
+        if normalized_symbol.startswith("F.US."):
+            normalized_symbol = normalized_symbol[5:]  # Remove "F.US."
+        elif normalized_symbol.startswith("F."):
+            normalized_symbol = normalized_symbol[2:]  # Remove "F."
         
-        # Micros
-        elif symbol == "MES": yf_symbol = "MES=F"
-        elif symbol == "MNQ": yf_symbol = "MNQ=F"
-        elif symbol == "MYM": yf_symbol = "MYM=F"
-        elif symbol == "M2K": yf_symbol = "M2K=F"
-        elif symbol == "MGC": yf_symbol = "MGC=F"
-        elif symbol == "SIL": yf_symbol = "SIL=F" # Micro Silver
-        elif symbol == "QI": yf_symbol = "QI=F" # Micro Silver (alternative)
-        elif symbol == "QO": yf_symbol = "QO=F" # Micro Gold (alternative)
-        elif symbol == "MN": yf_symbol = "MN=F" # Micro Natural Gas? Depends. 
-        elif symbol == "MCL": yf_symbol = "MCL=F" # Micro Crude Oil
+        # Strip futures contract suffix (e.g., Z5, H4, M6)
+        # Pattern: base symbol + month letter + year digit(s)
+        futures_pattern = r'^([A-Z]{2,4})[FGHJKMNQUVXZ]\d{1,2}$'
+        match = re.match(futures_pattern, normalized_symbol)
+        if match:
+            normalized_symbol = match.group(1)
+        
+        # Symbol to Yahoo Finance mapping
+        symbol_map = {
+            # Full contracts
+            "ES": "ES=F", "NQ": "NQ=F", "YM": "YM=F", "RTY": "RTY=F",
+            "CL": "CL=F", "GC": "GC=F", "SI": "SI=F", "HG": "HG=F", "NG": "NG=F",
+            "ZB": "ZB=F", "ZN": "ZN=F", "ZF": "ZF=F", "ZT": "ZT=F",
+            "6E": "6E=F", "6B": "6B=F", "6J": "6J=F", "6A": "6A=F",
+            # Micros
+            "MES": "MES=F", "MNQ": "MNQ=F", "MYM": "MYM=F", "M2K": "M2K=F",
+            "MGC": "MGC=F", "SIL": "SIL=F", "QI": "QI=F", "QO": "QO=F",
+            "MN": "MN=F", "MCL": "MCL=F"
+        }
+        
+        yf_symbol = symbol_map.get(normalized_symbol, normalized_symbol)
 
         # Fetch data
         ticker = yf.Ticker(yf_symbol)
