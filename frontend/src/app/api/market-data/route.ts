@@ -138,13 +138,13 @@ export async function GET(request: NextRequest) {
                 const record = JSON.parse(line)
                 // ts_event is in the "hd" (header) object, in nanoseconds as string
                 const tsEvent = record.hd?.ts_event || record.ts_event
-                // Prices are fixed-point with 1e12 (12 decimal places)
+                // Prices are fixed-point with 1e9 (9 decimal places)
                 return {
                     time: Math.floor(Number(tsEvent) / 1000000000), // nanoseconds to seconds
-                    open: Number(record.open) / 1000000000000,   // Fixed-point 12 decimals
-                    high: Number(record.high) / 1000000000000,
-                    low: Number(record.low) / 1000000000000,
-                    close: Number(record.close) / 1000000000000,
+                    open: Number(record.open) / 1000000000,   // Fixed-point 9 decimals
+                    high: Number(record.high) / 1000000000,
+                    low: Number(record.low) / 1000000000,
+                    close: Number(record.close) / 1000000000,
                 }
             } catch {
                 return null
