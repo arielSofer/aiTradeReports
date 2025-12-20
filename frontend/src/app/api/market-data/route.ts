@@ -1,31 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 // Symbol mapping for futures contracts - map to trackable equivalents
-// Using ETFs because they closely track the index and work with free API tier
+// With paid API key, we can use forex/index symbols directly
 const SYMBOL_MAP: Record<string, string> = {
-    // Micro E-mini futures -> Index-tracking ETF
-    'MNQ': 'QQQ',   // Micro Nasdaq-100 -> Invesco QQQ (tracks NAS100)
-    'MES': 'SPY',   // Micro S&P 500 -> SPDR S&P 500 (tracks US500)
-    'M2K': 'IWM',   // Micro Russell 2000 -> iShares Russell 2000
-    'MYM': 'DIA',   // Micro Dow -> SPDR Dow Jones
-    'MCL': 'USO',   // Micro Crude Oil -> US Oil Fund
-    'MGC': 'GLD',   // Micro Gold -> SPDR Gold
+    // Micro E-mini futures -> Index-tracking symbols
+    'MNQ': 'NAS100',  // Micro Nasdaq-100 -> Nasdaq 100 Index
+    'MES': 'US500',   // Micro S&P 500 -> S&P 500 Index
+    'M2K': 'RUT',     // Micro Russell 2000 -> Russell 2000
+    'MYM': 'DJI',     // Micro Dow -> Dow Jones
+    'MCL': 'USOIL',   // Micro Crude Oil -> WTI Crude
+    'MGC': 'XAU/USD', // Micro Gold -> Gold
 
     // E-mini futures
-    'NQ': 'QQQ',    // E-mini Nasdaq
-    'ES': 'SPY',    // E-mini S&P 500
-    'RTY': 'IWM',   // E-mini Russell
-    'YM': 'DIA',    // E-mini Dow
+    'NQ': 'NAS100',   // E-mini Nasdaq
+    'ES': 'US500',    // E-mini S&P 500
+    'RTY': 'RUT',     // E-mini Russell
+    'YM': 'DJI',      // E-mini Dow
 
     // Commodities
-    'GC': 'GLD',    // Gold
-    'CL': 'USO',    // Crude Oil
-    'SI': 'SLV',    // Silver
-    'NG': 'UNG',    // Natural Gas
+    'GC': 'XAU/USD',  // Gold
+    'CL': 'USOIL',    // Crude Oil
+    'SI': 'XAG/USD',  // Silver
+    'NG': 'UNG',      // Natural Gas -> ETF (no direct forex)
 
     // Crypto
     'BTC': 'BTC/USD',
     'ETH': 'ETH/USD',
+
+    // Direct index symbols (in case they're used)
+    'US500': 'US500',
+    'NAS100': 'NAS100',
 }
 
 // Convert interval to Twelve Data format
@@ -76,7 +80,7 @@ export async function GET(request: NextRequest) {
     const twelveInterval = INTERVAL_MAP[interval] || '15min'
 
     // Twelve Data API (free tier: 800 calls/day, 8 calls/minute)
-    const TWELVE_DATA_API_KEY = process.env.TWELVE_DATA_API_KEY || 'demo'
+    const TWELVE_DATA_API_KEY = process.env.TWELVE_DATA_API_KEY || 'da329292b81d408ebd73740386993251'
 
     try {
         // We want 15 candles before + trade duration + 15 candles after
