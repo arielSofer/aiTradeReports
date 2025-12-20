@@ -125,9 +125,26 @@ export function TradeChartViewer({
         const uniqueData = Array.from(new Map(data.map(item => [item.time, item])).values())
           .sort((a, b) => a.time - b.time)
 
-        setMarketData(uniqueData)
-        setDisplayedData(uniqueData) // Default show all
-        setPlaybackIndex(uniqueData.length - 1)
+        // Filter to 15 candles before entry and 15 after exit
+        // entryTime and exitTime already calculated above
+
+        // Find index of candle closest to entry time
+        let entryIndex = uniqueData.findIndex(c => c.time >= entryTime)
+        if (entryIndex === -1) entryIndex = uniqueData.length - 1
+
+        // Find index of candle closest to exit time
+        let exitIndex = uniqueData.findIndex(c => c.time >= exitTime)
+        if (exitIndex === -1) exitIndex = uniqueData.length - 1
+
+        // Calculate range: 15 candles before entry, all during trade, 15 after exit
+        const startIndex = Math.max(0, entryIndex - 15)
+        const endIndex = Math.min(uniqueData.length - 1, exitIndex + 15)
+
+        const filteredData = uniqueData.slice(startIndex, endIndex + 1)
+
+        setMarketData(filteredData)
+        setDisplayedData(filteredData) // Default show all
+        setPlaybackIndex(filteredData.length - 1)
 
       } catch (err) {
         console.error("Market data API failed, using synthetic data:", err)

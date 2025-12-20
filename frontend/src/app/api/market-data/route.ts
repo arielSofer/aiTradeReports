@@ -1,25 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// Symbol mapping for futures contracts - map to ETF equivalents
+// Symbol mapping for futures contracts - map to trackable equivalents
+// Using ETFs because they closely track the index and work with free API tier
 const SYMBOL_MAP: Record<string, string> = {
-    // Micro E-mini futures -> ETF proxy
-    'MNQ': 'QQQ',   // Micro Nasdaq -> Nasdaq ETF
-    'MES': 'SPY',   // Micro S&P 500 -> S&P ETF
-    'M2K': 'IWM',   // Micro Russell -> Russell ETF
-    'MYM': 'DIA',   // Micro Dow -> Dow ETF
-    'MCL': 'USO',   // Micro Crude -> Oil ETF
-    'MGC': 'GLD',   // Micro Gold -> Gold ETF
+    // Micro E-mini futures -> Index-tracking ETF
+    'MNQ': 'QQQ',   // Micro Nasdaq-100 -> Invesco QQQ (tracks NAS100)
+    'MES': 'SPY',   // Micro S&P 500 -> SPDR S&P 500 (tracks US500)
+    'M2K': 'IWM',   // Micro Russell 2000 -> iShares Russell 2000
+    'MYM': 'DIA',   // Micro Dow -> SPDR Dow Jones
+    'MCL': 'USO',   // Micro Crude Oil -> US Oil Fund
+    'MGC': 'GLD',   // Micro Gold -> SPDR Gold
 
     // E-mini futures
-    'NQ': 'QQQ',
-    'ES': 'SPY',
-    'RTY': 'IWM',
-    'YM': 'DIA',
+    'NQ': 'QQQ',    // E-mini Nasdaq
+    'ES': 'SPY',    // E-mini S&P 500
+    'RTY': 'IWM',   // E-mini Russell
+    'YM': 'DIA',    // E-mini Dow
 
     // Commodities
-    'GC': 'GLD',
-    'CL': 'USO',
-    'SI': 'SLV',
+    'GC': 'GLD',    // Gold
+    'CL': 'USO',    // Crude Oil
+    'SI': 'SLV',    // Silver
+    'NG': 'UNG',    // Natural Gas
 
     // Crypto
     'BTC': 'BTC/USD',
@@ -77,9 +79,9 @@ export async function GET(request: NextRequest) {
     const TWELVE_DATA_API_KEY = process.env.TWELVE_DATA_API_KEY || 'demo'
 
     try {
-        // Calculate output size: we want 30 candles before + trade duration + 30 candles after
-        // For safety, request 100 candles (will filter later)
-        const outputSize = 100
+        // We want 15 candles before + trade duration + 15 candles after
+        // Request 50 candles to have buffer
+        const outputSize = 50
 
         // Build URL with optional start/end dates
         let url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(symbol)}&interval=${twelveInterval}&outputsize=${outputSize}&apikey=${TWELVE_DATA_API_KEY}`
