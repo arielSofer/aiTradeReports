@@ -1,54 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// Symbol mapping for futures contracts to Yahoo Finance format
+// Symbol mapping for futures contracts to Databento continuous contracts
 const SYMBOL_MAP: Record<string, string> = {
-    // Micro E-mini futures -> E-mini (Yahoo has E-mini, not Micro)
-    'MNQ': 'NQ=F',    // Micro Nasdaq-100 -> E-mini Nasdaq
-    'MES': 'ES=F',    // Micro S&P 500 -> E-mini S&P
-    'M2K': 'RTY=F',   // Micro Russell 2000 -> E-mini Russell
-    'MYM': 'YM=F',    // Micro Dow -> E-mini Dow
-    'MCL': 'CL=F',    // Micro Crude Oil -> Crude Oil
-    'MGC': 'GC=F',    // Micro Gold -> Gold
+    // Micro E-mini futures
+    'MNQ': 'MNQ.c.0',    // Micro Nasdaq-100 continuous front month
+    'MES': 'MES.c.0',    // Micro S&P 500
+    'M2K': 'M2K.c.0',    // Micro Russell 2000
+    'MYM': 'MYM.c.0',    // Micro Dow
 
     // E-mini futures
-    'NQ': 'NQ=F',     // E-mini Nasdaq
-    'ES': 'ES=F',     // E-mini S&P 500
-    'RTY': 'RTY=F',   // E-mini Russell
-    'YM': 'YM=F',     // E-mini Dow
+    'NQ': 'NQ.c.0',      // E-mini Nasdaq
+    'ES': 'ES.c.0',      // E-mini S&P 500
+    'RTY': 'RTY.c.0',    // E-mini Russell
+    'YM': 'YM.c.0',      // E-mini Dow
 
     // Commodities
-    'GC': 'GC=F',     // Gold
-    'CL': 'CL=F',     // Crude Oil
-    'SI': 'SI=F',     // Silver
-    'NG': 'NG=F',     // Natural Gas
-
-    // Crypto
-    'BTC': 'BTC-USD',
-    'ETH': 'ETH-USD',
+    'GC': 'GC.c.0',      // Gold
+    'CL': 'CL.c.0',      // Crude Oil
+    'SI': 'SI.c.0',      // Silver
+    'NG': 'NG.c.0',      // Natural Gas
 }
 
-// Convert interval to Yahoo Finance format
-const INTERVAL_MAP: Record<string, string> = {
-    '1m': '1m',
-    '5m': '5m',
-    '15m': '15m',
-    '30m': '30m',
-    '1h': '1h',
-    '4h': '1h',  // Yahoo doesn't have 4h, use 1h
-    '1d': '1d',
-}
-
-// Get range for Yahoo Finance API based on interval
-function getYahooRange(interval: string): string {
-    switch (interval) {
-        case '1m': return '1d'   // 1 day for 1-minute
-        case '5m': return '5d'   // 5 days for 5-minute
-        case '15m': return '5d'  // 5 days for 15-minute
-        case '30m': return '5d'  // 5 days for 30-minute
-        case '1h': return '1mo'  // 1 month for hourly
-        case '1d': return '3mo'  // 3 months for daily
-        default: return '5d'
-    }
+// Convert interval to Databento schema
+const SCHEMA_MAP: Record<string, string> = {
+    '1m': 'ohlcv-1m',
+    '5m': 'ohlcv-1m',   // Aggregate 1m data
+    '15m': 'ohlcv-1m',  // Aggregate 1m data
+    '30m': 'ohlcv-1m',  // Aggregate 1m data
+    '1h': 'ohlcv-1h',
+    '1d': 'ohlcv-1d',
 }
 
 // Normalize symbol (handle variations like F.US.MNQ, MNQ, etc.)
@@ -63,85 +43,121 @@ function normalizeSymbol(rawSymbol: string): string {
     // Remove month/year suffix (e.g., MNQZ24 -> MNQ, MNQH25 -> MNQ)
     symbol = symbol.replace(/[FGHJKMNQUVXZ]\d{2}$/i, '')
 
-    // Try direct mapping
+    // Try direct mapping to Databento continuous contract
     if (SYMBOL_MAP[symbol]) {
         return SYMBOL_MAP[symbol]
     }
 
-    // If it already looks like a Yahoo futures symbol, return as-is
-    if (symbol.endsWith('=F') || symbol.endsWith('-USD')) {
-        return symbol
+    // Default: try as continuous contract
+    return `${symbol}.c.0`
+}
+
+// Aggregate 1-minute candles to larger intervals
+function aggregateCandles(candles: Array<{ time: number; open: number; high: number; low: number; close: number }>, intervalMinutes: number) {
+    if (intervalMinutes <= 1) return candles
+
+    const aggregated: Array<{ time: number; open: number; high: number; low: number; close: number }> = []
+
+    for (let i = 0; i < candles.length; i += intervalMinutes) {
+        const batch = candles.slice(i, i + intervalMinutes)
+        if (batch.length === 0) continue
+
+        aggregated.push({
+            time: batch[0].time,
+            open: batch[0].open,
+            high: Math.max(...batch.map(c => c.high)),
+            low: Math.min(...batch.map(c => c.low)),
+            close: batch[batch.length - 1].close,
+        })
     }
 
-    // If it looks like a stock ticker, return as-is
-    if (/^[A-Z]{1,5}$/.test(symbol)) {
-        return symbol
-    }
-
-    // Default: return NQ=F for unknown futures
-    return 'NQ=F'
+    return aggregated
 }
 
 export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const rawSymbol = searchParams.get('symbol') || 'MNQ'
+    const fromTime = parseInt(searchParams.get('from_time') || '0')
+    const toTime = parseInt(searchParams.get('to_time') || '0')
     const interval = searchParams.get('interval') || '15m'
 
     const symbol = normalizeSymbol(rawSymbol)
-    const yahooInterval = INTERVAL_MAP[interval] || '15m'
-    const yahooRange = getYahooRange(interval)
+    const schema = SCHEMA_MAP[interval] || 'ohlcv-1m'
+
+    // Get interval in minutes for aggregation
+    const intervalMinutes = interval === '5m' ? 5 : interval === '15m' ? 15 : interval === '30m' ? 30 : 1
+
+    // Databento API key
+    const DATABENTO_API_KEY = process.env.DATABENTO_API_KEY || 'db-HJx7MgX4FT9yyqAvdmP5XxQbJG3Hx'
 
     try {
-        // Yahoo Finance Chart API - free, no API key required
-        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=${yahooInterval}&range=${yahooRange}`
+        // Calculate time range (30 candles before and after trade)
+        // Default to last 2 hours if no time specified
+        let startDate: string
+        let endDate: string
 
-        console.log(`Fetching Yahoo Finance: symbol=${symbol}, interval=${yahooInterval}, range=${yahooRange}`)
+        if (fromTime > 0 && toTime > 0) {
+            // Add buffer for 30 candles before/after
+            const bufferSeconds = intervalMinutes * 60 * 35 // 35 candles worth
+            startDate = new Date((fromTime - bufferSeconds) * 1000).toISOString()
+            endDate = new Date((toTime + bufferSeconds) * 1000).toISOString()
+        } else {
+            // Default: last 2 hours
+            const now = new Date()
+            const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000)
+            startDate = twoHoursAgo.toISOString()
+            endDate = now.toISOString()
+        }
+
+        const url = `https://hist.databento.com/v0/timeseries.get_range?dataset=GLBX.MDP3&symbols=${encodeURIComponent(symbol)}&stype_in=continuous&schema=${schema}&start=${startDate}&end=${endDate}&encoding=json`
+
+        console.log(`Fetching Databento: symbol=${symbol}, schema=${schema}`)
 
         const response = await fetch(url, {
             headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                'Authorization': `Basic ${Buffer.from(DATABENTO_API_KEY + ':').toString('base64')}`,
             },
             next: { revalidate: 60 } // Cache for 1 minute
         })
 
         if (!response.ok) {
-            console.log(`Yahoo Finance returned status ${response.status}`)
+            const errorText = await response.text()
+            console.error(`Databento error: ${response.status} - ${errorText}`)
             return NextResponse.json([])
         }
 
-        const data = await response.json()
+        // Databento returns newline-delimited JSON
+        const text = await response.text()
+        const lines = text.trim().split('\n').filter(line => line.trim())
 
-        if (!data.chart?.result?.[0]) {
-            console.log(`No data from Yahoo Finance for ${symbol}`)
-            return NextResponse.json([])
-        }
+        // Parse each line as JSON
+        const candles = lines.map(line => {
+            try {
+                const data = JSON.parse(line)
+                // ts_event is in nanoseconds, prices are fixed-point (divide by 1e9)
+                return {
+                    time: Math.floor(parseInt(data.hd.ts_event) / 1e9),
+                    open: parseInt(data.open) / 1e9,
+                    high: parseInt(data.high) / 1e9,
+                    low: parseInt(data.low) / 1e9,
+                    close: parseInt(data.close) / 1e9,
+                }
+            } catch {
+                return null
+            }
+        }).filter((c): c is { time: number; open: number; high: number; low: number; close: number } =>
+            c !== null && c.open > 0 && c.high > 0 && c.low > 0 && c.close > 0
+        )
 
-        const result = data.chart.result[0]
-        const timestamps = result.timestamp || []
-        const quote = result.indicators?.quote?.[0] || {}
+        // Aggregate if needed (for 5m, 15m, 30m intervals)
+        const aggregatedCandles = aggregateCandles(candles, intervalMinutes)
 
-        if (!timestamps.length || !quote.open) {
-            console.log(`Empty quote data for ${symbol}`)
-            return NextResponse.json([])
-        }
+        // Sort by time and take last 60 candles
+        const sortedCandles = aggregatedCandles.sort((a, b) => a.time - b.time).slice(-60)
 
-        // Build candle data
-        const candles = timestamps
-            .map((time: number, i: number) => ({
-                time,
-                open: quote.open[i],
-                high: quote.high[i],
-                low: quote.low[i],
-                close: quote.close[i],
-            }))
-            .filter((c: { open: number | null; high: number | null; low: number | null; close: number | null }) =>
-                c.open !== null && c.high !== null && c.low !== null && c.close !== null &&
-                c.open > 0 && c.high > 0 && c.low > 0 && c.close > 0
-            )
+        console.log(`Returning ${sortedCandles.length} candles for ${symbol}`)
 
-        console.log(`Returning ${candles.length} candles for ${symbol}`)
-
-        return NextResponse.json(candles)
+        return NextResponse.json(sortedCandles)
 
     } catch (error) {
         console.error('Error fetching market data:', error)
