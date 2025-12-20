@@ -1,35 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// Symbol mapping for futures contracts - map to trackable equivalents
-// With paid API key, we can use forex/index symbols directly
+// Symbol mapping for futures contracts - map to ETFs (work with free tier)
 const SYMBOL_MAP: Record<string, string> = {
-    // Micro E-mini futures -> Index-tracking symbols
-    'MNQ': 'NAS100',  // Micro Nasdaq-100 -> Nasdaq 100 Index
-    'MES': 'US500',   // Micro S&P 500 -> S&P 500 Index
-    'M2K': 'RUT',     // Micro Russell 2000 -> Russell 2000
-    'MYM': 'DJI',     // Micro Dow -> Dow Jones
-    'MCL': 'USOIL',   // Micro Crude Oil -> WTI Crude
-    'MGC': 'XAU/USD', // Micro Gold -> Gold
+    // Micro E-mini futures -> Index-tracking ETFs
+    'MNQ': 'QQQ',     // Micro Nasdaq-100 -> Invesco QQQ ETF
+    'MES': 'SPY',     // Micro S&P 500 -> SPDR S&P 500 ETF
+    'M2K': 'IWM',     // Micro Russell 2000 -> iShares Russell 2000
+    'MYM': 'DIA',     // Micro Dow -> SPDR Dow Jones
+    'MCL': 'USO',     // Micro Crude Oil -> US Oil Fund
+    'MGC': 'GLD',     // Micro Gold -> SPDR Gold
 
     // E-mini futures
-    'NQ': 'NAS100',   // E-mini Nasdaq
-    'ES': 'US500',    // E-mini S&P 500
-    'RTY': 'RUT',     // E-mini Russell
-    'YM': 'DJI',      // E-mini Dow
+    'NQ': 'QQQ',      // E-mini Nasdaq
+    'ES': 'SPY',      // E-mini S&P 500
+    'RTY': 'IWM',     // E-mini Russell
+    'YM': 'DIA',      // E-mini Dow
 
     // Commodities
-    'GC': 'XAU/USD',  // Gold
-    'CL': 'USOIL',    // Crude Oil
-    'SI': 'XAG/USD',  // Silver
-    'NG': 'UNG',      // Natural Gas -> ETF (no direct forex)
+    'GC': 'GLD',      // Gold
+    'CL': 'USO',      // Crude Oil
+    'SI': 'SLV',      // Silver
+    'NG': 'UNG',      // Natural Gas
 
     // Crypto
     'BTC': 'BTC/USD',
     'ETH': 'ETH/USD',
-
-    // Direct index symbols (in case they're used)
-    'US500': 'US500',
-    'NAS100': 'NAS100',
 }
 
 // Convert interval to Twelve Data format
