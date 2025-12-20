@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// Symbol mapping for futures contracts - map to stock equivalents for data
+// Symbol mapping for futures contracts - map to ETF equivalents
 const SYMBOL_MAP: Record<string, string> = {
-    // Micro E-mini futures -> ETF/Index proxy
+    // Micro E-mini futures -> ETF proxy
     'MNQ': 'QQQ',   // Micro Nasdaq -> Nasdaq ETF
     'MES': 'SPY',   // Micro S&P 500 -> S&P ETF
     'M2K': 'IWM',   // Micro Russell -> Russell ETF
@@ -22,18 +22,19 @@ const SYMBOL_MAP: Record<string, string> = {
     'SI': 'SLV',
 
     // Crypto
-    'BTC': 'COIN',
-    'ETH': 'COIN',
+    'BTC': 'BTC/USD',
+    'ETH': 'ETH/USD',
 }
 
-// Convert interval to Finnhub format
-const FINNHUB_RESOLUTION: Record<string, string> = {
-    '1m': '1',
-    '5m': '5',
-    '15m': '15',
-    '30m': '30',
-    '1h': '60',
-    '1d': 'D',
+// Convert interval to Twelve Data format
+const INTERVAL_MAP: Record<string, string> = {
+    '1m': '1min',
+    '5m': '5min',
+    '15m': '15min',
+    '30m': '30min',
+    '1h': '1h',
+    '4h': '4h',
+    '1d': '1day',
 }
 
 // Normalize symbol (handle variations like F.US.MNQ, MNQ, etc.)
@@ -70,50 +71,57 @@ export async function GET(request: NextRequest) {
     const interval = searchParams.get('interval') || '15m'
 
     const symbol = normalizeSymbol(rawSymbol)
-    const resolution = FINNHUB_RESOLUTION[interval] || '15'
+    const twelveInterval = INTERVAL_MAP[interval] || '15min'
 
-    // Finnhub API (free tier: 60 calls/minute)
-    const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY || 'demo'
+    // Twelve Data API (free tier: 800 calls/day, 8 calls/minute)
+    const TWELVE_DATA_API_KEY = process.env.TWELVE_DATA_API_KEY || 'demo'
 
     try {
-        // Expand time range to ensure we get 30+ candles before and after
-        const intervalSeconds = parseInt(resolution) * 60 || 3600
-        const expandedFrom = fromTime - (30 * intervalSeconds)
-        const expandedTo = toTime + (30 * intervalSeconds)
+        // Calculate output size: we want 30 candles before + trade duration + 30 candles after
+        // For safety, request 100 candles (will filter later)
+        const outputSize = 100
 
-        // Fetch from Finnhub
-        const finnhubUrl = `https://finnhub.io/api/v1/stock/candle?symbol=${encodeURIComponent(symbol)}&resolution=${resolution}&from=${expandedFrom}&to=${expandedTo}&token=${FINNHUB_API_KEY}`
+        // Build URL with optional start/end dates
+        let url = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(symbol)}&interval=${twelveInterval}&outputsize=${outputSize}&apikey=${TWELVE_DATA_API_KEY}`
 
-        console.log(`Fetching Finnhub: symbol=${symbol}, resolution=${resolution}`)
+        // If we have specific time range, convert to dates
+        if (fromTime > 0 && toTime > 0) {
+            const startDate = new Date(fromTime * 1000).toISOString().split('T')[0]
+            const endDate = new Date(toTime * 1000).toISOString().split('T')[0]
+            url += `&start_date=${startDate}&end_date=${endDate}`
+        }
 
-        const response = await fetch(finnhubUrl, {
+        console.log(`Fetching Twelve Data: symbol=${symbol}, interval=${twelveInterval}`)
+
+        const response = await fetch(url, {
             next: { revalidate: 60 } // Cache for 1 minute
         })
 
         if (!response.ok) {
-            throw new Error(`Finnhub returned status ${response.status}`)
+            throw new Error(`Twelve Data returned status ${response.status}`)
         }
 
         const data = await response.json()
 
-        if (data.s === 'no_data' || !data.t || data.t.length === 0) {
-            console.log(`No data from Finnhub for ${symbol}, returning empty...`)
+        if (data.status === 'error' || !data.values || data.values.length === 0) {
+            console.log(`No data from Twelve Data for ${symbol}: ${data.message || 'no values'}`)
             // Return empty array - frontend will use synthetic data
             return NextResponse.json([])
         }
 
-        // Build candle data
-        const candles = data.t.map((time: number, i: number) => ({
-            time,
-            open: data.o[i],
-            high: data.h[i],
-            low: data.l[i],
-            close: data.c[i],
-        }))
+        // Build candle data - Twelve Data returns newest first, so reverse
+        const candles = data.values
+            .map((v: { datetime: string; open: string; high: string; low: string; close: string }) => ({
+                time: Math.floor(new Date(v.datetime).getTime() / 1000),
+                open: parseFloat(v.open),
+                high: parseFloat(v.high),
+                low: parseFloat(v.low),
+                close: parseFloat(v.close),
+            }))
             .filter((c: { open: number; high: number; low: number; close: number }) =>
                 c.open > 0 && c.high > 0 && c.low > 0 && c.close > 0
             )
-            .sort((a: { time: number }, b: { time: number }) => a.time - b.time)
+            .reverse() // Oldest first
 
         console.log(`Returning ${candles.length} candles for ${symbol}`)
 
