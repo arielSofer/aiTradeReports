@@ -125,20 +125,18 @@ export function TradeChartViewer({
         const uniqueData = Array.from(new Map(data.map(item => [item.time, item])).values())
           .sort((a, b) => a.time - b.time)
 
-        // Filter to 15 candles before entry and 15 after exit
-        // entryTime and exitTime already calculated above
+        // Show exactly 15 candles total, centered around trade entry
+        // entryTime already calculated above
 
         // Find index of candle closest to entry time
         let entryIndex = uniqueData.findIndex(c => c.time >= entryTime)
         if (entryIndex === -1) entryIndex = uniqueData.length - 1
 
-        // Find index of candle closest to exit time
-        let exitIndex = uniqueData.findIndex(c => c.time >= exitTime)
-        if (exitIndex === -1) exitIndex = uniqueData.length - 1
-
-        // Calculate range: 15 candles before entry, all during trade, 15 after exit
-        const startIndex = Math.max(0, entryIndex - 15)
-        const endIndex = Math.min(uniqueData.length - 1, exitIndex + 15)
+        // Calculate range: ~7 candles before, entry candle, ~7 candles after = 15 total
+        const candlesBefore = 7
+        const candlesAfter = 7
+        const startIndex = Math.max(0, entryIndex - candlesBefore)
+        const endIndex = Math.min(uniqueData.length - 1, startIndex + 14) // 15 candles total (0-14)
 
         const filteredData = uniqueData.slice(startIndex, endIndex + 1)
 
