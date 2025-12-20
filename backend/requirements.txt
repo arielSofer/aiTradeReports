@@ -20,7 +20,7 @@ pydantic-settings>=2.1.0
 email-validator>=2.1.0
 python-dateutil>=2.8.2
 databento>=0.68.0
-typing_extensions>=4.0.0
+typing-extensions>=4.0.0
 
 # Authentication
 python-jose[cryptography]>=3.3.0
