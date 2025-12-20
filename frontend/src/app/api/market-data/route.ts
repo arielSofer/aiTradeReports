@@ -27,7 +27,7 @@ const DATABENTO_SYMBOL_MAP: Record<string, string> = {
 // Convert interval to Databento OHLCV schema
 const DATABENTO_SCHEMA_MAP: Record<string, string> = {
     '1m': 'ohlcv-1m',
-    '5m': 'ohlcv-1m',   // Use 1m and aggregate if needed, or closest
+    '5m': 'ohlcv-1m',   // Use 1m and aggregate if needed
     '15m': 'ohlcv-1m',  // Use 1m
     '30m': 'ohlcv-1m',  // Use 1m
     '1h': 'ohlcv-1h',
@@ -75,7 +75,6 @@ export async function GET(request: NextRequest) {
 
     try {
         // Calculate time range - requesting 30 candles before and after trade
-        // Default to last 7 days if no time range specified
         let startTime: string
         let endTime: string
 
@@ -94,25 +93,27 @@ export async function GET(request: NextRequest) {
 
         console.log(`Fetching Databento: symbol=${databentoSymbol}, schema=${schema}, start=${startTime}, end=${endTime}`)
 
-        // Databento Historical API - timeseries.get_range
+        // Databento Historical API - timeseries.get_range (using form-urlencoded)
         const url = 'https://hist.databento.com/v0/timeseries.get_range'
+
+        // Build form data
+        const formData = new URLSearchParams()
+        formData.append('dataset', 'GLBX.MDP3')
+        formData.append('symbols', databentoSymbol)
+        formData.append('schema', schema)
+        formData.append('start', startTime)
+        formData.append('end', endTime)
+        formData.append('encoding', 'json')
+        formData.append('stype_in', 'continuous')
+        formData.append('stype_out', 'instrument_id')
 
         const response = await fetch(url, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/x-www-form-urlencoded',
                 'Authorization': `Basic ${Buffer.from(DATABENTO_API_KEY + ':').toString('base64')}`,
             },
-            body: JSON.stringify({
-                dataset: 'GLBX.MDP3',
-                symbols: [databentoSymbol],
-                schema: schema,
-                start: startTime,
-                end: endTime,
-                encoding: 'json',
-                stype_in: 'continuous',
-                stype_out: 'instrument_id',
-            }),
+            body: formData.toString(),
         })
 
         if (!response.ok) {
@@ -131,16 +132,19 @@ export async function GET(request: NextRequest) {
         }
 
         // Parse OHLCV data from NDJSON
+        // Databento format: {"hd":{"ts_event":"nanoseconds",...},"open":"fixed12","high":"fixed12",...}
         const candles = lines.map(line => {
             try {
                 const record = JSON.parse(line)
-                // Databento OHLCV fields: ts_event (nanoseconds), open, high, low, close, volume
+                // ts_event is in the "hd" (header) object, in nanoseconds as string
+                const tsEvent = record.hd?.ts_event || record.ts_event
+                // Prices are fixed-point with 1e12 (12 decimal places)
                 return {
-                    time: Math.floor(record.ts_event / 1000000000), // nanoseconds to seconds
-                    open: record.open / 1000000000,   // Databento uses fixed-point (9 decimal places)
-                    high: record.high / 1000000000,
-                    low: record.low / 1000000000,
-                    close: record.close / 1000000000,
+                    time: Math.floor(Number(tsEvent) / 1000000000), // nanoseconds to seconds
+                    open: Number(record.open) / 1000000000000,   // Fixed-point 12 decimals
+                    high: Number(record.high) / 1000000000000,
+                    low: Number(record.low) / 1000000000000,
+                    close: Number(record.close) / 1000000000000,
                 }
             } catch {
                 return null
