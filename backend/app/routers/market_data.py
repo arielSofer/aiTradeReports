@@ -1,12 +1,8 @@
 from fastapi import APIRouter, HTTPException, Query
 from typing import List, Optional
 import os
-
 from datetime import datetime, timedelta
-import pandas as pd
 from pydantic import BaseModel
-
-# yfinance is optionally imported inside the endpoint to prevent app crash if not installed
 
 router = APIRouter(
     prefix="/market-data",
@@ -21,6 +17,103 @@ class Candle(BaseModel):
     close: float
     volume: Optional[float] = None
 
+# Symbol mapping for CME Globex futures
+SYMBOL_MAP = {
+    # Micro E-mini futures
+    'MNQ': 'MNQ.c.0',
+    'MES': 'MES.c.0',
+    'M2K': 'M2K.c.0',
+    'MYM': 'MYM.c.0',
+    'MCL': 'MCL.c.0',
+    'MGC': 'MGC.c.0',
+    # E-mini futures
+    'NQ': 'NQ.c.0',
+    'ES': 'ES.c.0',
+    'RTY': 'RTY.c.0',
+    'YM': 'YM.c.0',
+    # Commodities
+    'GC': 'GC.c.0',
+    'CL': 'CL.c.0',
+    'SI': 'SI.c.0',
+    'NG': 'NG.c.0',
+}
+
+# Map interval to Databento schema
+SCHEMA_MAP = {
+    '1m': 'ohlcv-1m',
+    '5m': 'ohlcv-1m',   # Fetch 1m, aggregate
+    '15m': 'ohlcv-1m',  # Fetch 1m, aggregate
+    '30m': 'ohlcv-1m',  # Fetch 1m, aggregate
+    '1h': 'ohlcv-1h',
+    '4h': 'ohlcv-1h',   # Fetch 1h, aggregate
+    '1d': 'ohlcv-1d',
+}
+
+# Interval to minutes
+INTERVAL_MINUTES = {
+    '1m': 1, '5m': 5, '15m': 15, '30m': 30,
+    '1h': 60, '4h': 240, '1d': 1440,
+}
+
+# Number of candles before and after trade
+CANDLES_BUFFER = 50
+
+
+def normalize_symbol(raw_symbol: str) -> str:
+    """Normalize symbol from various formats to base symbol."""
+    import re
+    symbol = raw_symbol.upper().strip()
+    
+    # Handle Tradovate format: F.US.MNQ -> MNQ
+    if symbol.startswith("F.US."):
+        symbol = symbol[5:]
+    elif symbol.startswith("F."):
+        symbol = symbol[2:]
+    
+    # Remove futures contract suffix (e.g., MNQZ24 -> MNQ)
+    futures_pattern = r'^([A-Z]{2,4})[FGHJKMNQUVXZ]\d{1,2}$'
+    match = re.match(futures_pattern, symbol)
+    if match:
+        symbol = match.group(1)
+    
+    return symbol
+
+
+def aggregate_candles(candles: List[dict], interval_minutes: int) -> List[dict]:
+    """Aggregate 1m candles to larger timeframes."""
+    if interval_minutes <= 1:
+        return candles
+    
+    aggregated = []
+    interval_seconds = interval_minutes * 60
+    current_bucket = None
+    
+    for candle in candles:
+        bucket_start = (candle['time'] // interval_seconds) * interval_seconds
+        
+        if current_bucket is None or current_bucket['time'] != bucket_start:
+            if current_bucket:
+                aggregated.append(current_bucket)
+            current_bucket = {
+                'time': bucket_start,
+                'open': candle['open'],
+                'high': candle['high'],
+                'low': candle['low'],
+                'close': candle['close'],
+                'volume': candle.get('volume', 0),
+            }
+        else:
+            current_bucket['high'] = max(current_bucket['high'], candle['high'])
+            current_bucket['low'] = min(current_bucket['low'], candle['low'])
+            current_bucket['close'] = candle['close']
+            current_bucket['volume'] = current_bucket.get('volume', 0) + candle.get('volume', 0)
+    
+    if current_bucket:
+        aggregated.append(current_bucket)
+    
+    return aggregated
+
+
 @router.get("/candles", response_model=List[Candle])
 async def get_candles(
     symbol: str,
@@ -29,86 +122,85 @@ async def get_candles(
     interval: str = "15m"
 ):
     """
-    Fetch historical candle data from Yahoo Finance.
+    Fetch historical candle data from Databento.
+    Returns 50 candles before and 50 candles after the specified time range.
     """
     try:
-        # Lazy import yfinance to prevent app crash if not installed
-        try:
-            import yfinance as yf
-            # Configure cache location for Vercel's read-only filesystem
-            cache_dir = "/tmp/yf_cache"
-            if not os.path.exists(cache_dir):
-                os.makedirs(cache_dir, exist_ok=True)
-            yf.set_tz_cache_location(cache_dir)
-        except ImportError:
+        import databento as db
+        
+        # Get API key from environment
+        api_key = os.environ.get("DATABENTO_API_KEY")
+        if not api_key:
             raise HTTPException(
-                status_code=503, 
-                detail="Market data service unavailable - yfinance not installed"
+                status_code=503,
+                detail="Market data service unavailable - DATABENTO_API_KEY not configured"
             )
         
-        # Convert timestamps to datetime
-        start_dt = datetime.fromtimestamp(from_time)
-        end_dt = datetime.fromtimestamp(to_time)
+        # Normalize and map symbol
+        normalized = normalize_symbol(symbol)
+        databento_symbol = SYMBOL_MAP.get(normalized, f"{normalized}.c.0")
         
-        # Normalize symbol: handle Tradovate and other formats
-        # F.US.MNQ -> MNQ, MNQZ5 -> MNQ, etc.
-        import re
-        normalized_symbol = symbol.upper().strip()
+        # Get schema
+        schema = SCHEMA_MAP.get(interval, 'ohlcv-1m')
+        interval_minutes = INTERVAL_MINUTES.get(interval, 15)
         
-        # Strip "F.US." or similar prefixes
-        if normalized_symbol.startswith("F.US."):
-            normalized_symbol = normalized_symbol[5:]  # Remove "F.US."
-        elif normalized_symbol.startswith("F."):
-            normalized_symbol = normalized_symbol[2:]  # Remove "F."
+        # Calculate time range with buffer
+        interval_seconds = interval_minutes * 60
+        buffer_seconds = (CANDLES_BUFFER + 5) * interval_seconds
         
-        # Strip futures contract suffix (e.g., Z5, H4, M6)
-        # Pattern: base symbol + month letter + year digit(s)
-        futures_pattern = r'^([A-Z]{2,4})[FGHJKMNQUVXZ]\d{1,2}$'
-        match = re.match(futures_pattern, normalized_symbol)
-        if match:
-            normalized_symbol = match.group(1)
+        start_dt = datetime.utcfromtimestamp(from_time - buffer_seconds)
+        end_dt = datetime.utcfromtimestamp(to_time + buffer_seconds)
         
-        # Symbol to Yahoo Finance mapping
-        symbol_map = {
-            # Full contracts
-            "ES": "ES=F", "NQ": "NQ=F", "YM": "YM=F", "RTY": "RTY=F",
-            "CL": "CL=F", "GC": "GC=F", "SI": "SI=F", "HG": "HG=F", "NG": "NG=F",
-            "ZB": "ZB=F", "ZN": "ZN=F", "ZF": "ZF=F", "ZT": "ZT=F",
-            "6E": "6E=F", "6B": "6B=F", "6J": "6J=F", "6A": "6A=F",
-            # Micros
-            "MES": "MES=F", "MNQ": "MNQ=F", "MYM": "MYM=F", "M2K": "M2K=F",
-            "MGC": "MGC=F", "SIL": "SIL=F", "QI": "QI=F", "QO": "QO=F",
-            "MN": "MN=F", "MCL": "MCL=F"
-        }
+        # Initialize Databento client
+        client = db.Historical(api_key)
         
-        yf_symbol = symbol_map.get(normalized_symbol, normalized_symbol)
-
         # Fetch data
-        ticker = yf.Ticker(yf_symbol)
-        history = ticker.history(start=start_dt, end=end_dt, interval=interval)
+        data = client.timeseries.get_range(
+            dataset="GLBX.MDP3",
+            symbols=[databento_symbol],
+            schema=schema,
+            start=start_dt.isoformat() + "Z",
+            end=end_dt.isoformat() + "Z",
+            stype_in="continuous",
+        )
         
-        if history.empty:
-             # Try without Future suffix if failed (maybe stock?)
-             if yf_symbol != symbol:
-                 ticker = yf.Ticker(symbol)
-                 history = ticker.history(start=start_dt, end=end_dt, interval=interval)
-
+        # Convert to DataFrame
+        df = data.to_df()
+        
+        if df.empty:
+            return []
+        
+        # Build candle list
         candles = []
-        for index, row in history.iterrows():
+        for idx, row in df.iterrows():
             candles.append({
-                "time": int(index.timestamp()),
-                "open": row["Open"],
-                "high": row["High"],
-                "low": row["Low"],
-                "close": row["Close"],
-                "volume": row["Volume"]
+                'time': int(idx.timestamp()),
+                'open': float(row['open']),
+                'high': float(row['high']),
+                'low': float(row['low']),
+                'close': float(row['close']),
+                'volume': float(row['volume']) if 'volume' in row else None,
             })
-            
+        
+        # Sort by time
+        candles.sort(key=lambda x: x['time'])
+        
+        # Aggregate if needed
+        if interval_minutes > 1 and schema == 'ohlcv-1m':
+            candles = aggregate_candles(candles, interval_minutes)
+        elif interval_minutes == 240 and schema == 'ohlcv-1h':
+            candles = aggregate_candles(candles, 4)
+        
         return candles
 
+    except ImportError:
+        raise HTTPException(
+            status_code=503,
+            detail="Market data service unavailable - databento not installed"
+        )
     except Exception as e:
         import traceback
         error_msg = f"Error fetching market data: {str(e)}\n{traceback.format_exc()}"
         print(error_msg)
-        # Return the error details to the client for debugging
         raise HTTPException(status_code=500, detail=error_msg)
+
