@@ -7,14 +7,12 @@ const getApiBaseUrl = () => {
     return process.env.NEXT_PUBLIC_API_URL
   }
 
-  // If running in browser on Vercel, use relative path
+  // If running in browser on Vercel or other cloud platforms, use the Render Backend URL
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname
-    if (hostname.includes('vercel.app') || hostname.includes('vercel.com')) {
-      return '/api/v1'
-    }
-    if (hostname.includes('firebaseapp.com') || hostname.includes('web.app')) {
-      return '/api/v1'
+    if (hostname.includes('vercel.app') || hostname.includes('vercel.com') ||
+      hostname.includes('firebaseapp.com') || hostname.includes('web.app')) {
+      return 'https://tradetracker-api.onrender.com/api/v1'
     }
   }
 
@@ -22,7 +20,7 @@ const getApiBaseUrl = () => {
   return 'http://localhost:8000/api/v1'
 }
 
-const API_BASE_URL = getApiBaseUrl()
+export const API_BASE_URL = getApiBaseUrl()
 
 // Create axios instance
 export const api = axios.create({

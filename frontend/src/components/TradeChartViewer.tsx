@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { Trade } from '@/lib/store'
 import { TrendingUp, TrendingDown, Clock, DollarSign, Maximize2, Minimize2, Play, Pause, SkipBack, Loader2 } from 'lucide-react'
 import { formatCurrency, cn } from '@/lib/utils'
+import { API_BASE_URL } from '@/lib/api'
 import { IChartApi, ISeriesApi, createChart, ColorType } from 'lightweight-charts'
 
 interface CandleData {
@@ -106,9 +107,9 @@ export function TradeChartViewer({
         const fromTime = entryTime - 86400
         const toTime = exitTime + 86400
 
-        // Use Render Python backend (proxied via next.config.js)
+        // Use Render Python backend (via absolute URL to bypass Vercel 503 proxy)
         const res = await fetch(
-          `/api/v1/market-data/candles?symbol=${encodeURIComponent(trade.symbol)}&from_time=${Math.floor(fromTime)}&to_time=${Math.floor(toTime)}&interval=${timeframe}`
+          `${API_BASE_URL}/market-data/candles?symbol=${encodeURIComponent(trade.symbol)}&from_time=${Math.floor(fromTime)}&to_time=${Math.floor(toTime)}&interval=${timeframe}`
         )
 
         if (!res.ok) {
