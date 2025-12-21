@@ -106,9 +106,9 @@ export function TradeChartViewer({
         const fromTime = entryTime - 86400
         const toTime = exitTime + 86400
 
-        // Use Next.js API route (works on both local and Vercel)
+        // Use Render Python backend (proxied via next.config.js)
         const res = await fetch(
-          `/api/market-data?symbol=${encodeURIComponent(trade.symbol)}&from_time=${Math.floor(fromTime)}&to_time=${Math.floor(toTime)}&interval=${timeframe}`
+          `/api/v1/market-data/candles?symbol=${encodeURIComponent(trade.symbol)}&from_time=${Math.floor(fromTime)}&to_time=${Math.floor(toTime)}&interval=${timeframe}`
         )
 
         if (!res.ok) {
@@ -132,11 +132,11 @@ export function TradeChartViewer({
         let entryIndex = uniqueData.findIndex(c => c.time >= entryTime)
         if (entryIndex === -1) entryIndex = uniqueData.length - 1
 
-        // Calculate range: ~7 candles before, entry candle, ~7 candles after = 15 total
-        const candlesBefore = 7
-        const candlesAfter = 7
+        // Show 50 candles before and 50 after trade entry (101 total)
+        const candlesBefore = 50
+        const candlesAfter = 50
         const startIndex = Math.max(0, entryIndex - candlesBefore)
-        const endIndex = Math.min(uniqueData.length - 1, startIndex + 14) // 15 candles total (0-14)
+        const endIndex = Math.min(uniqueData.length - 1, entryIndex + candlesAfter)
 
         const filteredData = uniqueData.slice(startIndex, endIndex + 1)
 
