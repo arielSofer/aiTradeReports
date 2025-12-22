@@ -38,8 +38,122 @@ SYMBOL_MAP = {
     'NG': 'NG.c.0',
 }
 
-# ... (lines 41-157) ...
+# Map interval to Databento schema
+SCHEMA_MAP = {
+    '1m': 'ohlcv-1m',
+    '5m': 'ohlcv-1m',   # Fetch 1m, aggregate
+    '15m': 'ohlcv-1m',  # Fetch 1m, aggregate
+    '30m': 'ohlcv-1m',  # Fetch 1m, aggregate
+    '1h': 'ohlcv-1h',
+    '4h': 'ohlcv-1h',   # Fetch 1h, aggregate
+    '1d': 'ohlcv-1d',
+}
 
+# Interval to minutes
+INTERVAL_MINUTES = {
+    '1m': 1, '5m': 5, '15m': 15, '30m': 30,
+    '1h': 60, '4h': 240, '1d': 1440,
+}
+
+# Number of candles before and after trade
+CANDLES_BUFFER = 50
+
+
+def normalize_symbol(raw_symbol: str) -> str:
+    """Normalize symbol from various formats to base symbol."""
+    import re
+    symbol = raw_symbol.upper().strip()
+    
+    # Handle Tradovate format: F.US.MNQ -> MNQ
+    if symbol.startswith("F.US."):
+        symbol = symbol[5:]
+    elif symbol.startswith("F."):
+        symbol = symbol[2:]
+    
+    # Remove futures contract suffix (e.g., MNQZ24 -> MNQ)
+    futures_pattern = r'^([A-Z]{2,4})[FGHJKMNQUVXZ]\d{1,2}$'
+    match = re.match(futures_pattern, symbol)
+    if match:
+        symbol = match.group(1)
+    
+    return symbol
+
+
+def aggregate_candles(candles: List[dict], interval_minutes: int) -> List[dict]:
+    """Aggregate 1m candles to larger timeframes."""
+    if interval_minutes <= 1:
+        return candles
+    
+    aggregated = []
+    interval_seconds = interval_minutes * 60
+    current_bucket = None
+    
+    for candle in candles:
+        bucket_start = (candle['time'] // interval_seconds) * interval_seconds
+        
+        if current_bucket is None or current_bucket['time'] != bucket_start:
+            if current_bucket:
+                aggregated.append(current_bucket)
+            current_bucket = {
+                'time': bucket_start,
+                'open': candle['open'],
+                'high': candle['high'],
+                'low': candle['low'],
+                'close': candle['close'],
+                'volume': candle.get('volume', 0),
+            }
+        else:
+            current_bucket['high'] = max(current_bucket['high'], candle['high'])
+            current_bucket['low'] = min(current_bucket['low'], candle['low'])
+            current_bucket['close'] = candle['close']
+            current_bucket['volume'] = current_bucket.get('volume', 0) + candle.get('volume', 0)
+    
+    if current_bucket:
+        aggregated.append(current_bucket)
+    
+    return aggregated
+
+
+@router.get("/candles", response_model=List[Candle])
+async def get_candles(
+    symbol: str,
+    from_time: int,  # Unix timestamp
+    to_time: int,    # Unix timestamp
+    interval: str = "15m"
+):
+    """
+    Fetch historical candle data from Databento.
+    Returns 50 candles before and 50 candles after the specified time range.
+    """
+    try:
+        import databento as db
+        
+        # Get API key from environment
+        api_key = os.environ.get("DATABENTO_API_KEY")
+        if not api_key:
+            raise HTTPException(
+                status_code=503,
+                detail="Market data service unavailable - DATABENTO_API_KEY not configured"
+            )
+        
+        # Normalize and map symbol
+        normalized = normalize_symbol(symbol)
+        databento_symbol = SYMBOL_MAP.get(normalized, f"{normalized}.c.0")
+        
+        # Get schema
+        schema = SCHEMA_MAP.get(interval, 'ohlcv-1m')
+        interval_minutes = INTERVAL_MINUTES.get(interval, 15)
+        
+        # Calculate time range with buffer
+        interval_seconds = interval_minutes * 60
+        buffer_seconds = (CANDLES_BUFFER + 5) * interval_seconds
+        
+        start_dt = datetime.utcfromtimestamp(from_time - buffer_seconds)
+        end_dt = datetime.utcfromtimestamp(to_time + buffer_seconds)
+        
+        # Initialize Databento client
+        client = db.Historical(api_key)
+        
         # Determine stype based on symbol format
         stype_in = "continuous"
         if databento_symbol.endswith(".FUT"):
@@ -68,12 +182,6 @@ SYMBOL_MAP = {
             if not volume_by_symbol.empty:
                 best_symbol = volume_by_symbol.idxmax()
                 df = df[df['symbol'] == best_symbol].copy()
-        
-        # Convert to DataFrame
-        df = data.to_df()
-        
-        if df.empty:
-            return []
         
         # Build candle list
         candles = []
@@ -108,4 +216,3 @@ SYMBOL_MAP = {
         error_msg = f"Error fetching market data: {str(e)}\n{traceback.format_exc()}"
         print(error_msg)
         raise HTTPException(status_code=500, detail=error_msg)
-
