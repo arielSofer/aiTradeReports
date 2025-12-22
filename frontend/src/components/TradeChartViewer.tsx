@@ -94,7 +94,7 @@ export function TradeChartViewer({
     return candles
   }, [timeframe])
 
-  // Fetch true market data (with synthetic fallback)
+  // Fetch high-res market data once
   useEffect(() => {
     const fetchMarketData = async () => {
       setIsLoading(true)
@@ -103,13 +103,14 @@ export function TradeChartViewer({
         const entryTime = new Date(trade.entryTime).getTime() / 1000
         const exitTime = trade.exitTime ? new Date(trade.exitTime).getTime() / 1000 : entryTime + 3600
 
-        // Request broader range: 1 day before, 1 day after
-        const fromTime = entryTime - 86400
-        const toTime = exitTime + 86400
+        // Request broad range to cover max timeframe (1h) * 50 candles = 50 hours
+        const bufferSeconds = 50 * 3600
+        const fromTime = entryTime - bufferSeconds
+        const toTime = exitTime + bufferSeconds
 
-        // Use Render Python backend (via absolute URL to bypass Vercel 503 proxy)
+        // Always request method='1m' from server to get granular data for aggregation
         const res = await fetch(
-          `${API_BASE_URL}/market-data/candles?symbol=${encodeURIComponent(trade.symbol)}&from_time=${Math.floor(fromTime)}&to_time=${Math.floor(toTime)}&interval=${timeframe}`
+          `${API_BASE_URL}/market-data/candles?symbol=${encodeURIComponent(trade.symbol)}&from_time=${Math.floor(fromTime)}&to_time=${Math.floor(toTime)}&interval=1m`
         )
 
         if (!res.ok) {
@@ -122,28 +123,11 @@ export function TradeChartViewer({
           throw new Error("No market data returned")
         }
 
-        // Fix logic ensures uniqueness and sort
+        // Deduplicate and sort raw data
         const uniqueData = Array.from(new Map(data.map(item => [item.time, item])).values())
           .sort((a, b) => a.time - b.time)
 
-        // Show exactly 15 candles total, centered around trade entry
-        // entryTime already calculated above
-
-        // Find index of candle closest to entry time
-        let entryIndex = uniqueData.findIndex(c => c.time >= entryTime)
-        if (entryIndex === -1) entryIndex = uniqueData.length - 1
-
-        // Show 50 candles before and 50 after trade entry (101 total)
-        const candlesBefore = 50
-        const candlesAfter = 50
-        const startIndex = Math.max(0, entryIndex - candlesBefore)
-        const endIndex = Math.min(uniqueData.length - 1, entryIndex + candlesAfter)
-
-        const filteredData = uniqueData.slice(startIndex, endIndex + 1)
-
-        setMarketData(filteredData)
-        setDisplayedData(filteredData) // Default show all
-        setPlaybackIndex(filteredData.length - 1)
+        setMarketData(uniqueData) // Store raw 1m data
 
       } catch (err) {
         console.error("Market data API failed, using synthetic data:", err)
@@ -157,8 +141,6 @@ export function TradeChartViewer({
           exitTime
         )
         setMarketData(syntheticData)
-        setDisplayedData(syntheticData)
-        setPlaybackIndex(syntheticData.length - 1)
         // Don't show error - synthetic data is valid fallback
       } finally {
         setIsLoading(false)
@@ -166,37 +148,65 @@ export function TradeChartViewer({
     }
 
     fetchMarketData()
-  }, [trade, timeframe, generateSyntheticData])
+  }, [trade, generateSyntheticData]) // Removed timeframe dependency
 
-  // Playback Logic
+  // Aggregate and filter data based on selected timeframe
   useEffect(() => {
-    if (isPlaying) {
-      playbackIntervalRef.current = setInterval(() => {
-        setPlaybackIndex(prev => {
-          if (prev >= marketData.length - 1) {
-            setIsPlaying(false)
-            return prev
-          }
-          return prev + 1
-        })
-      }, 500) // 500ms per candle
-    } else {
-      if (playbackIntervalRef.current) {
-        clearInterval(playbackIntervalRef.current)
+    if (marketData.length === 0) return
+
+    const aggregateData = (data: CandleData[], intervalString: Timeframe): CandleData[] => {
+      if (intervalString === '5m') { // Actually use server 1m data for client aggregation now
+        // Pass through if we want 1m, but we only have 5m/15m/1h selectors
+        // Let's implement generic aggregation
       }
+
+      let minutes = 1
+      if (intervalString === '5m') minutes = 5
+      if (intervalString === '15m') minutes = 15
+      if (intervalString === '1h') minutes = 60
+
+      if (minutes === 1) return data
+
+      const intervalSeconds = minutes * 60
+      const aggregated: CandleData[] = []
+      let currentBucket: CandleData | null = null
+
+      for (const candle of data) {
+        const bucketTime = Math.floor(candle.time / intervalSeconds) * intervalSeconds
+
+        if (!currentBucket || currentBucket.time !== bucketTime) {
+          if (currentBucket) aggregated.push(currentBucket)
+          currentBucket = { ...candle, time: bucketTime }
+        } else {
+          currentBucket.high = Math.max(currentBucket.high, candle.high)
+          currentBucket.low = Math.min(currentBucket.low, candle.low)
+          currentBucket.close = candle.close
+          // Open stays first open
+        }
+      }
+      if (currentBucket) aggregated.push(currentBucket)
+      return aggregated
     }
 
-    return () => {
-      if (playbackIntervalRef.current) clearInterval(playbackIntervalRef.current)
-    }
-  }, [isPlaying, marketData.length])
+    // 1. Aggregate
+    const aggregated = aggregateData(marketData, timeframe)
 
-  // Update Displayed Data on Playback
-  useEffect(() => {
-    if (marketData.length > 0 && playbackIndex >= 0) {
-      setDisplayedData(marketData.slice(0, playbackIndex + 1))
-    }
-  }, [playbackIndex, marketData])
+    // 2. Filter to show 50 before and 50 after entry
+    const entryTime = new Date(trade.entryTime).getTime() / 1000
+    let entryIndex = aggregated.findIndex(c => c.time >= entryTime)
+    if (entryIndex === -1) entryIndex = aggregated.length - 1
+
+    const candlesBefore = 50
+    const candlesAfter = 50
+    const startIndex = Math.max(0, entryIndex - candlesBefore)
+    const endIndex = Math.min(aggregated.length - 1, entryIndex + candlesAfter)
+
+    const filtered = aggregated.slice(startIndex, endIndex + 1)
+
+    setDisplayedData(filtered)
+    setPlaybackIndex(filtered.length - 1)
+
+  }, [marketData, timeframe, trade.entryTime])
 
   // Initialize/Update Chart
   useEffect(() => {
