@@ -2,16 +2,17 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { 
-  LayoutDashboard, 
-  LineChart, 
-  History, 
-  Settings, 
+import {
+  LayoutDashboard,
+  LineChart,
+  History,
+  Settings,
   Upload,
   Wallet,
   TrendingUp,
   BarChart3,
-  LogOut
+  LogOut,
+  Trophy
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -20,6 +21,7 @@ const menuItems = [
   { icon: History, label: 'Trade Journal', href: '/journal' },
   { icon: LineChart, label: 'Analytics', href: '/analytics' },
   { icon: Wallet, label: 'Accounts', href: '/accounts' },
+  { icon: Trophy, label: 'Prop Firms', href: '/prop-firms' },
   { icon: Upload, label: 'Import', href: '/import' },
   { icon: Settings, label: 'Settings', href: '/settings' },
 ]
@@ -47,7 +49,7 @@ export function Sidebar() {
         {menuItems.map((item) => {
           const Icon = item.icon
           const isActive = pathname === item.href
-          
+
           return (
             <Link
               key={item.label}
@@ -55,8 +57,8 @@ export function Sidebar() {
               className={cn(
                 'w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200',
                 'text-sm font-medium',
-                isActive 
-                  ? 'bg-primary-600/20 text-primary-400 border border-primary-500/30' 
+                isActive
+                  ? 'bg-primary-600/20 text-primary-400 border border-primary-500/30'
                   : 'text-dark-400 hover:bg-dark-800/50 hover:text-dark-200'
               )}
             >
