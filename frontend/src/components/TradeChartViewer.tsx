@@ -233,6 +233,19 @@ export function TradeChartViewer({
         rightPriceScale: {
           borderColor: '#374151',
         },
+        localization: {
+          // Force formatting to Hebrew/Israel locale
+          timeFormatter: (timestamp: number) => {
+            return new Date(timestamp * 1000).toLocaleString('he-IL', {
+              timeZone: 'Asia/Jerusalem',
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: false,
+              day: '2-digit',
+              month: '2-digit',
+            }).replace(',', '')
+          },
+        },
       })
 
       const series = chart.addCandlestickSeries({
