@@ -35,6 +35,9 @@ export interface PropFirmAccount {
     // Customization
     color?: string
 
+    // Linking
+    linkedAccountId?: string
+
     createdAt: any
     updatedAt: any
 }

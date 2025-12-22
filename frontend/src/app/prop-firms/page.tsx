@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { getPropAccounts, createPropAccount, PropFirmAccount } from '@/lib/firebase/propFirms'
+import { createAccount } from '@/lib/firebase/firestore'
 import { PropDashboard } from '@/components/prop-firms/PropDashboard'
 import { PropAccountList } from '@/components/prop-firms/PropAccountList'
 import { PropAccountModal } from '@/components/prop-firms/PropAccountModal'
@@ -42,9 +43,29 @@ function PropFirmsContent() {
 
     const handleCreateAccount = async (data: Partial<PropFirmAccount>) => {
         if (!user) return
-        // @ts-ignore - Types mismatch on optional fields but Firestore handles it
-        await createPropAccount(user.uid, data)
-        await fetchAccounts()
+
+        try {
+            // 1. Create Linked Standard Account first
+            const accountId = await createAccount(user.uid, {
+                name: data.name || 'New Prop Account',
+                broker: data.provider || 'Prop Firm',
+                currency: 'USD',
+                initialBalance: data.size || 0,
+                isDemo: true, // Prop accounts are technically demos
+                isActive: true
+            })
+
+            // 2. Create Prop Account with link
+            // @ts-ignore
+            await createPropAccount(user.uid, {
+                ...data,
+                linkedAccountId: accountId
+            })
+
+            await fetchAccounts()
+        } catch (error) {
+            console.error('Error creating account:', error)
+        }
     }
 
     if (loading) {

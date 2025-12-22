@@ -189,7 +189,7 @@ function AccountCard({
                 )}
 
                 {/* Action Button */}
-                {account.isFunded && account.status === 'funded_active' && (
+                {account.isFunded && (
                     <button
                         onClick={onAddWithdrawal}
                         className="w-full mt-3 py-2 flex items-center justify-center gap-2 text-xs font-medium text-profit bg-profit/10 hover:bg-profit/20 border border-profit/20 rounded-lg transition-colors"
