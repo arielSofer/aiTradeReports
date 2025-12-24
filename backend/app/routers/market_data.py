@@ -131,10 +131,16 @@ async def get_candles(
         # Get API key from environment
         api_key = os.environ.get("DATABENTO_API_KEY")
         if not api_key:
+            print("ERROR: DATABENTO_API_KEY not found in environment")
             raise HTTPException(
                 status_code=503,
                 detail="Market data service unavailable - DATABENTO_API_KEY not configured"
             )
+        
+        # Debug logging for API key (safe mask)
+        key_len = len(api_key)
+        start_chars = api_key[:4] if key_len > 4 else "***"
+        print(f"DEBUG: Using Databento API key. Length: {key_len}, Starts with: {start_chars}...")
         
         # Normalize and map symbol
         normalized = normalize_symbol(symbol)
