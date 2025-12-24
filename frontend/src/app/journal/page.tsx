@@ -484,12 +484,14 @@ function JournalContent() {
         )}
       </main>
 
-      <TradeDetailsModal
-        isOpen={!!editingTrade}
-        onClose={() => setEditingTrade(null)}
-        trade={editingTrade!}
-        onSave={handleTradeUpdate}
-      />
+      {editingTrade && (
+        <TradeDetailsModal
+          isOpen={!!editingTrade}
+          onClose={() => setEditingTrade(null)}
+          trade={editingTrade}
+          onSave={handleTradeUpdate}
+        />
+      )}
 
       <AddTradeModal
         isOpen={showAddTrade}
