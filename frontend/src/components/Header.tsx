@@ -76,11 +76,6 @@ export function Header({ onUploadClick, onAddTradeClick, onSearch }: HeaderProps
             />
           </div>
 
-          {/* Notifications */}
-          <button className="relative p-2 text-dark-400 hover:text-dark-200 transition-colors">
-            <Bell className="w-5 h-5" />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-primary-500 rounded-full" />
-          </button>
 
           {/* Upload Button */}
           <button
@@ -91,16 +86,6 @@ export function Header({ onUploadClick, onAddTradeClick, onSearch }: HeaderProps
           >
             <Upload className="w-4 h-4" />
             Import Trades
-          </button>
-
-          {/* Quick Add */}
-          <button
-            onClick={onAddTradeClick}
-            className="p-2 bg-dark-800 hover:bg-dark-700 text-dark-300 rounded-lg 
-                       border border-dark-700 transition-all duration-200"
-            title="Add Trade"
-          >
-            <Plus className="w-5 h-5" />
           </button>
 
           {/* User Menu */}
