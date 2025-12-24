@@ -45,6 +45,7 @@ export function PropAccountModal({ isOpen, onClose, onSubmit, initialData }: Pro
         purchaseDate: new Date(),
         notes: '',
         color: 'bg-blue-500',
+        profitSplit: 100,
         isFunded: false
     })
 
@@ -74,6 +75,7 @@ export function PropAccountModal({ isOpen, onClose, onSubmit, initialData }: Pro
                 purchaseDate: new Date(),
                 notes: '',
                 color: 'bg-blue-500',
+                profitSplit: 100,
                 isFunded: false
             })
             setSelectedFirm(null)
@@ -265,6 +267,21 @@ export function PropAccountModal({ isOpen, onClose, onSubmit, initialData }: Pro
                                 className="input w-full"
                             />
                             <p className="text-xs text-dark-500">Edit if you had a discount.</p>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-dark-300">Profit Split (%)</label>
+                            <input
+                                type="number"
+                                name="profitSplit"
+                                value={formData.profitSplit || 100}
+                                onChange={handleChange}
+                                min="0"
+                                max="100"
+                                className="input w-full"
+                                placeholder="100"
+                            />
+                            <p className="text-xs text-dark-500">Your share (e.g. 90).</p>
                         </div>
 
                         <div className="space-y-2">

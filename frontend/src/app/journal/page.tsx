@@ -16,40 +16,28 @@ import {
   Wallet,
   ChevronDown
 } from 'lucide-react'
+import { useRef } from 'react' // Adding useRef if needed, or just standard imports
 import { formatCurrency, formatDateTime, cn } from '@/lib/utils'
 import { AddTradeModal, TradeFormData } from '@/components/AddTradeModal'
 import { useAuth } from '@/contexts/AuthContext'
 import { getTrades, createTrade, getAccounts, FirestoreAccount, calculateStats } from '@/lib/firebase/firestore'
 import { Timestamp } from 'firebase/firestore'
-
-interface Trade {
-  id: number
-  symbol: string
-  direction: 'long' | 'short'
-  status: 'open' | 'closed'
-  entryTime: string
-  exitTime?: string
-  entryPrice: number
-  exitPrice?: number
-  quantity: number
-  commission: number
-  pnlNet?: number
-  pnlPercent?: number
-  isWinner?: boolean
-  tags: string[]
-  notes?: string
-}
+import { Trade } from '@/lib/store'
+import { TradeDetailsModal } from '@/components/TradeDetailsModal'
+import { Pencil } from 'lucide-react'
 
 function JournalContent() {
   const { user } = useAuth()
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [showAddTrade, setShowAddTrade] = useState(false)
-  const [selectedTrade, setSelectedTrade] = useState<number | null>(null)
+  const [selectedTrade, setSelectedTrade] = useState<string | null>(null)
+  const [editingTrade, setEditingTrade] = useState<Trade | null>(null)
   const [trades, setTrades] = useState<Trade[]>([])
   const [accounts, setAccounts] = useState<FirestoreAccount[]>([])
   const [selectedAccountId, setSelectedAccountId] = useState<string | 'all'>('all')
   const [showAccountDropdown, setShowAccountDropdown] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   // Load accounts
   useEffect(() => {
@@ -76,7 +64,7 @@ function JournalContent() {
           const firestoreTrades = await getTrades(user.uid, { accountId: accountIdFilter })
 
           const convertedTrades: Trade[] = firestoreTrades.map(t => ({
-            id: parseInt(t.id || '0'),
+            id: t.id || '',
             symbol: t.symbol,
             direction: t.direction,
             status: t.status,
@@ -102,7 +90,7 @@ function JournalContent() {
       }
     }
     loadTrades()
-  }, [user, selectedAccountId])
+  }, [user, selectedAccountId, refreshKey])
 
   // Group trades by date
   const tradesByDate = trades.reduce((acc, trade) => {
@@ -134,32 +122,17 @@ function JournalContent() {
         notes: data.notes,
       })
 
-      // Reload trades
-      const accountIdFilter = selectedAccountId === 'all' ? undefined : selectedAccountId
-      const firestoreTrades = await getTrades(user.uid, { accountId: accountIdFilter })
-      const convertedTrades: Trade[] = firestoreTrades.map(t => ({
-        id: parseInt(t.id || '0'),
-        symbol: t.symbol,
-        direction: t.direction,
-        status: t.status,
-        entryTime: t.entryTime?.toDate?.()?.toISOString() || new Date().toISOString(),
-        exitTime: t.exitTime?.toDate?.()?.toISOString(),
-        entryPrice: t.entryPrice,
-        exitPrice: t.exitPrice,
-        quantity: t.quantity,
-        commission: t.commission,
-        pnlNet: t.pnlNet,
-        pnlPercent: t.pnlPercent,
-        isWinner: t.pnlNet ? t.pnlNet > 0 : undefined,
-        tags: t.tags || [],
-        notes: t.notes,
-      }))
-      setTrades(convertedTrades)
+      setRefreshKey(prev => prev + 1)
       setShowAddTrade(false)
     } catch (error) {
       console.error('Error adding trade:', error)
       alert('שגיאה בהוספת עסקה')
     }
+  }
+
+  const handleTradeUpdate = (updatedTrade: Trade) => {
+    setRefreshKey(prev => prev + 1)
+    setEditingTrade(null)
   }
 
   // Get current month dates
@@ -455,23 +428,34 @@ function JournalContent() {
                               </p>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <p className={cn(
-                              'font-bold',
-                              trade.pnlNet && trade.pnlNet >= 0 ? 'text-profit' : 'text-loss'
-                            )}>
-                              {trade.pnlNet && trade.pnlNet >= 0 ? '+' : ''}
-                              {formatCurrency(trade.pnlNet || 0)}
-                            </p>
-                            {trade.pnlPercent !== undefined && (
+                          <div className="flex items-start gap-4">
+                            <div className="text-right">
                               <p className={cn(
-                                'text-xs',
-                                trade.pnlPercent >= 0 ? 'text-profit/70' : 'text-loss/70'
+                                'font-bold',
+                                trade.pnlNet && trade.pnlNet >= 0 ? 'text-profit' : 'text-loss'
                               )}>
-                                {trade.pnlPercent >= 0 ? '+' : ''}
-                                {trade.pnlPercent.toFixed(2)}%
+                                {trade.pnlNet && trade.pnlNet >= 0 ? '+' : ''}
+                                {formatCurrency(trade.pnlNet || 0)}
                               </p>
-                            )}
+                              {trade.pnlPercent !== undefined && (
+                                <p className={cn(
+                                  'text-xs',
+                                  trade.pnlPercent >= 0 ? 'text-profit/70' : 'text-loss/70'
+                                )}>
+                                  {trade.pnlPercent >= 0 ? '+' : ''}
+                                  {trade.pnlPercent.toFixed(2)}%
+                                </p>
+                              )}
+                            </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setEditingTrade(trade)
+                              }}
+                              className="p-1.5 hover:bg-dark-700/50 rounded-lg transition-colors text-dark-400 hover:text-white"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
                           </div>
                         </div>
 
@@ -499,6 +483,13 @@ function JournalContent() {
           </div>
         )}
       </main>
+
+      <TradeDetailsModal
+        isOpen={!!editingTrade}
+        onClose={() => setEditingTrade(null)}
+        trade={editingTrade!}
+        onSave={handleTradeUpdate}
+      />
 
       <AddTradeModal
         isOpen={showAddTrade}

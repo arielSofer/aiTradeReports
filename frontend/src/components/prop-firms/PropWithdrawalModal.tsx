@@ -8,11 +8,12 @@ interface PropWithdrawalModalProps {
     isOpen: boolean
     onClose: () => void
     account: PropFirmAccount
-    onSubmit: (amount: number, date: Date, note: string) => Promise<void>
+    onSubmit: (amount: number, splitPercentage: number, date: Date, note: string) => Promise<void>
 }
 
 export function PropWithdrawalModal({ isOpen, onClose, account, onSubmit }: PropWithdrawalModalProps) {
     const [amount, setAmount] = useState<string>('')
+    const [splitPercentage, setSplitPercentage] = useState<number>(account.profitSplit || 100)
     const [date, setDate] = useState<string>(new Date().toISOString().slice(0, 16))
     const [note, setNote] = useState('')
     const [isSubmitting, setIsSubmitting] = useState(false)
@@ -23,7 +24,7 @@ export function PropWithdrawalModal({ isOpen, onClose, account, onSubmit }: Prop
 
         setIsSubmitting(true)
         try {
-            await onSubmit(parseFloat(amount), new Date(date), note)
+            await onSubmit(parseFloat(amount), splitPercentage, new Date(date), note)
             onClose()
             setAmount('')
             setNote('')
@@ -35,6 +36,9 @@ export function PropWithdrawalModal({ isOpen, onClose, account, onSubmit }: Prop
     }
 
     if (!isOpen) return null
+
+    const gross = parseFloat(amount) || 0
+    const net = gross * (splitPercentage / 100)
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -54,7 +58,7 @@ export function PropWithdrawalModal({ isOpen, onClose, account, onSubmit }: Prop
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="space-y-2">
-                        <label className="text-sm font-medium text-dark-300">Amount ($)</label>
+                        <label className="text-sm font-medium text-dark-300">Gross Amount ($)</label>
                         <div className="relative">
                             <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-400" />
                             <input
@@ -68,6 +72,27 @@ export function PropWithdrawalModal({ isOpen, onClose, account, onSubmit }: Prop
                                 autoFocus
                                 required
                             />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-dark-300">Split %</label>
+                            <input
+                                type="number"
+                                value={splitPercentage}
+                                onChange={(e) => setSplitPercentage(parseFloat(e.target.value))}
+                                className="input w-full"
+                                min="0"
+                                max="100"
+                                required
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-dark-300">Net Payout</label>
+                            <div className="input w-full bg-dark-800 text-profit font-mono font-bold flex items-center border-dark-700">
+                                ${net.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
                         </div>
                     </div>
 

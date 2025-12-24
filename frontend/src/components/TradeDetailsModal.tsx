@@ -17,11 +17,13 @@ interface TradeDetailsModalProps {
 
 export function TradeDetailsModal({ isOpen, onClose, trade, onSave, isNewTrade }: TradeDetailsModalProps) {
     const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>({})
+    const [notes, setNotes] = useState(trade.notes || '')
     const [isSaving, setIsSaving] = useState(false)
 
     // Initialize selected options from trade tags
     useEffect(() => {
         if (isOpen && trade) {
+            setNotes(trade.notes || '')
             const initialOptions: Record<string, string[]> = {}
 
             // Initialize empty arrays for all categories
@@ -30,11 +32,6 @@ export function TradeDetailsModal({ isOpen, onClose, trade, onSave, isNewTrade }
             })
 
             // Parse existing tags
-            // Assumes format "Category: Option" or just "Option" if unique, 
-            // but strictly we'll use "Option" and try to match it to a category, 
-            // or "Category: Option" if we enforced that.
-            // Given existing tags might be anything, let's try to match tag text to options.
-
             trade.tags.forEach(tag => {
                 // Check if tag matches any option in our config
                 for (const cat of TRADE_DETAILS_CONFIG) {
@@ -74,27 +71,8 @@ export function TradeDetailsModal({ isOpen, onClose, trade, onSave, isNewTrade }
     const handleSave = async () => {
         setIsSaving(true)
         try {
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/c515b6be-06d5-4b2c-9fd7-edc0f43b741e', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: 'debug-session', runId: 'pre-fix', hypothesisId: 'H1', location: 'frontend/src/components/TradeDetailsModal.tsx:handleSave:entry', message: 'handleSave entry', data: { tradeId: trade?.id, isNewTrade, tagCount: trade?.tags?.length ?? 0, selectedCategories: Object.keys(selectedOptions || {}).length }, timestamp: Date.now() }) }).catch(() => { })
-            // #endregion
-
             // Collect all selected options as tags
-            // We will format them as "Category: Option" to avoid collisions and be descriptive,
-            // or just "Option" if that's preferred. The user request "split it to the category" implies UI splitting.
-            // If we just save "Option", we might lose the category if options overlap (unlikely here but possible).
-            // Also displaying "Trade Management: exited emotionally" is long.
-            // Maybe just save the Option string.
-            // But the Requirement said "use the category in the photos... split it to the category".
-            // Let's save just the option text because "Category: Option" is clunky in a tag pill.
-            // However, for parsing back, we need to know which matches what.
-            // Since options are fairly unique ("bad sleep", "good sleep"), saving just the name is fine.
-
             const newTags: string[] = []
-
-            // Keep existing tags that really don't match any of our config options?
-            // If we want to be destructive (sync mode), we replace. 
-            // If additive, we keep unknown tags.
-            // Let's keep unknown tags to be safe.
 
             const knownOptions = new Set(TRADE_DETAILS_CONFIG.flatMap(c => c.options))
             const existingUnknownTags = trade.tags.filter(t => !knownOptions.has(t))
@@ -109,32 +87,13 @@ export function TradeDetailsModal({ isOpen, onClose, trade, onSave, isNewTrade }
                 })
             })
 
-
-            const updatedTradeStart = { ...trade, tags: newTags }
+            const updatedTradeStart = { ...trade, tags: newTags, notes }
 
             // Update via API only if it's an existing trade
             if (!isNewTrade) {
-                // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/c515b6be-06d5-4b2c-9fd7-edc0f43b741e', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: 'debug-session', runId: 'pre-fix', hypothesisId: 'H2', location: 'frontend/src/components/TradeDetailsModal.tsx:handleSave:preUpdate', message: 'About to update trade', data: { tradeId: trade?.id, isIdString: typeof trade?.id === 'string', newTagsCount: newTags.length }, timestamp: Date.now() }) }).catch(() => { })
-                // #endregion
-                if (!trade.id) {
-                    console.error('Invalid trade ID for update:', trade.id)
-                    // Do not attempt update if ID is invalid
-                    // #region agent log
-                    fetch('http://127.0.0.1:7242/ingest/c515b6be-06d5-4b2c-9fd7-edc0f43b741e', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: 'debug-session', runId: 'pre-fix', hypothesisId: 'H2', location: 'frontend/src/components/TradeDetailsModal.tsx:handleSave:invalidId', message: 'Invalid trade id, skipping update', data: { tradeId: trade?.id }, timestamp: Date.now() }) }).catch(() => { })
-                    // #endregion
-                } else {
-                    console.log('Updating existing trade:', trade.id)
-                    await updateTrade(String(trade.id), { tags: newTags })
-                    // #region agent log
-                    fetch('http://127.0.0.1:7242/ingest/c515b6be-06d5-4b2c-9fd7-edc0f43b741e', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: 'debug-session', runId: 'pre-fix', hypothesisId: 'H3', location: 'frontend/src/components/TradeDetailsModal.tsx:handleSave:updateSuccess', message: 'Trade update completed', data: { tradeId: trade?.id, updatedTags: newTags.length }, timestamp: Date.now() }) }).catch(() => { })
-                    // #endregion
+                if (trade.id) {
+                    await updateTrade(String(trade.id), { tags: newTags, notes })
                 }
-            } else {
-                console.log('Skipping API update for new trade')
-                // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/c515b6be-06d5-4b2c-9fd7-edc0f43b741e', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: 'debug-session', runId: 'pre-fix', hypothesisId: 'H1', location: 'frontend/src/components/TradeDetailsModal.tsx:handleSave:newTrade', message: 'New trade, skip update', data: { tradeId: trade?.id, newTagsCount: newTags.length }, timestamp: Date.now() }) }).catch(() => { })
-                // #endregion
             }
 
             onSave(updatedTradeStart)
@@ -173,6 +132,18 @@ export function TradeDetailsModal({ isOpen, onClose, trade, onSave, isNewTrade }
 
                 {/* Content - Scrollable */}
                 <div className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-dark-700 scrollbar-track-transparent">
+
+                    {/* Notes Section */}
+                    <div className="mb-6 bg-dark-800/50 rounded-xl p-4 border border-dark-700/50">
+                        <label className="text-sm font-medium text-dark-300 mb-2 block">Trade Notes</label>
+                        <textarea
+                            value={notes}
+                            onChange={(e) => setNotes(e.target.value)}
+                            className="input w-full min-h-[100px] resize-none"
+                            placeholder="Add your thoughts, emotions, and analysis of this trade..."
+                        />
+                    </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {TRADE_DETAILS_CONFIG.map((category) => (
                             <div

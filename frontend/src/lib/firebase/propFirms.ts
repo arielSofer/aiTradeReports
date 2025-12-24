@@ -26,6 +26,7 @@ export interface PropFirmAccount {
     status: PropAccountStatus
     purchaseDate: Timestamp | Date
     notes?: string
+    profitSplit?: number // e.g. 90 for 90/10 split
     isFunded: boolean
 
     // For funded accounts
@@ -44,7 +45,9 @@ export interface PropFirmAccount {
 
 export interface WithdrawalRecord {
     id: string
-    amount: number
+    amount: number // Gross amount
+    netAmount: number // User's share
+    splitPercentage: number // The split used for this withdrawal
     date: Timestamp | Date
     note?: string
 }
@@ -60,6 +63,7 @@ export async function createPropAccount(
     const docRef = await addDoc(collectionRef, {
         ...data,
         userId,
+        profitSplit: data.profitSplit || 100,
         totalWithdrawals: 0,
         withdrawalHistory: [],
         createdAt: serverTimestamp(),
@@ -82,6 +86,7 @@ export async function getPropAccounts(userId: string): Promise<PropFirmAccount[]
         return {
             id: doc.id,
             ...data,
+            profitSplit: data.profitSplit || 100,
             purchaseDate: data.purchaseDate?.toDate() || new Date(),
             withdrawalHistory: (data.withdrawalHistory || []).map((w: any) => ({
                 ...w,
@@ -119,6 +124,7 @@ export async function updatePropAccount(
 export async function addWithdrawal(
     accountId: string,
     amount: number,
+    splitPercentage: number,
     date: Date,
     note?: string
 ): Promise<void> {
@@ -130,14 +136,19 @@ export async function addWithdrawal(
     }
 
     const account = accountSnap.data() as PropFirmAccount
+
+    const netAmount = amount * (splitPercentage / 100)
+
     const newWithdrawal: WithdrawalRecord = {
         id: crypto.randomUUID(),
         amount,
+        netAmount,
+        splitPercentage,
         date: Timestamp.fromDate(date),
         note
     }
 
-    const newTotal = (account.totalWithdrawals || 0) + amount
+    const newTotal = (account.totalWithdrawals || 0) + amount // Track gross withdrawals in total
     const newHistory = [...(account.withdrawalHistory || []), newWithdrawal]
 
     await updateDoc(accountRef, {

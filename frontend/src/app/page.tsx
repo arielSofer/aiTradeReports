@@ -9,7 +9,6 @@ import { TradesTable } from '@/components/TradesTable'
 import { HourlyHeatmap } from '@/components/HourlyHeatmap'
 import { TradingCalendar } from '@/components/TradingCalendar'
 import { EconomicCalendar } from '@/components/EconomicCalendar'
-import { UploadModal } from '@/components/UploadModal'
 import { AddTradeModal, TradeFormData } from '@/components/AddTradeModal'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { useStore } from '@/lib/store'
@@ -18,8 +17,10 @@ import { getTrades, calculateStats, createTrade, getAccounts, FirestoreAccount }
 import { Timestamp } from 'firebase/firestore'
 import { ChevronDown, Wallet } from 'lucide-react'
 
+import { useRouter } from 'next/navigation'
+
 function DashboardContent() {
-  const [showUpload, setShowUpload] = useState(false)
+  const router = useRouter()
   const [showAddTrade, setShowAddTrade] = useState(false)
   const [accounts, setAccounts] = useState<FirestoreAccount[]>([])
   const [selectedAccountId, setSelectedAccountId] = useState<string | 'all'>('all')
@@ -289,7 +290,7 @@ function DashboardContent() {
 
       <main className="flex-1 ml-64">
         <Header
-          onUploadClick={() => setShowUpload(true)}
+          onUploadClick={() => router.push('/import')}
           onAddTradeClick={() => setShowAddTrade(true)}
         />
 
@@ -330,8 +331,8 @@ function DashboardContent() {
                           setShowAccountDropdown(false)
                         }}
                         className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${selectedAccountId === 'all'
-                            ? 'bg-primary-500/20 text-primary-400'
-                            : 'hover:bg-dark-700 text-dark-300'
+                          ? 'bg-primary-500/20 text-primary-400'
+                          : 'hover:bg-dark-700 text-dark-300'
                           }`}
                       >
                         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500/30 to-accent-purple/30 flex items-center justify-center">
@@ -355,8 +356,8 @@ function DashboardContent() {
                             setShowAccountDropdown(false)
                           }}
                           className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${selectedAccountId === account.id
-                              ? 'bg-primary-500/20 text-primary-400'
-                              : 'hover:bg-dark-700 text-dark-300'
+                            ? 'bg-primary-500/20 text-primary-400'
+                            : 'hover:bg-dark-700 text-dark-300'
                             }`}
                         >
                           <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${account.isDemo ? 'bg-accent-purple/20' : 'bg-primary-500/20'
@@ -426,12 +427,6 @@ function DashboardContent() {
           )}
         </div>
       </main>
-
-      {/* Upload Modal */}
-      <UploadModal
-        isOpen={showUpload}
-        onClose={() => setShowUpload(false)}
-      />
 
       {/* Add Trade Modal */}
       <AddTradeModal

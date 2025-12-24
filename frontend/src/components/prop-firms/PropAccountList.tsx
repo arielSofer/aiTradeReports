@@ -34,9 +34,9 @@ export function PropAccountList({ accounts, onUpdate }: PropAccountListProps) {
         }
     }
 
-    const handleAddWithdrawal = async (amount: number, date: Date, note: string) => {
+    const handleAddWithdrawal = async (amount: number, splitPercentage: number, date: Date, note: string) => {
         if (withdrawalAccount?.id) {
-            await addWithdrawal(withdrawalAccount.id, amount, date, note)
+            await addWithdrawal(withdrawalAccount.id, amount, splitPercentage, date, note)
             setWithdrawalAccount(null)
             onUpdate()
         }
@@ -106,7 +106,10 @@ function AccountCard({
 
     const statusLabel = account.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())
     const hasWithdrawals = (account.totalWithdrawals || 0) > 0
-    const netPnl = (account.totalWithdrawals || 0) - account.cost
+
+    // Calculate Net ROI based on Net Withdrawals (User Share)
+    const totalNetWithdrawals = (account.withdrawalHistory || []).reduce((sum, w) => sum + (w.netAmount || w.amount), 0)
+    const netPnl = totalNetWithdrawals - account.cost
 
     return (
         <div className="group relative bg-dark-900 rounded-xl border border-dark-700 overflow-hidden hover:border-dark-600 transition-all hover:shadow-lg">
@@ -170,17 +173,25 @@ function AccountCard({
                     </div>
                 </div>
 
+                {/* Profit Split Info */}
+                <div className="flex items-center justify-between mb-3 px-1">
+                    <span className="text-xs text-dark-500">Profit Split</span>
+                    <span className="text-xs font-medium text-dark-300">
+                        {account.profitSplit || 100}% / {100 - (account.profitSplit || 100)}%
+                    </span>
+                </div>
+
                 {/* Financials for funded accounts or passed accounts */}
                 {(account.isFunded || hasWithdrawals) && (
                     <div className="bg-dark-800/50 rounded-lg p-3 space-y-2">
                         <div className="flex justify-between items-center">
-                            <span className="text-xs text-dark-400">Total Withdrawn</span>
+                            <span className="text-xs text-dark-400">Total Payouts (Gross)</span>
                             <span className={cn("text-sm font-mono font-medium", hasWithdrawals ? 'text-profit' : 'text-dark-400')}>
                                 +${(account.totalWithdrawals || 0).toLocaleString()}
                             </span>
                         </div>
                         <div className="flex justify-between items-center pt-2 border-t border-dark-700/50">
-                            <span className="text-xs text-dark-400">Net ROI</span>
+                            <span className="text-xs text-dark-400">Net ROI (Your Share)</span>
                             <span className={cn("text-sm font-mono font-bold", netPnl >= 0 ? 'text-profit' : 'text-loss')}>
                                 {netPnl >= 0 ? '+' : ''}${netPnl.toLocaleString()}
                             </span>
