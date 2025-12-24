@@ -148,84 +148,29 @@ interface PerformanceReviewRequest {
 }
 
 export async function generatePerformanceReview(request: PerformanceReviewRequest): Promise<{ review: string; model?: string }> {
-  const { stats, dailyStats, hourlyStats, topAssets } = request
-
-  if (!OPENROUTER_API_KEY) {
-    throw new Error('OpenRouter API key not configured')
-  }
-
-  const messages = [
-    {
-      role: 'user',
-      content: [
-        {
-          type: 'text',
-          text: `Please analyze my trading performance and provide exactly 3 actionable tips for improvement.
-
-Performance Stats:
-- Win Rate: ${stats.winRate.toFixed(1)}%
-- Profit Factor: ${stats.profitFactor.toFixed(2)}
-- Total P&L: $${stats.totalPnl.toFixed(2)}
-- Avg Win: $${stats.avgWin.toFixed(2)}
-- Avg Loss: $${stats.avgLoss.toFixed(2)}
-- Max Drawdown: $${stats.maxDrawdown.toFixed(2)}
-- Expectancy: $${stats.expectancy.toFixed(2)}
-
-Daily Performance (Best/Worst):
-${dailyStats.map(d => `- ${d.day}: $${d.pnl.toFixed(0)} (${d.winRate.toFixed(0)}% WR)`).join('\n')}
-
-Hourly Performance (Best/Worst):
-${hourlyStats.slice(0, 5).map(h => `- ${h.hour}: $${h.pnl.toFixed(0)}`).join('\n')}...
-
-Top Assets:
-${topAssets.map(a => `- ${a.name}: $${a.value.toFixed(0)}`).join('\n')}
-
-Based on this data, assume the role of a professional trading psychologist and risk manager.
-Provide:
-1. One tip regarding Risk Management.
-2. One tip regarding Timing/Schedule (based on daily/hourly stats).
-3. One tip regarding Asset Selection or Strategy.
-
-Format the response as a simple JSON-like markdown list with bold headers in Hebrew.
-Example:
-**1. ניהול סיכונים:** ...
-**2. זמני מסחר:** ...
-**3. אסטרטגיה:** ...`
-        }
-      ]
-    }
-  ]
-
-  // Reuse the same fetch logic
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const response = await fetch('/api/ai/review-performance', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || 'https://arielsofer.github.io/aiTradeReports',
-        'X-Title': 'TradeTracker',
       },
-      body: JSON.stringify({
-        model: 'google/gemini-2.0-flash-exp:free',
-        messages: messages,
-      })
+      body: JSON.stringify(request)
     })
 
     if (!response.ok) {
-      throw new Error('Failed to fetch AI review')
+      const errorText = await response.text()
+      try {
+        const errorJson = JSON.parse(errorText)
+        throw new Error(errorJson.error || 'Failed to fetch AI review')
+      } catch (e) {
+        throw new Error(`Failed to fetch AI review: ${response.status} ${response.statusText}`)
+      }
     }
 
     const data = await response.json()
-    const review = data.choices?.[0]?.message?.content || 'No review generated'
-    return { review, model: data.model }
+    return { review: data.review, model: data.model }
   } catch (error: any) {
     console.error('AI Request failed:', error)
     throw new Error(error.message || 'AI request failed')
   }
 }
-
-
-
-
-
