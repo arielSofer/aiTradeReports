@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { X, Sparkles, Loader2, Download, Image as ImageIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { TradeChartGenerator } from './TradeChartGenerator'
+import { TradeChartViewer } from './TradeChartViewer'
 import html2canvas from 'html2canvas'
 import { generateTradeReview } from '@/lib/openrouter'
 
@@ -258,43 +258,25 @@ export function AITradeReviewModal({ isOpen, onClose, trade }: AITradeReviewModa
           {trade.exitTime && !review && (
             <div className="space-y-4 mb-6">
               <h4 className="text-sm font-medium text-white mb-3">Charts for AI Review</h4>
-              <div ref={chart5minRef} className="border border-dark-700 rounded-lg overflow-hidden">
-                <TradeChartGenerator
-                  trade={{
-                    symbol: trade.symbol,
-                    entryTime: trade.entryTime,
-                    exitTime: trade.exitTime,
-                    entryPrice: trade.entryPrice,
-                    exitPrice: trade.exitPrice || trade.entryPrice,
-                    direction: trade.direction,
-                  }}
-                  timeframe="5min"
+              <div ref={chart5minRef} className="border border-dark-700 rounded-lg overflow-hidden h-[400px]">
+                <TradeChartViewer
+                  trade={trade}
+                  initialTimeframe="5m"
+                  hideControls={true}
                 />
               </div>
-              <div ref={chart15minRef} className="border border-dark-700 rounded-lg overflow-hidden">
-                <TradeChartGenerator
-                  trade={{
-                    symbol: trade.symbol,
-                    entryTime: trade.entryTime,
-                    exitTime: trade.exitTime,
-                    entryPrice: trade.entryPrice,
-                    exitPrice: trade.exitPrice || trade.entryPrice,
-                    direction: trade.direction,
-                  }}
-                  timeframe="15min"
+              <div ref={chart15minRef} className="border border-dark-700 rounded-lg overflow-hidden h-[400px]">
+                <TradeChartViewer
+                  trade={trade}
+                  initialTimeframe="15m"
+                  hideControls={true}
                 />
               </div>
-              <div ref={chart1hRef} className="border border-dark-700 rounded-lg overflow-hidden">
-                <TradeChartGenerator
-                  trade={{
-                    symbol: trade.symbol,
-                    entryTime: trade.entryTime,
-                    exitTime: trade.exitTime,
-                    entryPrice: trade.entryPrice,
-                    exitPrice: trade.exitPrice || trade.entryPrice,
-                    direction: trade.direction,
-                  }}
-                  timeframe="1h"
+              <div ref={chart1hRef} className="border border-dark-700 rounded-lg overflow-hidden h-[400px]">
+                <TradeChartViewer
+                  trade={trade}
+                  initialTimeframe="1h"
+                  hideControls={true}
                 />
               </div>
             </div>

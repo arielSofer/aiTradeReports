@@ -29,13 +29,17 @@ interface TradeChartViewerProps {
   onClose?: () => void
   isFullScreen?: boolean
   onToggleFullScreen?: () => void
+  initialTimeframe?: Timeframe
+  hideControls?: boolean
 }
 
 export function TradeChartViewer({
   trade,
   onClose,
   isFullScreen = false,
-  onToggleFullScreen
+  onToggleFullScreen,
+  initialTimeframe = '15m',
+  hideControls = false
 }: TradeChartViewerProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
@@ -46,7 +50,7 @@ export function TradeChartViewer({
   const [displayedData, setDisplayedData] = useState<CandleData[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [timeframe, setTimeframe] = useState<Timeframe>('15m')
+  const [timeframe, setTimeframe] = useState<Timeframe>(initialTimeframe)
 
   // Playback State
   const [isPlaying, setIsPlaying] = useState(false)
@@ -81,7 +85,6 @@ export function TradeChartViewer({
       // Random walk with drift
       const drift = (targetPrice - currentPrice) * 0.1
       currentPrice += drift + (Math.random() - 0.5) * volatility
-
       const open = currentPrice
       const close = currentPrice + (Math.random() - 0.5) * volatility * 0.5
       const high = Math.max(open, close) + Math.random() * volatility * 0.3
@@ -358,80 +361,82 @@ export function TradeChartViewer({
       isFullScreen && "fixed inset-4 z-50 flex flex-col"
     )}>
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-dark-800/50 bg-dark-900/80 backdrop-blur-sm">
-        <div className="flex items-center gap-4">
-          <div className={cn(
-            "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium",
-            trade.direction === 'long'
-              ? "bg-accent-blue/20 text-accent-blue"
-              : "bg-accent-orange/20 text-accent-orange"
-          )}>
-            {trade.direction === 'long' ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
-            {trade.symbol}
-          </div>
-
-          <div className="h-6 w-px bg-dark-700" />
-
-          {/* Timeframe Selector */}
-          <div className="flex items-center gap-1 bg-dark-800 rounded-lg p-1">
-            {TIMEFRAMES.map((tf) => (
-              <button
-                key={tf.value}
-                onClick={() => setTimeframe(tf.value)}
-                className={cn(
-                  "px-3 py-1 text-sm font-medium rounded-md transition-all duration-200",
-                  timeframe === tf.value
-                    ? "bg-primary text-white shadow-lg shadow-primary/25"
-                    : "text-dark-400 hover:text-dark-200 hover:bg-dark-700"
-                )}
-              >
-                {tf.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="h-6 w-px bg-dark-700" />
-
-          {/* Playback Controls */}
-          {marketData.length > 0 && (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={togglePlayback}
-                className="p-2 hover:bg-dark-700 rounded-lg text-dark-200 transition-colors"
-                title={isPlaying ? "Pause" : "Play Replay"}
-              >
-                {isPlaying ? <Pause size={18} /> : <Play size={18} />}
-              </button>
-              <button
-                onClick={resetPlayback}
-                className="p-2 hover:bg-dark-700 rounded-lg text-dark-200 transition-colors"
-                title="Reset View"
-              >
-                <SkipBack size={18} />
-              </button>
-
-              {isPlaying && (
-                <span className="text-xs text-primary animate-pulse">
-                  Replaying...
-                </span>
-              )}
+      {!hideControls && (
+        <div className="flex items-center justify-between p-4 border-b border-dark-800/50 bg-dark-900/80 backdrop-blur-sm">
+          <div className="flex items-center gap-4">
+            <div className={cn(
+              "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium",
+              trade.direction === 'long'
+                ? "bg-accent-blue/20 text-accent-blue"
+                : "bg-accent-orange/20 text-accent-orange"
+            )}>
+              {trade.direction === 'long' ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
+              {trade.symbol}
             </div>
-          )}
-        </div>
 
-        <div className="flex items-center gap-2">
-          {onToggleFullScreen && (
-            <button onClick={onToggleFullScreen} className="p-2 hover:bg-dark-800 rounded-lg text-dark-400">
-              {isFullScreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
-            </button>
-          )}
-          {onClose && (
-            <button onClick={onClose} className="p-2 hover:bg-dark-800 rounded-lg text-dark-400">
-              <Minimize2 size={20} />
-            </button>
-          )}
+            <div className="h-6 w-px bg-dark-700" />
+
+            {/* Timeframe Selector */}
+            <div className="flex items-center gap-1 bg-dark-800 rounded-lg p-1">
+              {TIMEFRAMES.map((tf) => (
+                <button
+                  key={tf.value}
+                  onClick={() => setTimeframe(tf.value)}
+                  className={cn(
+                    "px-3 py-1 text-sm font-medium rounded-md transition-all duration-200",
+                    timeframe === tf.value
+                      ? "bg-primary text-white shadow-lg shadow-primary/25"
+                      : "text-dark-400 hover:text-dark-200 hover:bg-dark-700"
+                  )}
+                >
+                  {tf.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="h-6 w-px bg-dark-700" />
+
+            {/* Playback Controls */}
+            {marketData.length > 0 && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={togglePlayback}
+                  className="p-2 hover:bg-dark-700 rounded-lg text-dark-200 transition-colors"
+                  title={isPlaying ? "Pause" : "Play Replay"}
+                >
+                  {isPlaying ? <Pause size={18} /> : <Play size={18} />}
+                </button>
+                <button
+                  onClick={resetPlayback}
+                  className="p-2 hover:bg-dark-700 rounded-lg text-dark-200 transition-colors"
+                  title="Reset View"
+                >
+                  <SkipBack size={18} />
+                </button>
+
+                {isPlaying && (
+                  <span className="text-xs text-primary animate-pulse">
+                    Replaying...
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {onToggleFullScreen && (
+              <button onClick={onToggleFullScreen} className="p-2 hover:bg-dark-800 rounded-lg text-dark-400">
+                {isFullScreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
+              </button>
+            )}
+            {onClose && (
+              <button onClick={onClose} className="p-2 hover:bg-dark-800 rounded-lg text-dark-400">
+                <Minimize2 size={20} />
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="flex flex-1 min-h-0 relative">
 
