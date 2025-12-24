@@ -22,7 +22,13 @@ export async function POST(request: NextRequest) {
         const body: PerformanceReviewRequest = await request.json()
         const { stats, dailyStats, hourlyStats, topAssets } = body
 
+        // Debug log (masked)
+        const key = OPENROUTER_API_KEY
+        const keyStart = key ? key.substring(0, 10) : 'MISSING'
+        console.log(`[ReviewPerformance] Using API Key starting with: ${keyStart}...`)
+
         if (!OPENROUTER_API_KEY) {
+            console.error('[ReviewPerformance] OpenRouter API key not configured')
             return NextResponse.json(
                 { error: 'OpenRouter API key not configured' },
                 { status: 500 }
