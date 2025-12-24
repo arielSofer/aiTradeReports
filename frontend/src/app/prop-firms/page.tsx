@@ -13,6 +13,9 @@ import { Plus, Loader2, Trophy } from 'lucide-react'
 import Link from 'next/link'
 import { Header } from '@/components/Header'
 
+import { GmailImportButton, FoundAccount } from '@/components/prop-firms/GmailImportButton'
+import { PROP_FIRMS } from '@/lib/data/propFirmsData'
+
 export default function PropFirmsPage() {
     return (
         <ProtectedRoute>
@@ -70,6 +73,39 @@ function PropFirmsContent() {
         }
     }
 
+    const handleGmailImport = async (found: FoundAccount[]) => {
+        if (!user) return
+
+        let importedCount = 0
+        for (const acc of found) {
+            // Check if already exists? (Optional, skipping check for now)
+
+            // Find price
+            // Mapping provider name "Topstep" to data
+            const firm = PROP_FIRMS.find(f => f.name.toLowerCase().includes(acc.provider.toLowerCase()))
+            const tier = firm?.accounts.find(a => a.size === acc.size)
+            const price = tier?.price || 0
+
+            await handleCreateAccount({
+                name: `${acc.provider} ${(acc.size / 1000).toFixed(0)}K - ${acc.login}`,
+                provider: acc.provider,
+                size: acc.size,
+                cost: price,
+                purchaseDate: acc.date,
+                status: 'challenge_active',
+                isFunded: false,
+                notes: `Imported from Gmail. Login: ${acc.login}`,
+                profitSplit: 100,
+                color: firm?.logoColor || 'bg-blue-500'
+            })
+            importedCount++
+        }
+        if (importedCount > 0) {
+            await fetchAccounts()
+            // Optionally show toast success
+        }
+    }
+
     if (loading) {
         return (
             <div className="flex h-screen bg-dark-950">
@@ -103,6 +139,8 @@ function PropFirmsContent() {
                         </div>
 
                         <div className="flex items-center gap-3">
+                            <GmailImportButton onImport={handleGmailImport} />
+
                             <Link
                                 href="/prop-firms/discounts"
                                 className="btn-secondary flex items-center gap-2 border-dashed border-profit/30 text-profit hover:bg-profit/10"

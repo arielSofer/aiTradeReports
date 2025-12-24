@@ -57,3 +57,9 @@ build/
 
 
 
+
+# Local Dev & Scripts
+.google_auth_venv/
+client_secret*.json
+token.json
+credentials.json
