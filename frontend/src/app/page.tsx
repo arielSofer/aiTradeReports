@@ -16,7 +16,6 @@ import { useAuth } from '@/contexts/AuthContext'
 import { getTrades, calculateStats, createTrade, getAccounts, FirestoreAccount } from '@/lib/firebase/firestore'
 import { Timestamp } from 'firebase/firestore'
 import { ChevronDown, Wallet } from 'lucide-react'
-
 import { useRouter } from 'next/navigation'
 
 function DashboardContent() {
@@ -28,6 +27,9 @@ function DashboardContent() {
   const [showAccountDropdown, setShowAccountDropdown] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('')
+
   const { user } = useAuth()
   const { trades, stats, setTrades, setStats, setDailyPnL, setHourlyStats } = useStore()
 
@@ -284,6 +286,17 @@ function DashboardContent() {
     }
   }
 
+  // Filter trades based on search query
+  const filteredTrades = useMemo(() => {
+    if (!searchQuery.trim()) return trades
+    const query = searchQuery.toLowerCase()
+    return trades.filter(t =>
+      t.symbol.toLowerCase().includes(query) ||
+      t.notes?.toLowerCase().includes(query) ||
+      t.tags?.some(tag => tag.toLowerCase().includes(query))
+    )
+  }, [trades, searchQuery])
+
   return (
     <div className="flex min-h-screen">
       <Sidebar />
@@ -291,6 +304,7 @@ function DashboardContent() {
       <main className="flex-1 ml-64">
         <Header
           onAddTradeClick={() => document.getElementById('add-trade-trigger')?.click()}
+          onSearch={setSearchQuery}
         />
 
         <div className="p-6 space-y-6">
@@ -421,7 +435,7 @@ function DashboardContent() {
               </div>
 
               {/* Trades Table - Limit to 100 most recent for performance */}
-              <TradesTable trades={trades.slice(0, 100)} onTradeDeleted={refreshData} />
+              <TradesTable trades={filteredTrades.slice(0, 100)} onTradeDeleted={refreshData} />
             </>
           )}
         </div>
