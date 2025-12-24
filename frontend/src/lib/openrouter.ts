@@ -3,7 +3,7 @@
  * Used for GitHub Pages deployment where API routes don't work
  */
 
-const OPENROUTER_API_KEY = process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || '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'
+const OPENROUTER_API_KEY = process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || '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'
 
 interface TradeReviewRequest {
   images: string[]
