@@ -1,5 +1,5 @@
 'use client'
-// Trigger Vercel Redeploy
+// Trigger Vercel Redeploy - Update 2
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Sidebar } from '@/components/Sidebar'
