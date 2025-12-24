@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Sidebar } from '@/components/Sidebar'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { Header } from '@/components/Header'
+import { generatePerformanceReview } from '@/lib/openrouter'
 import {
   TrendingUp,
   TrendingDown,
@@ -17,7 +18,10 @@ import {
   Calendar,
   Zap,
   Award,
-  AlertTriangle
+  AlertTriangle,
+  Sparkles,
+  Loader2,
+  Brain
 } from 'lucide-react'
 import { formatCurrency, cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
@@ -73,6 +77,8 @@ function AnalyticsContent() {
   const [selectedAccountId, setSelectedAccountId] = useState<string | 'all'>('all')
   const [showAccountDropdown, setShowAccountDropdown] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [aiReview, setAiReview] = useState<string | null>(null)
+  const [aiLoading, setAiLoading] = useState(false)
 
   // Load accounts
   useEffect(() => {
@@ -83,6 +89,7 @@ function AnalyticsContent() {
           setAccounts(userAccounts)
         } catch (error) {
           console.error('Error loading accounts:', error)
+          // setAccounts([]) // safe fallback
         }
       }
     }
@@ -122,6 +129,7 @@ function AnalyticsContent() {
           setTrades(convertedTrades)
         } catch (error) {
           console.error('Error loading data:', error)
+          setTrades([])
         } finally {
           setLoading(false)
         }
@@ -138,6 +146,20 @@ function AnalyticsContent() {
 
     const totalTrades = closedTrades.length
     const winRate = totalTrades > 0 ? (winningTrades.length / totalTrades) * 100 : 0
+
+    // Holding Time Calculation
+    let totalHoldingTime = 0
+    closedTrades.forEach(t => {
+      if (t.entryTime && t.exitTime) {
+        const start = new Date(t.entryTime).getTime()
+        const end = new Date(t.exitTime).getTime()
+        if (!isNaN(start) && !isNaN(end)) {
+          totalHoldingTime += end - start
+        }
+      }
+    })
+    const avgHoldingTimeMs = totalTrades > 0 ? totalHoldingTime / totalTrades : 0
+    const avgHoldingTimeMinutes = Math.round(avgHoldingTimeMs / (1000 * 60))
 
     const grossProfit = winningTrades.reduce((sum, t) => sum + t.pnlNet!, 0)
     const grossLoss = Math.abs(losingTrades.reduce((sum, t) => sum + t.pnlNet!, 0))
@@ -157,10 +179,7 @@ function AnalyticsContent() {
     let currentEquity = 0
     let equityCurve = [{ date: closedTrades[0]?.entryTime, equity: 0 }]
 
-    if (closedTrades.length > 0) {
-      // Start from 0 equity.
-      peak = 0
-    }
+    if (closedTrades.length > 0) peak = 0
 
     closedTrades.forEach(trade => {
       currentEquity += trade.pnlNet!
@@ -187,7 +206,7 @@ function AnalyticsContent() {
       } else {
         if (currentStreak > 0) currentStreak = 0
         currentStreak--
-        if (currentStreak < worstStreak) worstStreak = currentStreak // store as negative
+        if (currentStreak < worstStreak) worstStreak = currentStreak
       }
     })
 
@@ -202,8 +221,9 @@ function AnalyticsContent() {
       expectancy,
       maxDrawdown,
       bestStreak,
-      worstStreak: Math.abs(worstStreak), // Display as positive number for "Worst Streak" usually
-      equityCurve
+      worstStreak: Math.abs(worstStreak),
+      equityCurve,
+      avgHoldingTimeMinutes
     }
   }, [trades])
 
@@ -217,11 +237,13 @@ function AnalyticsContent() {
     trades.forEach(t => {
       if (t.entryTime && t.pnlNet) {
         const date = new Date(t.entryTime)
-        const day = daysOfWeek[date.getDay()]
-        if (dayStats[day]) {
-          dayStats[day].pnl += t.pnlNet
-          dayStats[day].trades += 1
-          if (t.pnlNet > 0) dayStats[day].wins += 1
+        if (!isNaN(date.getTime())) {
+          const day = daysOfWeek[date.getDay()]
+          if (dayStats[day]) {
+            dayStats[day].pnl += t.pnlNet
+            dayStats[day].trades += 1
+            if (t.pnlNet > 0) dayStats[day].wins += 1
+          }
         }
       }
     })
@@ -240,9 +262,14 @@ function AnalyticsContent() {
 
     trades.forEach(t => {
       if (t.entryTime && t.pnlNet) {
-        const hour = new Date(t.entryTime).getHours()
-        hourlyMap[hour].pnl += t.pnlNet
-        hourlyMap[hour].trades += 1
+        const date = new Date(t.entryTime)
+        if (!isNaN(date.getTime())) {
+          const hour = date.getHours()
+          if (hourlyMap[hour]) {
+            hourlyMap[hour].pnl += t.pnlNet
+            hourlyMap[hour].trades += 1
+          }
+        }
       }
     })
 
@@ -255,11 +282,10 @@ function AnalyticsContent() {
 
     // 3. Asset Performance (Pie)
     const assetMap: Record<string, number> = {}
-    let totalProfits = 0
+
     trades.forEach(t => {
       if (t.pnlNet && t.pnlNet > 0) {
         assetMap[t.symbol] = (assetMap[t.symbol] || 0) + t.pnlNet
-        totalProfits += t.pnlNet
       }
     })
 
@@ -278,6 +304,41 @@ function AnalyticsContent() {
   const selectedAccount = selectedAccountId === 'all'
     ? null
     : accounts.find(a => a.id === selectedAccountId)
+
+
+  const handleAiAnalysis = async () => {
+    setAiLoading(true)
+    setAiReview(null)
+    try {
+      const result = await generatePerformanceReview({
+        stats: {
+          winRate: stats.winRate,
+          profitFactor: stats.profitFactor,
+          totalPnl: stats.totalPnl,
+          avgWin: stats.avgWin,
+          avgLoss: stats.avgLoss,
+          maxDrawdown: stats.maxDrawdown,
+          expectancy: stats.expectancy
+        },
+        dailyStats: chartData.dayChartData.map(d => ({
+          day: d.name,
+          pnl: d.pnl,
+          winRate: d.winRate
+        })),
+        hourlyStats: chartData.hourlyChartData.map(h => ({
+          hour: h.hour,
+          pnl: h.pnl
+        })),
+        topAssets: chartData.assetPieData
+      })
+      setAiReview(result.review)
+    } catch (error) {
+      console.error('AI Analysis failed', error)
+      alert('Failed to generate AI analysis. Please check your API key or try again later.')
+    } finally {
+      setAiLoading(false)
+    }
+  }
 
   return (
     <div className="flex min-h-screen">
@@ -344,6 +405,42 @@ function AnalyticsContent() {
           </div>
         ) : (
           <div className="p-8 space-y-8 max-w-[1600px] mx-auto">
+
+            {/* AI Insights Section (New) */}
+            <div className="bg-gradient-to-br from-primary-900/20 to-purple-900/10 rounded-2xl border border-primary-500/20 p-6">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h3 className="text-lg font-display font-semibold text-white flex items-center gap-2">
+                    <Brain className="w-5 h-5 text-primary-400" />
+                    AI Performance Coach
+                  </h3>
+                  <p className="text-sm text-dark-400 mt-1 max-w-2xl">
+                    Get personalized insights based on your trade history, win rates, and habits.
+                    The AI analyzes your best intervals, assets, and risk metrics to suggest improvements.
+                  </p>
+                </div>
+                <button
+                  onClick={handleAiAnalysis}
+                  disabled={aiLoading || stats.totalTrades < 5}
+                  className="btn-primary flex items-center gap-2"
+                >
+                  {aiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  {aiLoading ? 'Analyzing...' : 'Get AI Insights'}
+                </button>
+              </div>
+
+              {stats.totalTrades < 5 && !aiReview && (
+                <p className="text-xs text-warning mt-2">Need at least 5 closed trades to generate valid insights.</p>
+              )}
+
+              {aiReview && (
+                <div className="mt-6 p-4 bg-dark-800/80 rounded-xl border border-primary-500/20 animate-in fade-in slide-in-from-top-4">
+                  <div className="prose prose-invert max-w-none text-sm leading-relaxed whitespace-pre-wrap font-sans">
+                    {aiReview}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* KPI Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -424,16 +521,17 @@ function AnalyticsContent() {
                 <p className="text-xl font-bold text-loss">{formatCurrency(stats.avgLoss)}</p>
               </div>
               <div className="p-4 bg-dark-800/50 rounded-xl border border-dark-700/50">
-                <p className="text-xs text-dark-500 mb-1">Risk/Reward</p>
-                <p className="text-xl font-bold text-white">1:{stats.riskRewardRatio.toFixed(2)}</p>
-              </div>
-              <div className="p-4 bg-dark-800/50 rounded-xl border border-dark-700/50">
                 <p className="text-xs text-dark-500 mb-1">Best Streak</p>
                 <p className="text-xl font-bold text-profit">+{stats.bestStreak}</p>
               </div>
               <div className="p-4 bg-dark-800/50 rounded-xl border border-dark-700/50">
                 <p className="text-xs text-dark-500 mb-1">Worst Streak</p>
                 <p className="text-xl font-bold text-loss">-{stats.worstStreak}</p>
+              </div>
+              {/* New Stat: Avg Holding Time */}
+              <div className="p-4 bg-dark-800/50 rounded-xl border border-dark-700/50">
+                <p className="text-xs text-dark-500 mb-1">Avg Holding Time</p>
+                <p className="text-xl font-bold text-white">{stats.avgHoldingTimeMinutes}m</p>
               </div>
             </div>
 
