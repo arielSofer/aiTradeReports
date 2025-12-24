@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
 
 interface HeaderProps {
-  onUploadClick: () => void
+  onUploadClick?: () => void
   onAddTradeClick?: () => void
 }
 
@@ -16,6 +16,14 @@ export function Header({ onUploadClick, onAddTradeClick }: HeaderProps) {
   const router = useRouter()
   const [showUserMenu, setShowUserMenu] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+
+  const handleUploadClick = () => {
+    if (onUploadClick) {
+      onUploadClick()
+    } else {
+      router.push('/import')
+    }
+  }
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -74,7 +82,7 @@ export function Header({ onUploadClick, onAddTradeClick }: HeaderProps) {
 
           {/* Upload Button */}
           <button
-            onClick={onUploadClick}
+            onClick={handleUploadClick}
             className="flex items-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-500 
                        text-white rounded-lg font-medium transition-all duration-200
                        shadow-lg shadow-primary-900/30 hover:shadow-primary-800/40"
@@ -126,7 +134,7 @@ export function Header({ onUploadClick, onAddTradeClick }: HeaderProps) {
                   <p className="text-sm font-medium text-white truncate">{displayName}</p>
                   <p className="text-xs text-dark-500 truncate">{user?.email}</p>
                 </div>
-                
+
                 <div className="p-2">
                   <button
                     onClick={() => {
@@ -139,7 +147,7 @@ export function Header({ onUploadClick, onAddTradeClick }: HeaderProps) {
                     <Settings className="w-4 h-4" />
                     Settings
                   </button>
-                  
+
                   <button
                     onClick={handleSignOut}
                     className="w-full flex items-center gap-3 px-3 py-2 text-sm text-loss 

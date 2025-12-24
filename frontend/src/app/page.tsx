@@ -290,8 +290,7 @@ function DashboardContent() {
 
       <main className="flex-1 ml-64">
         <Header
-          onUploadClick={() => router.push('/import')}
-          onAddTradeClick={() => setShowAddTrade(true)}
+          onAddTradeClick={() => document.getElementById('add-trade-trigger')?.click()}
         />
 
         <div className="p-6 space-y-6">

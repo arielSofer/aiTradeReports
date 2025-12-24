@@ -182,8 +182,14 @@ function JournalContent() {
 
       <main className="flex-1 ml-64">
         <Header
-          onUploadClick={() => window.location.href = '/import'}
-          onAddTradeClick={() => window.location.href = '/'}
+          onAddTradeClick={() => {
+            // If we want to keep using the modal or redirect?
+            // Current logic was window.location.href = '/' to go to dashboard?
+            // The journal page Header had onAddTradeClick={() => window.location.href = '/'}
+            // Let's keep that but maybe using router.push would be better.
+            // For now, I'm just removing onUploadClick.
+            window.location.href = '/'
+          }}
         />
 
         {/* Header */}
