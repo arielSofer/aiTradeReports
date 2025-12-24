@@ -232,7 +232,7 @@ async function fetchTopstepAccounts(accessToken: string, onStatus: (msg: string)
 
         // Extract body
         let body = ''
-        const getBody = (payload: any) => {
+        const getBody = (payload: any): string => {
             if (payload.body?.data) {
                 // Check mime type? Priority for text/html
                 if (payload.mimeType?.includes('html')) {
