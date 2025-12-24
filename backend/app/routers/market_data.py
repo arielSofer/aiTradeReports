@@ -128,8 +128,8 @@ async def get_candles(
     try:
         import databento as db
         
-        # Get API key from environment or fallback
-        api_key = os.environ.get("DATABENTO_API_KEY") or "db-rGb6C8XYqba3gTwEQQWBMVCFBXadk"
+        # Get API key from environment
+        api_key = os.environ.get("DATABENTO_API_KEY")
         if not api_key:
             print("ERROR: DATABENTO_API_KEY not found in environment")
             raise HTTPException(
