@@ -10,6 +10,8 @@ import { PropAccountModal } from '@/components/prop-firms/PropAccountModal'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { Sidebar } from '@/components/Sidebar'
 import { Plus, Loader2, Trophy } from 'lucide-react'
+import Link from 'next/link'
+import { Header } from '@/components/Header'
 
 export default function PropFirmsPage() {
     return (
@@ -84,9 +86,13 @@ function PropFirmsContent() {
             <Sidebar />
 
             <main className="flex-1 overflow-y-auto">
+                <Header
+                    onAddTradeClick={() => setIsAddModalOpen(true)}
+                />
+
                 <div className="p-8 max-w-7xl mx-auto space-y-8">
 
-                    {/* Header */}
+                    {/* Page Header */}
                     <div className="flex items-center justify-between">
                         <div>
                             <h1 className="text-3xl font-display font-bold text-white flex items-center gap-3">
@@ -97,13 +103,13 @@ function PropFirmsContent() {
                         </div>
 
                         <div className="flex items-center gap-3">
-                            <a
+                            <Link
                                 href="/prop-firms/discounts"
                                 className="btn-secondary flex items-center gap-2 border-dashed border-profit/30 text-profit hover:bg-profit/10"
                             >
                                 <Trophy className="w-4 h-4" />
                                 View Discounts
-                            </a>
+                            </Link>
                             <button
                                 onClick={() => setIsAddModalOpen(true)}
                                 className="btn-primary flex items-center gap-2"
