@@ -116,18 +116,7 @@ export function PropAccountModal({ isOpen, onClose, onSubmit, initialData }: Pro
         }
     }
 
-    // Auto-set funded flag based on status
-    useEffect(() => {
-        if (!initialData) {
-            if (formData.status === 'funded_active') {
-                setFormData(prev => ({ ...prev, isFunded: true, color: 'bg-yellow-500' }))
-            } else if (formData.status === 'funded_blown') {
-                setFormData(prev => ({ ...prev, isFunded: true, color: 'bg-slate-600' }))
-            } else if (formData.status === 'challenge_passed') {
-                setFormData(prev => ({ ...prev, isFunded: false, color: 'bg-green-500' }))
-            }
-        }
-    }, [formData.status, initialData])
+
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value, type } = e.target
@@ -303,7 +292,25 @@ export function PropAccountModal({ isOpen, onClose, onSubmit, initialData }: Pro
                                 <button
                                     key={opt.value}
                                     type="button"
-                                    onClick={() => setFormData(p => ({ ...p, status: opt.value }))}
+                                    onClick={() => {
+                                        const isFunded = opt.value.includes('funded')
+                                        let newColor = formData.color
+
+                                        // Auto-update color for specific statuses if the user hasn't set a custom one? 
+                                        // Or just always update it to the default for that status to be helpful.
+                                        if (opt.value === 'funded_active') newColor = 'bg-yellow-500'
+                                        else if (opt.value === 'funded_blown') newColor = 'bg-slate-600'
+                                        else if (opt.value === 'challenge_passed') newColor = 'bg-green-500'
+                                        else if (opt.value === 'challenge_active') newColor = 'bg-blue-500'
+                                        else if (opt.value === 'challenge_failed') newColor = 'bg-red-500'
+
+                                        setFormData(p => ({
+                                            ...p,
+                                            status: opt.value,
+                                            isFunded,
+                                            color: newColor
+                                        }))
+                                    }}
                                     className={cn(
                                         "px-3 py-2 rounded-lg border text-sm text-left transition-all",
                                         formData.status === opt.value
