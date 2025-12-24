@@ -1,44 +1,55 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Sidebar } from '@/components/Sidebar'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { Header } from '@/components/Header'
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  Target, 
+import {
+  TrendingUp,
+  TrendingDown,
+  Target,
   Clock,
   BarChart2,
   PieChart,
   Activity,
   Wallet,
-  ChevronDown
+  ChevronDown,
+  Calendar,
+  Zap,
+  Award,
+  AlertTriangle
 } from 'lucide-react'
 import { formatCurrency, cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
-import { getTrades, getAccounts, FirestoreAccount, calculateStats } from '@/lib/firebase/firestore'
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
+import { getTrades, getAccounts, FirestoreAccount } from '@/lib/firebase/firestore'
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
   ResponsiveContainer,
   PieChart as RechartsPie,
   Pie,
   Cell,
-  LineChart,
-  Line,
   Area,
-  AreaChart
+  AreaChart,
 } from 'recharts'
 
-const COLORS = ['#22c55e', '#ef4444', '#3b82f6', '#f97316', '#8b5cf6']
+const COLORS = {
+  profit: '#22c55e',
+  loss: '#ef4444',
+  primary: '#3b82f6',
+  warning: '#f97316',
+  purple: '#8b5cf6',
+  dark: '#1e293b',
+  grid: '#334155',
+  text: '#94a3b8'
+}
 
 interface Trade {
-  id: number
+  id: string
   symbol: string
   direction: 'long' | 'short'
   status: 'open' | 'closed'
@@ -58,23 +69,6 @@ interface Trade {
 function AnalyticsContent() {
   const { user } = useAuth()
   const [trades, setTrades] = useState<Trade[]>([])
-  const [stats, setStats] = useState({
-    totalTrades: 0,
-    winningTrades: 0,
-    losingTrades: 0,
-    openTrades: 0,
-    totalPnl: 0,
-    winRate: 0,
-    profitFactor: 0,
-    avgWinner: 0,
-    avgLoser: 0,
-    largestWinner: 0,
-    largestLoser: 0,
-    totalCommission: 0,
-    currentStreak: 0,
-    bestStreak: 0,
-    worstStreak: 0,
-  })
   const [accounts, setAccounts] = useState<FirestoreAccount[]>([])
   const [selectedAccountId, setSelectedAccountId] = useState<string | 'all'>('all')
   const [showAccountDropdown, setShowAccountDropdown] = useState(false)
@@ -95,7 +89,7 @@ function AnalyticsContent() {
     loadAccounts()
   }, [user])
 
-  // Load trades and stats from Firebase
+  // Load trades
   useEffect(() => {
     const loadData = async () => {
       if (user) {
@@ -103,9 +97,9 @@ function AnalyticsContent() {
         try {
           const accountIdFilter = selectedAccountId === 'all' ? undefined : selectedAccountId
           const firestoreTrades = await getTrades(user.uid, { accountId: accountIdFilter })
-          
+
           const convertedTrades: Trade[] = firestoreTrades.map(t => ({
-            id: parseInt(t.id || '0'),
+            id: t.id || Math.random().toString(),
             symbol: t.symbol,
             direction: t.direction,
             status: t.status,
@@ -114,35 +108,18 @@ function AnalyticsContent() {
             entryPrice: t.entryPrice,
             exitPrice: t.exitPrice,
             quantity: t.quantity,
-            commission: t.commission,
+            commission: t.commission || 0,
             pnlNet: t.pnlNet,
             pnlPercent: t.pnlPercent,
             isWinner: t.pnlNet ? t.pnlNet > 0 : undefined,
             tags: t.tags || [],
             notes: t.notes,
           }))
-          
+
+          // Sort by date ascending for charts
+          convertedTrades.sort((a, b) => new Date(a.entryTime).getTime() - new Date(b.entryTime).getTime())
+
           setTrades(convertedTrades)
-          
-          // Calculate stats
-          const firebaseStats = await calculateStats(user.uid, accountIdFilter)
-          setStats({
-            totalTrades: firebaseStats.totalTrades,
-            winningTrades: firebaseStats.winningTrades,
-            losingTrades: firebaseStats.losingTrades,
-            openTrades: firebaseStats.openTrades,
-            totalPnl: firebaseStats.totalPnl,
-            winRate: firebaseStats.winRate,
-            profitFactor: firebaseStats.profitFactor === Infinity ? 999 : firebaseStats.profitFactor,
-            avgWinner: firebaseStats.avgWinner,
-            avgLoser: firebaseStats.avgLoser,
-            largestWinner: firebaseStats.largestWinner,
-            largestLoser: firebaseStats.largestLoser,
-            totalCommission: firebaseStats.totalCommission,
-            currentStreak: 0,
-            bestStreak: 0,
-            worstStreak: 0,
-          })
         } catch (error) {
           console.error('Error loading data:', error)
         } finally {
@@ -153,97 +130,172 @@ function AnalyticsContent() {
     loadData()
   }, [user, selectedAccountId])
 
-  // Prepare data for charts
-  const winLossData = [
-    { name: 'Wins', value: stats.winningTrades, color: '#22c55e' },
-    { name: 'Losses', value: stats.losingTrades, color: '#ef4444' },
-  ]
+  // Advanced Statistics Calculation
+  const stats = useMemo(() => {
+    const closedTrades = trades.filter(t => t.status === 'closed' && t.pnlNet !== undefined)
+    const winningTrades = closedTrades.filter(t => t.pnlNet! > 0)
+    const losingTrades = closedTrades.filter(t => t.pnlNet! <= 0)
 
-  const symbolStats = trades.reduce((acc, trade) => {
-    if (!acc[trade.symbol]) {
-      acc[trade.symbol] = { symbol: trade.symbol, trades: 0, pnl: 0, wins: 0 }
+    const totalTrades = closedTrades.length
+    const winRate = totalTrades > 0 ? (winningTrades.length / totalTrades) * 100 : 0
+
+    const grossProfit = winningTrades.reduce((sum, t) => sum + t.pnlNet!, 0)
+    const grossLoss = Math.abs(losingTrades.reduce((sum, t) => sum + t.pnlNet!, 0))
+    const profitFactor = grossLoss > 0 ? grossProfit / grossLoss : grossProfit > 0 ? 999 : 0
+    const totalPnl = grossProfit - grossLoss
+
+    const avgWin = winningTrades.length > 0 ? grossProfit / winningTrades.length : 0
+    const avgLoss = losingTrades.length > 0 ? grossLoss / losingTrades.length : 0
+    const riskRewardRatio = avgLoss > 0 ? avgWin / avgLoss : 0
+
+    // Expectancy = (WinRate * AvgWin) - (LossRate * AvgLoss)
+    const expectancy = (winRate / 100 * avgWin) - ((1 - winRate / 100) * avgLoss)
+
+    // Max Drawdown Calculation
+    let peak = -Infinity
+    let maxDrawdown = 0
+    let currentEquity = 0
+    let equityCurve = [{ date: closedTrades[0]?.entryTime, equity: 0 }]
+
+    if (closedTrades.length > 0) {
+      // Start from 0 equity.
+      peak = 0
     }
-    acc[trade.symbol].trades++
-    acc[trade.symbol].pnl += trade.pnlNet || 0
-    if (trade.isWinner) acc[trade.symbol].wins++
-    return acc
-  }, {} as Record<string, { symbol: string; trades: number; pnl: number; wins: number }>)
 
-  const symbolData = Object.values(symbolStats)
-    .sort((a, b) => Math.abs(b.pnl) - Math.abs(a.pnl))
-    .slice(0, 10)
+    closedTrades.forEach(trade => {
+      currentEquity += trade.pnlNet!
+      if (currentEquity > peak) peak = currentEquity
+      const drawdown = peak - currentEquity
+      if (drawdown > maxDrawdown) maxDrawdown = drawdown
 
-  const directionStats = [
-    { 
-      direction: 'Long', 
-      trades: trades.filter(t => t.direction === 'long').length,
-      pnl: trades.filter(t => t.direction === 'long').reduce((sum, t) => sum + (t.pnlNet || 0), 0),
-      winRate: trades.filter(t => t.direction === 'long').length > 0
-        ? Math.round(
-            (trades.filter(t => t.direction === 'long' && t.isWinner).length / 
-             trades.filter(t => t.direction === 'long').length) * 100
-          )
-        : 0
-    },
-    { 
-      direction: 'Short', 
-      trades: trades.filter(t => t.direction === 'short').length,
-      pnl: trades.filter(t => t.direction === 'short').reduce((sum, t) => sum + (t.pnlNet || 0), 0),
-      winRate: trades.filter(t => t.direction === 'short').length > 0
-        ? Math.round(
-            (trades.filter(t => t.direction === 'short' && t.isWinner).length / 
-             trades.filter(t => t.direction === 'short').length) * 100
-          )
-        : 0
-    },
-  ]
+      equityCurve.push({
+        date: trade.entryTime,
+        equity: currentEquity
+      })
+    })
 
-  // Calculate hourly stats
-  const hourlyMap: Record<number, { pnl: number; trades: number; wins: number }> = {}
-  for (let i = 0; i < 24; i++) {
-    hourlyMap[i] = { pnl: 0, trades: 0, wins: 0 }
-  }
-  
-  trades.forEach(trade => {
-    if (trade.entryTime && trade.pnlNet !== undefined) {
-      const hour = new Date(trade.entryTime).getHours()
-      hourlyMap[hour].pnl += trade.pnlNet
-      hourlyMap[hour].trades += 1
-      if (trade.pnlNet > 0) hourlyMap[hour].wins += 1
+    // Streaks
+    let currentStreak = 0
+    let bestStreak = 0
+    let worstStreak = 0
+
+    closedTrades.forEach(t => {
+      if (t.pnlNet! > 0) {
+        if (currentStreak < 0) currentStreak = 0
+        currentStreak++
+        if (currentStreak > bestStreak) bestStreak = currentStreak
+      } else {
+        if (currentStreak > 0) currentStreak = 0
+        currentStreak--
+        if (currentStreak < worstStreak) worstStreak = currentStreak // store as negative
+      }
+    })
+
+    return {
+      totalTrades,
+      winRate,
+      profitFactor,
+      totalPnl,
+      avgWin,
+      avgLoss,
+      riskRewardRatio,
+      expectancy,
+      maxDrawdown,
+      bestStreak,
+      worstStreak: Math.abs(worstStreak), // Display as positive number for "Worst Streak" usually
+      equityCurve
     }
-  })
-  
-  const hourlyStats = Object.entries(hourlyMap).map(([hour, data]) => ({
-    hour: parseInt(hour),
-    pnl: data.pnl,
-    trades: data.trades,
-    wins: data.wins,
-    winRate: data.trades > 0 ? (data.wins / data.trades) * 100 : 0
-  }))
+  }, [trades])
 
-  const selectedAccount = selectedAccountId === 'all' 
-    ? null 
+  // Charts Data Preparation
+  const chartData = useMemo(() => {
+    // 1. P&L by Day of Week
+    const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+    const dayStats: any = {}
+    daysOfWeek.forEach(day => dayStats[day] = { pnl: 0, trades: 0, wins: 0 })
+
+    trades.forEach(t => {
+      if (t.entryTime && t.pnlNet) {
+        const date = new Date(t.entryTime)
+        const day = daysOfWeek[date.getDay()]
+        if (dayStats[day]) {
+          dayStats[day].pnl += t.pnlNet
+          dayStats[day].trades += 1
+          if (t.pnlNet > 0) dayStats[day].wins += 1
+        }
+      }
+    })
+
+    const dayChartData = daysOfWeek
+      .filter(d => dayStats[d].trades > 0)
+      .map(day => ({
+        name: day.slice(0, 3),
+        pnl: dayStats[day].pnl,
+        winRate: (dayStats[day].wins / dayStats[day].trades) * 100
+      }))
+
+    // 2. Hourly Performance
+    const hourlyMap: Record<number, { pnl: number; trades: number }> = {}
+    for (let i = 0; i < 24; i++) hourlyMap[i] = { pnl: 0, trades: 0 }
+
+    trades.forEach(t => {
+      if (t.entryTime && t.pnlNet) {
+        const hour = new Date(t.entryTime).getHours()
+        hourlyMap[hour].pnl += t.pnlNet
+        hourlyMap[hour].trades += 1
+      }
+    })
+
+    const hourlyChartData = Object.entries(hourlyMap)
+      .filter(([_, data]) => data.trades > 0)
+      .map(([hour, data]) => ({
+        hour: `${hour}:00`,
+        pnl: data.pnl
+      }))
+
+    // 3. Asset Performance (Pie)
+    const assetMap: Record<string, number> = {}
+    let totalProfits = 0
+    trades.forEach(t => {
+      if (t.pnlNet && t.pnlNet > 0) {
+        assetMap[t.symbol] = (assetMap[t.symbol] || 0) + t.pnlNet
+        totalProfits += t.pnlNet
+      }
+    })
+
+    const assetPieData = Object.entries(assetMap)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5) // Top 5
+
+    return {
+      dayChartData,
+      hourlyChartData,
+      assetPieData
+    }
+  }, [trades])
+
+  const selectedAccount = selectedAccountId === 'all'
+    ? null
     : accounts.find(a => a.id === selectedAccountId)
 
   return (
     <div className="flex min-h-screen">
       <Sidebar />
-      
+
       <main className="flex-1 ml-64">
-        <Header 
-          onUploadClick={() => window.location.href = '/import'}
+        <Header
           onAddTradeClick={() => window.location.href = '/'}
         />
-        
-        {/* Header */}
+
+        {/* Analytics Header */}
         <header className="sticky top-0 z-40 bg-dark-950/80 backdrop-blur-xl border-b border-dark-800/50">
           <div className="flex items-center justify-between px-6 py-4">
             <div>
-              <h2 className="text-xl font-display font-bold text-white">Analytics</h2>
-              <p className="text-sm text-dark-500">Deep dive into your trading performance</p>
+              <h2 className="text-xl font-display font-bold text-white">Advanced Analytics</h2>
+              <p className="text-sm text-dark-500">Comprehensive performance analysis</p>
             </div>
             <div className="flex items-center gap-3">
-              {/* Account Selector */}
               <div className="relative">
                 <button
                   onClick={() => setShowAccountDropdown(!showAccountDropdown)}
@@ -253,42 +305,23 @@ function AnalyticsContent() {
                   {selectedAccount ? selectedAccount.name : 'All Accounts'}
                   <ChevronDown className="w-4 h-4" />
                 </button>
-                
+
                 {showAccountDropdown && (
                   <>
-                    <div 
-                      className="fixed inset-0 z-10" 
-                      onClick={() => setShowAccountDropdown(false)}
-                    />
+                    <div className="fixed inset-0 z-10" onClick={() => setShowAccountDropdown(false)} />
                     <div className="absolute right-0 top-full mt-2 w-56 bg-dark-900 border border-dark-700 rounded-xl shadow-xl z-20">
                       <div className="p-2">
                         <button
-                          onClick={() => {
-                            setSelectedAccountId('all')
-                            setShowAccountDropdown(false)
-                          }}
-                          className={cn(
-                            'w-full text-left px-3 py-2 rounded-lg text-sm transition-colors',
-                            selectedAccountId === 'all'
-                              ? 'bg-primary/20 text-primary'
-                              : 'text-dark-300 hover:bg-dark-800'
-                          )}
+                          onClick={() => { setSelectedAccountId('all'); setShowAccountDropdown(false) }}
+                          className={cn('w-full text-left px-3 py-2 rounded-lg text-sm transition-colors', selectedAccountId === 'all' ? 'bg-primary/20 text-primary' : 'text-dark-300 hover:bg-dark-800')}
                         >
                           All Accounts
                         </button>
                         {accounts.map(account => (
                           <button
                             key={account.id}
-                            onClick={() => {
-                              setSelectedAccountId(account.id!)
-                              setShowAccountDropdown(false)
-                            }}
-                            className={cn(
-                              'w-full text-left px-3 py-2 rounded-lg text-sm transition-colors',
-                              selectedAccountId === account.id
-                                ? 'bg-primary/20 text-primary'
-                                : 'text-dark-300 hover:bg-dark-800'
-                            )}
+                            onClick={() => { setSelectedAccountId(account.id!); setShowAccountDropdown(false) }}
+                            className={cn('w-full text-left px-3 py-2 rounded-lg text-sm transition-colors', selectedAccountId === account.id ? 'bg-primary/20 text-primary' : 'text-dark-300 hover:bg-dark-800')}
                           >
                             {account.name}
                           </button>
@@ -303,278 +336,265 @@ function AnalyticsContent() {
         </header>
 
         {loading ? (
-          <div className="p-12 text-center">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            <p className="text-dark-500 mt-4">טוען נתונים...</p>
+          <div className="flex h-[calc(100vh-100px)] items-center justify-center">
+            <div className="flex flex-col items-center gap-4">
+              <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+              <p className="text-dark-500">Crunching numbers...</p>
+            </div>
           </div>
         ) : (
-          <div className="p-6 space-y-6">
-            {/* Top Stats */}
-            <div className="grid grid-cols-4 gap-4">
+          <div className="p-8 space-y-8 max-w-[1600px] mx-auto">
+
+            {/* KPI Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Net P&L */}
+              <div className={cn("stat-card relative overflow-hidden", stats.totalPnl >= 0 ? "border-profit/20" : "border-loss/20")}>
+                <div className="absolute right-0 top-0 p-4 opacity-10">
+                  <Activity className="w-24 h-24" />
+                </div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Wallet className="w-4 h-4 text-dark-400" />
+                  <span className="text-dark-400 text-sm font-medium">Net P&L</span>
+                </div>
+                <div className={cn("text-3xl font-display font-bold", stats.totalPnl >= 0 ? "text-profit" : "text-loss")}>
+                  {formatCurrency(stats.totalPnl)}
+                </div>
+                <div className="text-xs text-dark-500 mt-1">
+                  from {stats.totalTrades} trades
+                </div>
+              </div>
+
+              {/* Expectancy */}
               <div className="stat-card">
                 <div className="flex items-center gap-2 mb-2">
-                  <Target className="w-5 h-5 text-primary-400" />
-                  <span className="text-dark-500 text-sm">Win Rate</span>
+                  <Target className="w-4 h-4 text-primary-400" />
+                  <span className="text-dark-400 text-sm font-medium">Expectancy</span>
                 </div>
-                <p className={cn(
-                  'text-3xl font-bold',
-                  stats.winRate >= 50 ? 'text-profit' : 'text-loss'
-                )}>
+                <div className={cn("text-3xl font-display font-bold", stats.expectancy >= 0 ? "text-profit" : "text-loss")}>
+                  {formatCurrency(stats.expectancy)}
+                </div>
+                <div className="text-xs text-dark-500 mt-1">
+                  average value per trade
+                </div>
+              </div>
+
+              {/* Profit Factor */}
+              <div className="stat-card">
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingUp className="w-4 h-4 text-accent-blue" />
+                  <span className="text-dark-400 text-sm font-medium">Profit Factor</span>
+                </div>
+                <div className={cn("text-3xl font-display font-bold", stats.profitFactor >= 1.5 ? "text-profit" : stats.profitFactor >= 1 ? "text-warning" : "text-loss")}>
+                  {stats.profitFactor.toFixed(2)}
+                </div>
+                <div className="text-xs text-dark-500 mt-1">
+                  gross profit / gross loss
+                </div>
+              </div>
+
+              {/* Max Drawdown */}
+              <div className="stat-card">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle className="w-4 h-4 text-loss" />
+                  <span className="text-dark-400 text-sm font-medium">Max Drawdown</span>
+                </div>
+                <div className="text-3xl font-display font-bold text-loss">
+                  -{formatCurrency(stats.maxDrawdown)}
+                </div>
+                <div className="text-xs text-dark-500 mt-1">
+                  peak-to-valley decline
+                </div>
+              </div>
+            </div>
+
+            {/* Secondary KPI Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              <div className="p-4 bg-dark-800/50 rounded-xl border border-dark-700/50">
+                <p className="text-xs text-dark-500 mb-1">Win Rate</p>
+                <p className={cn("text-xl font-bold", stats.winRate >= 50 ? "text-profit" : "text-loss")}>
                   {stats.winRate.toFixed(1)}%
                 </p>
               </div>
-
-              <div className="stat-card">
-                <div className="flex items-center gap-2 mb-2">
-                  <Activity className="w-5 h-5 text-accent-blue" />
-                  <span className="text-dark-500 text-sm">Profit Factor</span>
-                </div>
-                <p className={cn(
-                  'text-3xl font-bold',
-                  stats.profitFactor >= 1.5 ? 'text-profit' : 'text-loss'
-                )}>
-                  {stats.profitFactor.toFixed(2)}
-                </p>
+              <div className="p-4 bg-dark-800/50 rounded-xl border border-dark-700/50">
+                <p className="text-xs text-dark-500 mb-1">Avg Win</p>
+                <p className="text-xl font-bold text-profit">{formatCurrency(stats.avgWin)}</p>
               </div>
-
-              <div className="stat-card">
-                <div className="flex items-center gap-2 mb-2">
-                  <TrendingUp className="w-5 h-5 text-profit" />
-                  <span className="text-dark-500 text-sm">Avg Winner</span>
-                </div>
-                <p className="text-3xl font-bold text-profit">
-                  {formatCurrency(stats.avgWinner)}
-                </p>
+              <div className="p-4 bg-dark-800/50 rounded-xl border border-dark-700/50">
+                <p className="text-xs text-dark-500 mb-1">Avg Loss</p>
+                <p className="text-xl font-bold text-loss">{formatCurrency(stats.avgLoss)}</p>
               </div>
-
-              <div className="stat-card">
-                <div className="flex items-center gap-2 mb-2">
-                  <TrendingDown className="w-5 h-5 text-loss" />
-                  <span className="text-dark-500 text-sm">Avg Loser</span>
-                </div>
-                <p className="text-3xl font-bold text-loss">
-                  {formatCurrency(stats.avgLoser)}
-                </p>
+              <div className="p-4 bg-dark-800/50 rounded-xl border border-dark-700/50">
+                <p className="text-xs text-dark-500 mb-1">Risk/Reward</p>
+                <p className="text-xl font-bold text-white">1:{stats.riskRewardRatio.toFixed(2)}</p>
+              </div>
+              <div className="p-4 bg-dark-800/50 rounded-xl border border-dark-700/50">
+                <p className="text-xs text-dark-500 mb-1">Best Streak</p>
+                <p className="text-xl font-bold text-profit">+{stats.bestStreak}</p>
+              </div>
+              <div className="p-4 bg-dark-800/50 rounded-xl border border-dark-700/50">
+                <p className="text-xs text-dark-500 mb-1">Worst Streak</p>
+                <p className="text-xl font-bold text-loss">-{stats.worstStreak}</p>
               </div>
             </div>
 
-            {/* Charts Row 1 */}
-            <div className="grid grid-cols-2 gap-6">
-              {/* Win/Loss Distribution */}
-              <div className="chart-container p-6">
-                <h3 className="text-lg font-display font-semibold text-white mb-4">Win/Loss Distribution</h3>
-                {winLossData[0].value + winLossData[1].value === 0 ? (
-                  <div className="h-64 flex items-center justify-center text-dark-500">
-                    No trades data
-                  </div>
+            {/* Main Charts Area */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+              {/* Equity Curve (2/3 width) */}
+              <div className="lg:col-span-2 chart-container p-6 min-h-[400px]">
+                <h3 className="text-lg font-display font-semibold text-white mb-6 flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-primary-400" />
+                  Equity Curve
+                </h3>
+                {stats.equityCurve.length > 1 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <AreaChart data={stats.equityCurve}>
+                      <defs>
+                        <linearGradient id="colorEquity" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor={COLORS.profit} stopOpacity={0.3} />
+                          <stop offset="95%" stopColor={COLORS.profit} stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke={COLORS.grid} vertical={false} />
+                      <XAxis
+                        dataKey="date"
+                        stroke={COLORS.text}
+                        tickFormatter={(str) => {
+                          try { return new Date(str).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' }) } catch (e) { return '' }
+                        }}
+                        minTickGap={30}
+                      />
+                      <YAxis stroke={COLORS.text} tickFormatter={(val) => `$${val}`} />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: COLORS.dark, borderColor: COLORS.grid }}
+                        labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                        formatter={(value: number) => [formatCurrency(value), 'Equity']}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="equity"
+                        stroke={COLORS.profit}
+                        fillOpacity={1}
+                        fill="url(#colorEquity)"
+                        strokeWidth={2}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
                 ) : (
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <RechartsPie>
-                        <Pie
-                          data={winLossData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={60}
-                          outerRadius={100}
-                          paddingAngle={5}
-                          dataKey="value"
-                        >
-                          {winLossData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip 
-                          contentStyle={{ 
-                            backgroundColor: '#1e293b', 
-                            border: '1px solid #334155',
-                            borderRadius: '8px'
-                          }}
-                        />
-                      </RechartsPie>
-                    </ResponsiveContainer>
+                  <div className="flex items-center justify-center h-[300px] text-dark-500">
+                    Not enough trades to display equity curve
                   </div>
                 )}
-                <div className="flex justify-center gap-6 mt-4">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-profit" />
-                    <span className="text-sm text-dark-400">Wins ({stats.winningTrades})</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-loss" />
-                    <span className="text-sm text-dark-400">Losses ({stats.losingTrades})</span>
-                  </div>
-                </div>
               </div>
 
-              {/* Long vs Short */}
-              <div className="chart-container p-6">
-                <h3 className="text-lg font-display font-semibold text-white mb-4">Long vs Short Performance</h3>
-                <div className="space-y-4">
-                  {directionStats.map(stat => (
-                    <div key={stat.direction} className="p-4 bg-dark-800/50 rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          {stat.direction === 'Long' ? (
-                            <TrendingUp className="w-5 h-5 text-accent-blue" />
-                          ) : (
-                            <TrendingDown className="w-5 h-5 text-accent-orange" />
-                          )}
-                          <span className="font-medium text-white">{stat.direction}</span>
-                        </div>
-                        <span className={cn(
-                          'font-bold',
-                          stat.pnl >= 0 ? 'text-profit' : 'text-loss'
-                        )}>
-                          {formatCurrency(stat.pnl)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-sm text-dark-400">
-                        <span>{stat.trades} trades</span>
-                        <span className={stat.winRate >= 50 ? 'text-profit' : 'text-loss'}>
-                          {stat.winRate}% win rate
-                        </span>
-                      </div>
+              {/* Profit Distribution (1/3 width) */}
+              <div className="chart-container p-6 min-h-[400px]">
+                <h3 className="text-lg font-display font-semibold text-white mb-6 flex items-center gap-2">
+                  <PieChart className="w-5 h-5 text-accent-purple" />
+                  Top Assets (Profits)
+                </h3>
+                {chartData.assetPieData.length > 0 ? (
+                  <>
+                    <div className="h-[200px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <RechartsPie>
+                          <Pie
+                            data={chartData.assetPieData}
+                            innerRadius={60}
+                            outerRadius={80}
+                            paddingAngle={5}
+                            dataKey="value"
+                          >
+                            {chartData.assetPieData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={[COLORS.profit, COLORS.primary, COLORS.purple, COLORS.warning][index % 4]} />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            contentStyle={{ backgroundColor: COLORS.dark, borderColor: COLORS.grid }}
+                            formatter={(value: number) => formatCurrency(value)}
+                          />
+                        </RechartsPie>
+                      </ResponsiveContainer>
                     </div>
-                  ))}
-                </div>
+                    {/* Legend */}
+                    <div className="mt-4 space-y-3">
+                      {chartData.assetPieData.map((entry, index) => (
+                        <div key={entry.name} className="flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: [COLORS.profit, COLORS.primary, COLORS.purple, COLORS.warning][index % 4] }} />
+                            <span className="text-dark-300">{entry.name}</span>
+                          </div>
+                          <span className="text-white font-medium">{formatCurrency(entry.value)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-center justify-center h-[300px] text-dark-500">
+                    No profitable trades yet
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Charts Row 2 */}
-            <div className="grid grid-cols-2 gap-6">
-              {/* P&L by Symbol */}
+            {/* Row 3: Daily & Hourly Analysis */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+              {/* Daily Performance */}
               <div className="chart-container p-6">
-                <h3 className="text-lg font-display font-semibold text-white mb-4">P&L by Symbol</h3>
-                {symbolData.length === 0 ? (
-                  <div className="h-64 flex items-center justify-center text-dark-500">
-                    No trades data
-                  </div>
-                ) : (
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={symbolData} layout="vertical">
-                        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                        <XAxis type="number" stroke="#64748b" />
-                        <YAxis 
-                          type="category" 
-                          dataKey="symbol" 
-                          stroke="#64748b"
-                          width={60}
-                        />
-                        <Tooltip 
-                          contentStyle={{ 
-                            backgroundColor: '#1e293b', 
-                            border: '1px solid #334155',
-                            borderRadius: '8px'
-                          }}
-                          formatter={(value: number) => formatCurrency(value)}
-                        />
-                        <Bar 
-                          dataKey="pnl" 
-                          fill="#22c55e"
-                          radius={[0, 4, 4, 0]}
-                        >
-                          {symbolData.map((entry, index) => (
-                            <Cell 
-                              key={`cell-${index}`} 
-                              fill={entry.pnl >= 0 ? '#22c55e' : '#ef4444'} 
-                            />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
+                <h3 className="text-lg font-display font-semibold text-white mb-6 flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-accent-blue" />
+                  Performance by Day
+                </h3>
+                <div className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData.dayChartData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke={COLORS.grid} vertical={false} />
+                      <XAxis dataKey="name" stroke={COLORS.text} />
+                      <YAxis stroke={COLORS.text} />
+                      <Tooltip
+                        cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                        contentStyle={{ backgroundColor: COLORS.dark, borderColor: COLORS.grid }}
+                        formatter={(value: number) => formatCurrency(value)}
+                      />
+                      <Bar dataKey="pnl" radius={[4, 4, 0, 0]}>
+                        {chartData.dayChartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.pnl >= 0 ? COLORS.profit : COLORS.loss} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
 
               {/* Hourly Performance */}
               <div className="chart-container p-6">
-                <h3 className="text-lg font-display font-semibold text-white mb-4">Hourly Performance</h3>
-                {hourlyStats.every(h => h.trades === 0) ? (
-                  <div className="h-64 flex items-center justify-center text-dark-500">
-                    No trades data
-                  </div>
-                ) : (
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={hourlyStats}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                        <XAxis 
-                          dataKey="hour" 
-                          stroke="#64748b"
-                          tickFormatter={(h) => `${h}:00`}
-                        />
-                        <YAxis stroke="#64748b" />
-                        <Tooltip 
-                          contentStyle={{ 
-                            backgroundColor: '#1e293b', 
-                            border: '1px solid #334155',
-                            borderRadius: '8px'
-                          }}
-                          formatter={(value: number) => formatCurrency(value)}
-                        />
-                        <Area 
-                          type="monotone" 
-                          dataKey="pnl" 
-                          stroke="#22c55e" 
-                          fill="rgba(34, 197, 94, 0.2)"
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
+                <h3 className="text-lg font-display font-semibold text-white mb-6 flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-warning" />
+                  Performance by Hour
+                </h3>
+                <div className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData.hourlyChartData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke={COLORS.grid} vertical={false} />
+                      <XAxis dataKey="hour" stroke={COLORS.text} />
+                      <YAxis stroke={COLORS.text} />
+                      <Tooltip
+                        cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                        contentStyle={{ backgroundColor: COLORS.dark, borderColor: COLORS.grid }}
+                        formatter={(value: number) => formatCurrency(value)}
+                      />
+                      <Bar dataKey="pnl" fill={COLORS.purple} radius={[4, 4, 0, 0]}>
+                        {chartData.hourlyChartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.pnl >= 0 ? COLORS.purple : COLORS.loss} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </div>
 
-            {/* Detailed Stats */}
-            <div className="chart-container p-6">
-              <h3 className="text-lg font-display font-semibold text-white mb-4">Detailed Statistics</h3>
-              <div className="grid grid-cols-4 gap-6">
-                <div>
-                  <p className="text-dark-500 text-sm mb-1">Total Trades</p>
-                  <p className="text-2xl font-bold text-white">{stats.totalTrades}</p>
-                </div>
-                <div>
-                  <p className="text-dark-500 text-sm mb-1">Largest Win</p>
-                  <p className="text-2xl font-bold text-profit">{formatCurrency(stats.largestWinner)}</p>
-                </div>
-                <div>
-                  <p className="text-dark-500 text-sm mb-1">Largest Loss</p>
-                  <p className="text-2xl font-bold text-loss">{formatCurrency(stats.largestLoser)}</p>
-                </div>
-                <div>
-                  <p className="text-dark-500 text-sm mb-1">Total Commission</p>
-                  <p className="text-2xl font-bold text-dark-300">{formatCurrency(stats.totalCommission)}</p>
-                </div>
-                <div>
-                  <p className="text-dark-500 text-sm mb-1">Best Streak</p>
-                  <p className="text-2xl font-bold text-profit">+{stats.bestStreak}</p>
-                </div>
-                <div>
-                  <p className="text-dark-500 text-sm mb-1">Worst Streak</p>
-                  <p className="text-2xl font-bold text-loss">-{stats.worstStreak}</p>
-                </div>
-                <div>
-                  <p className="text-dark-500 text-sm mb-1">Current Streak</p>
-                  <p className={cn(
-                    'text-2xl font-bold',
-                    stats.currentStreak >= 0 ? 'text-profit' : 'text-loss'
-                  )}>
-                    {stats.currentStreak >= 0 ? '+' : ''}{stats.currentStreak}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-dark-500 text-sm mb-1">Risk/Reward</p>
-                  <p className="text-2xl font-bold text-white">
-                    {stats.avgLoser !== 0 
-                      ? `1:${(stats.avgWinner / Math.abs(stats.avgLoser)).toFixed(1)}`
-                      : 'N/A'
-                    }
-                  </p>
-                </div>
-              </div>
-            </div>
           </div>
         )}
       </main>
