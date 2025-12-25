@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Sidebar } from '@/components/Sidebar'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { Header } from '@/components/Header'
@@ -15,17 +15,16 @@ import {
   TrendingUp,
   TrendingDown,
   Wallet,
-  ChevronDown
+  ChevronDown,
+  Pencil
 } from 'lucide-react'
-import { useRef } from 'react' // Adding useRef if needed, or just standard imports
-import { formatCurrency, formatDateTime, cn } from '@/lib/utils'
+import { formatCurrency, formatDateTime, cn, getLocalDateKey } from '@/lib/utils'
 import { AddTradeModal, TradeFormData } from '@/components/AddTradeModal'
 import { useAuth } from '@/contexts/AuthContext'
 import { getTrades, createTrade, getAccounts, FirestoreAccount, calculateStats } from '@/lib/firebase/firestore'
 import { Timestamp } from 'firebase/firestore'
 import { Trade, useStore } from '@/lib/store'
 import { TradeDetailsModal } from '@/components/TradeDetailsModal'
-import { Pencil } from 'lucide-react'
 
 function JournalContent() {
   const { user } = useAuth()
@@ -96,7 +95,7 @@ function JournalContent() {
 
   // Group trades by date
   const tradesByDate = trades.reduce((acc, trade) => {
-    const date = trade.entryTime.split('T')[0]
+    const date = getLocalDateKey(trade.entryTime)
     if (!acc[date]) acc[date] = []
     acc[date].push(trade)
     return acc
@@ -169,14 +168,14 @@ function JournalContent() {
   }
 
   const getDayPnL = (date: Date) => {
-    const dateStr = date.toISOString().split('T')[0]
+    const dateStr = getLocalDateKey(date)
     const dayTrades = tradesByDate[dateStr] || []
     return dayTrades.reduce((sum, t) => sum + (t.pnlNet || 0), 0)
   }
 
   const selectedAccount = selectedAccountId === 'all'
     ? null
-    : accounts.find(a => a.id === selectedAccountId)
+    : accounts.find(a => a.id === selectedAccountId);
 
   return (
     <div className="flex min-h-screen">
@@ -256,7 +255,7 @@ function JournalContent() {
                   {days.map((day, idx) => {
                     if (!day) return <div key={idx} />
 
-                    const dateStr = day.toISOString().split('T')[0]
+                    const dateStr = getLocalDateKey(day)
                     const dayTrades = tradesByDate[dateStr] || []
                     const pnl = getDayPnL(day)
                     const isToday = day.toDateString() === new Date().toDateString()
@@ -321,7 +320,7 @@ function JournalContent() {
                     })}
                   </h3>
                   {(() => {
-                    const dateStr = selectedDate.toISOString().split('T')[0]
+                    const dateStr = getLocalDateKey(selectedDate)
                     const dayTrades = tradesByDate[dateStr] || []
                     const pnl = dayTrades.reduce((sum, t) => sum + (t.pnlNet || 0), 0)
                     return (
@@ -337,7 +336,7 @@ function JournalContent() {
 
                 <div className="divide-y divide-dark-800/50">
                   {(() => {
-                    const dateStr = selectedDate.toISOString().split('T')[0]
+                    const dateStr = getLocalDateKey(selectedDate)
                     const dayTrades = tradesByDate[dateStr] || []
 
                     if (dayTrades.length === 0) {

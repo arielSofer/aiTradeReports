@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useStore } from '@/lib/store'
-import { formatCurrency, cn } from '@/lib/utils'
+import { formatCurrency, cn, getLocalDateKey } from '@/lib/utils'
 
 interface DayData {
   date: Date
@@ -20,10 +20,10 @@ export function TradingCalendar() {
   // Group trades by date and calculate daily P&L
   const tradesByDate = useMemo(() => {
     const grouped: Record<string, { pnl: number; count: number }> = {}
-    
+
     trades.forEach(trade => {
       if (trade.entryTime && trade.pnlNet !== undefined) {
-        const dateKey = trade.entryTime.split('T')[0]
+        const dateKey = getLocalDateKey(trade.entryTime)
         if (!grouped[dateKey]) {
           grouped[dateKey] = { pnl: 0, count: 0 }
         }
@@ -31,7 +31,7 @@ export function TradingCalendar() {
         grouped[dateKey].count += 1
       }
     })
-    
+
     return grouped
   }, [trades])
 
@@ -39,26 +39,26 @@ export function TradingCalendar() {
   const calendarDays = useMemo(() => {
     const year = currentDate.getFullYear()
     const month = currentDate.getMonth()
-    
+
     const firstDayOfMonth = new Date(year, month, 1)
     const lastDayOfMonth = new Date(year, month + 1, 0)
-    
+
     const startDay = firstDayOfMonth.getDay()
     const daysInMonth = lastDayOfMonth.getDate()
-    
+
     const days: DayData[] = []
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    
+
     // Previous month days
     const prevMonth = new Date(year, month, 0)
     const prevMonthDays = prevMonth.getDate()
-    
+
     for (let i = startDay - 1; i >= 0; i--) {
       const date = new Date(year, month - 1, prevMonthDays - i)
       const dateKey = date.toISOString().split('T')[0]
       const dayData = tradesByDate[dateKey]
-      
+
       days.push({
         date,
         pnl: dayData?.pnl || 0,
@@ -67,13 +67,13 @@ export function TradingCalendar() {
         isToday: false
       })
     }
-    
+
     // Current month days
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month, day)
       const dateKey = date.toISOString().split('T')[0]
       const dayData = tradesByDate[dateKey]
-      
+
       days.push({
         date,
         pnl: dayData?.pnl || 0,
@@ -82,14 +82,14 @@ export function TradingCalendar() {
         isToday: date.getTime() === today.getTime()
       })
     }
-    
+
     // Next month days (fill to complete 6 rows = 42 days)
     const remainingDays = 42 - days.length
     for (let day = 1; day <= remainingDays; day++) {
       const date = new Date(year, month + 1, day)
       const dateKey = date.toISOString().split('T')[0]
       const dayData = tradesByDate[dateKey]
-      
+
       days.push({
         date,
         pnl: dayData?.pnl || 0,
@@ -98,7 +98,7 @@ export function TradingCalendar() {
         isToday: false
       })
     }
-    
+
     return days
   }, [currentDate, tradesByDate])
 
@@ -106,12 +106,12 @@ export function TradingCalendar() {
   const monthlyStats = useMemo(() => {
     const year = currentDate.getFullYear()
     const month = currentDate.getMonth()
-    
+
     let totalPnl = 0
     let tradingDays = 0
     let winningDays = 0
     let losingDays = 0
-    
+
     calendarDays.forEach(day => {
       if (day.isCurrentMonth && day.tradesCount > 0) {
         totalPnl += day.pnl
@@ -120,7 +120,7 @@ export function TradingCalendar() {
         else if (day.pnl < 0) losingDays++
       }
     })
-    
+
     return { totalPnl, tradingDays, winningDays, losingDays }
   }, [calendarDays, currentDate])
 
@@ -160,7 +160,7 @@ export function TradingCalendar() {
           <h3 className="text-lg font-display font-semibold text-white">Trading Calendar</h3>
           <p className="text-sm text-dark-500">Daily P&L overview</p>
         </div>
-        
+
         {/* Monthly Stats */}
         <div className="flex items-center gap-4 text-sm">
           <div className="text-center">
@@ -180,24 +180,24 @@ export function TradingCalendar() {
 
       {/* Navigation */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-dark-800/50">
-        <button 
+        <button
           onClick={prevMonth}
           className="p-2 hover:bg-dark-800 rounded-lg transition-colors"
         >
           <ChevronLeft className="w-5 h-5 text-dark-400" />
         </button>
-        
+
         <div className="flex items-center gap-3">
           <h4 className="text-lg font-semibold text-white">{monthName}</h4>
-          <button 
+          <button
             onClick={goToToday}
             className="px-2 py-1 text-xs bg-dark-800 hover:bg-dark-700 text-dark-300 rounded transition-colors"
           >
             Today
           </button>
         </div>
-        
-        <button 
+
+        <button
           onClick={nextMonth}
           className="p-2 hover:bg-dark-800 rounded-lg transition-colors"
         >
@@ -208,8 +208,8 @@ export function TradingCalendar() {
       {/* Days of Week */}
       <div className="grid grid-cols-7 border-b border-dark-800/50">
         {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-          <div 
-            key={day} 
+          <div
+            key={day}
             className="py-2 text-center text-xs font-medium text-dark-500 uppercase tracking-wider"
           >
             {day}
@@ -243,7 +243,7 @@ export function TradingCalendar() {
                 </span>
               )}
             </div>
-            
+
             {/* P&L Display */}
             {day.tradesCount > 0 && (
               <div className={cn(

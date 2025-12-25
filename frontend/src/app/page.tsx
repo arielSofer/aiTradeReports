@@ -19,7 +19,7 @@ import { getTrades, calculateStats, createTrade, getAccounts, FirestoreAccount }
 import { Timestamp } from 'firebase/firestore'
 import { ChevronDown, Wallet } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { cn } from '@/lib/utils'
+import { cn, getLocalDateKey } from '@/lib/utils'
 
 function DashboardContent() {
   const router = useRouter()
@@ -121,7 +121,7 @@ function DashboardContent() {
           const dailyPnLMap: Record<string, { pnl: number; trades: number; winners: number; losers: number }> = {}
           convertedTrades.forEach(trade => {
             if (trade.pnlNet !== undefined && trade.entryTime) {
-              const date = trade.entryTime.split('T')[0]
+              const date = getLocalDateKey(trade.entryTime)
               if (!dailyPnLMap[date]) {
                 dailyPnLMap[date] = { pnl: 0, trades: 0, winners: 0, losers: 0 }
               }
