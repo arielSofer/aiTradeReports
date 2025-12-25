@@ -328,44 +328,50 @@ async function fetchTopstepEmails(accessToken: string, startDate: string, onStat
         }
         // 2. Payout
         else if (subject.toLowerCase().includes('payout')) {
-            // Looking for "Account: ..." and Amount
             // "Payout Request Confirmation"
+            console.log('Analyzing Payout Email:', subject, textContent.substring(0, 500))
 
-            console.log('Analying Payout Email:', subject, textContent.substring(0, 500))
+            let login: string | undefined
+            let amount: number | undefined
 
-            // Flexibly find Login/Account
-            // Matches: "Account Name: 123", "Login: 123", "Account: 123"
-            const loginMatch = textContent.match(/(?:Account(?:\s+Name)?|Login|Trading\s+Account)[:\s]+([A-Za-z0-9-]+)/i)
+            // Pattern 1: Specific sentence "account [ID] in the amount of $ [AMOUNT]"
+            // Example: "for your account EXPRESSMay... in the amount of $ 799.00"
+            // Note: Space after $ is common in some templates
+            const sentenceMatch = textContent.match(/account\s+([A-Za-z0-9-]+)\s+in\s+the\s+amount\s+of\s+\$\s*([\d,]+(?:\.\d{2})?)/i)
 
-            // Amount
-            // Matches: "$1,500.00", "$1500", "$ 1,500"
-            const amountMatch = textContent.match(/\$\s*([\d,]+(?:\.\d{2})?)/i)
-
-            if (loginMatch && amountMatch) {
-                const login = loginMatch[1].trim()
-                const amountRaw = amountMatch[1].replace(/,/g, '')
-                const amount = parseFloat(amountRaw)
-
-                if (!isNaN(amount)) {
-                    found.push({
-                        id: msgId,
-                        login,
-                        size: 0,
-                        type: 'Payout',
-                        date: new Date(dateStr),
-                        provider: 'Topstep',
-                        amount
-                    })
-                }
+            if (sentenceMatch) {
+                login = sentenceMatch[1]
+                amount = parseFloat(sentenceMatch[2].replace(/,/g, ''))
             } else {
-                console.warn('Payout regex failed:', { hasLogin: !!loginMatch, hasAmount: !!amountMatch })
+                // Pattern 2: Generic fallback
+                console.log('Specific sentence match failed, trying generic...')
+
+                // Login
+                const loginMatch = textContent.match(/(?:Account(?:\s+Name)?|Login|Trading\s+Account)[:\s]+([A-Za-z0-9-]+)/i)
+                if (loginMatch) login = loginMatch[1].trim()
+
+                // Amount
+                const amountMatch = textContent.match(/\$\s*([\d,]+(?:\.\d{2})?)/i)
+                if (amountMatch) amount = parseFloat(amountMatch[1].replace(/,/g, ''))
+            }
+
+            if (login && amount && !isNaN(amount)) {
+                found.push({
+                    id: msgId,
+                    login,
+                    size: 0,
+                    type: 'Payout',
+                    date: new Date(dateStr),
+                    provider: 'Topstep',
+                    amount
+                })
+            } else {
+                console.warn('Payout regex failed:', { login, amount, subject })
             }
         }
     }
 
     // Deduplication Logic
-    // Accounts: Keep latest or all? User might want to import older ones too.
-    // Let's deduplicate accounts by Login (assuming one "Started" per account ID)
     const uniqueAccounts = new Map<string, FoundAccount>()
     const payouts: FoundAccount[] = []
 
