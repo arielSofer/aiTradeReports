@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { getPropAccounts, createPropAccount, PropFirmAccount, addWithdrawal } from '@/lib/firebase/propFirms'
+import { getPropAccounts, createPropAccount, PropFirmAccount } from '@/lib/firebase/propFirms'
 import { createAccount } from '@/lib/firebase/firestore'
 import { PropDashboard } from '@/components/prop-firms/PropDashboard'
 import { PropAccountList } from '@/components/prop-firms/PropAccountList'
@@ -77,28 +77,8 @@ function PropFirmsContent() {
         if (!user) return
 
         let importedCount = 0
-        let skippedCount = 0
-
-        // Fetch latest accounts to check for duplicates
-        // We can rely on 'accounts' state if it's fresh, but getting straight from DB is safer for async sequences
-        const currentAccounts = await getPropAccounts(user.uid)
-
-        // 1. Process New Accounts First
-        const accountItems = found.filter(i => i.type === 'Trading Combine')
-        for (const acc of accountItems) {
-            // Check if already exists?
-            // "Topstep 50K - LOGIN"
-            // or notes "Imported from Gmail. Login: LOGIN"
-            const exists = currentAccounts.some(a =>
-                (a.notes && a.notes.includes(acc.login)) ||
-                (a.name.includes(acc.login))
-            )
-
-            if (exists) {
-                console.log(`Skipping existing account: ${acc.login}`)
-                skippedCount++
-                continue
-            }
+        for (const acc of found) {
+            // Check if already exists? (Optional, skipping check for now)
 
             // Find price
             // Mapping provider name "Topstep" to data
@@ -116,65 +96,13 @@ function PropFirmsContent() {
                 isFunded: false,
                 notes: `Imported from Gmail. Login: ${acc.login}`,
                 profitSplit: 100,
-                color: firm?.logoColor || 'bg-blue-500' // Default blue
+                color: firm?.logoColor || 'bg-blue-500'
             })
             importedCount++
         }
-
-        // Refresh list if we added accounts, so payouts can find them
-        let updatedAccounts = currentAccounts
-        if (importedCount > 0) {
-            updatedAccounts = await getPropAccounts(user.uid)
-        }
-
-        // 2. Process Payouts
-        const payoutItems = found.filter(i => i.type === 'Payout')
-        for (const pay of payoutItems) {
-            // Find account by login in name or notes
-            const targetAccount = updatedAccounts.find(a => a.name.includes(pay.login) || a.notes?.includes(pay.login))
-
-            if (targetAccount && targetAccount.id) {
-
-                // Check if duplicate payout
-                // Same Amount + Same Date (approx)
-                const isDuplicate = targetAccount.withdrawalHistory?.some(w => {
-                    // Check date within 24 hours to allow purely matching "same day" events
-                    // Handle Date or Timestamp (from Firestore)
-                    // If it's a Timestamp, it has toDate(). If Date, it doesn't.
-                    // The interface says Date | Timestamp.
-                    const wDate = w.date instanceof Date ? w.date : (w.date as any).toDate()
-
-                    const timeDiff = Math.abs(wDate.getTime() - pay.date.getTime())
-                    const isSameAmount = w.amount === pay.amount
-                    return isSameAmount && timeDiff < 1000 * 60 * 60 * 24
-                })
-
-                if (isDuplicate) {
-                    console.log(`Skipping duplicate payout: ${pay.amount} for ${pay.login}`)
-                    skippedCount++
-                    continue
-                }
-
-                await addWithdrawal(
-                    targetAccount.id,
-                    pay.amount || 0,
-                    targetAccount.profitSplit || 100,
-                    pay.date,
-                    'Imported Payout from Gmail'
-                )
-                importedCount++
-            } else {
-                console.warn(`Could not find account for payout login: ${pay.login}`)
-                // Maybe notify?
-            }
-        }
-
         if (importedCount > 0) {
             await fetchAccounts()
             // Optionally show toast success
-            alert(`Successfully imported ${importedCount} items. Skipped ${skippedCount} duplicates.`)
-        } else if (skippedCount > 0) {
-            alert(`No new items imported. Skipped ${skippedCount} duplicates.`)
         }
     }
 
