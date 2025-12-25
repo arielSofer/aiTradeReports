@@ -6,6 +6,7 @@ import { Trade } from '@/lib/store'
 import { TRADE_DETAILS_CONFIG } from '@/lib/tradeDetailsConfig'
 import { cn } from '@/lib/utils'
 import { updateTrade } from '@/lib/firebase/firestore'
+import { TagInput } from './TagInput'
 
 interface TradeDetailsModalProps {
     isOpen: boolean
@@ -17,6 +18,7 @@ interface TradeDetailsModalProps {
 
 export function TradeDetailsModal({ isOpen, onClose, trade, onSave, isNewTrade }: TradeDetailsModalProps) {
     const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>({})
+    const [customTags, setCustomTags] = useState<string[]>([])
     const [notes, setNotes] = useState(trade.notes || '')
     const [isSaving, setIsSaving] = useState(false)
 
@@ -25,6 +27,7 @@ export function TradeDetailsModal({ isOpen, onClose, trade, onSave, isNewTrade }
         if (isOpen && trade) {
             setNotes(trade.notes || '')
             const initialOptions: Record<string, string[]> = {}
+            const initialCustomTags: string[] = []
 
             // Initialize empty arrays for all categories
             TRADE_DETAILS_CONFIG.forEach(cat => {
@@ -33,19 +36,26 @@ export function TradeDetailsModal({ isOpen, onClose, trade, onSave, isNewTrade }
 
             // Parse existing tags
             trade.tags.forEach(tag => {
+                let isKnownOption = false
                 // Check if tag matches any option in our config
                 for (const cat of TRADE_DETAILS_CONFIG) {
                     // Check for exact match or "Category: Option" format
                     const optionMatch = cat.options.find(opt => opt === tag || `${cat.name}: ${opt}` === tag)
                     if (optionMatch) {
+                        isKnownOption = true
                         if (!initialOptions[cat.id].includes(optionMatch)) {
                             initialOptions[cat.id].push(optionMatch)
                         }
                     }
                 }
+
+                if (!isKnownOption) {
+                    initialCustomTags.push(tag)
+                }
             })
 
             setSelectedOptions(initialOptions)
+            setCustomTags(initialCustomTags)
         }
     }, [isOpen, trade])
 
@@ -72,12 +82,12 @@ export function TradeDetailsModal({ isOpen, onClose, trade, onSave, isNewTrade }
         setIsSaving(true)
         try {
             // Collect all selected options as tags
-            const newTags: string[] = []
+            const newTags: string[] = [...customTags]
 
-            const knownOptions = new Set(TRADE_DETAILS_CONFIG.flatMap(c => c.options))
-            const existingUnknownTags = trade.tags.filter(t => !knownOptions.has(t))
-
-            newTags.push(...existingUnknownTags)
+            // We don't need to filter existing unknown tags because they are now in customTags
+            // const knownOptions = new Set(TRADE_DETAILS_CONFIG.flatMap(c => c.options))
+            // const existingUnknownTags = trade.tags.filter(t => !knownOptions.has(t))
+            // newTags.push(...existingUnknownTags)
 
             Object.keys(selectedOptions).forEach(catId => {
                 selectedOptions[catId].forEach(opt => {
@@ -141,6 +151,16 @@ export function TradeDetailsModal({ isOpen, onClose, trade, onSave, isNewTrade }
                             onChange={(e) => setNotes(e.target.value)}
                             className="input w-full min-h-[100px] resize-none"
                             placeholder="Add your thoughts, emotions, and analysis of this trade..."
+                        />
+                    </div>
+
+                    {/* Custom Tags Section */}
+                    <div className="mb-6 bg-dark-800/50 rounded-xl p-4 border border-dark-700/50">
+                        <label className="text-sm font-medium text-dark-300 mb-2 block">Custom Tags</label>
+                        <TagInput
+                            tags={customTags}
+                            onChange={setCustomTags}
+                            placeholder="Add custom tags..."
                         />
                     </div>
 
