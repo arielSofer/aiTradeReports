@@ -139,7 +139,12 @@ function PropFirmsContent() {
                 // Same Amount + Same Date (approx)
                 const isDuplicate = targetAccount.withdrawalHistory?.some(w => {
                     // Check date within 24 hours to allow purely matching "same day" events
-                    const timeDiff = Math.abs(w.date.getTime() - pay.date.getTime())
+                    // Handle Date or Timestamp (from Firestore)
+                    // If it's a Timestamp, it has toDate(). If Date, it doesn't.
+                    // The interface says Date | Timestamp.
+                    const wDate = w.date instanceof Date ? w.date : (w.date as any).toDate()
+
+                    const timeDiff = Math.abs(wDate.getTime() - pay.date.getTime())
                     const isSameAmount = w.amount === pay.amount
                     return isSameAmount && timeDiff < 1000 * 60 * 60 * 24
                 })
