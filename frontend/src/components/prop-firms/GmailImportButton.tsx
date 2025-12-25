@@ -5,6 +5,8 @@ import { GoogleOAuthProvider, useGoogleLogin } from '@react-oauth/google'
 import { Loader2, Mail, Check, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
+import { PropFirmAccount } from '@/lib/firebase/propFirms'
+
 // Web Application Client ID - Users need to configure origin for this ID
 const CLIENT_ID = '218876218712-nepnfrv5j8jlnos75efg7iu9idqo4reu.apps.googleusercontent.com'
 
@@ -16,13 +18,15 @@ export interface FoundAccount {
     date: Date
     provider: string
     amount?: number // For payouts
+    targetAccountId?: string // For linking payouts to existing accounts
 }
 
 interface GmailImportButtonProps {
     onImport: (items: FoundAccount[]) => Promise<void>
+    existingAccounts: PropFirmAccount[]
 }
 
-function GmailImportButtonContent({ onImport }: GmailImportButtonProps) {
+function GmailImportButtonContent({ onImport, existingAccounts }: GmailImportButtonProps) {
     const [isLoading, setIsLoading] = useState(false)
     const [status, setStatus] = useState<string>('')
     const [foundItems, setFoundItems] = useState<FoundAccount[]>([])
@@ -31,6 +35,8 @@ function GmailImportButtonContent({ onImport }: GmailImportButtonProps) {
 
     // Filter state
     const [startDate, setStartDate] = useState<string>('')
+
+    const fundedAccounts = existingAccounts.filter(a => a.isFunded)
 
     const login = useGoogleLogin({
         onSuccess: async (tokenResponse) => {
@@ -65,6 +71,14 @@ function GmailImportButtonContent({ onImport }: GmailImportButtonProps) {
 
     const handleImportConfirm = async () => {
         const toImport = foundItems.filter(a => selectedIds.has(a.id))
+
+        // Validate Payouts have a target account
+        const invalidPayouts = toImport.filter(item => item.type === 'Payout' && !item.targetAccountId)
+        if (invalidPayouts.length > 0) {
+            alert('Please select a target account for all selected payouts.')
+            return
+        }
+
         if (toImport.length === 0) return
 
         setIsLoading(true)
@@ -80,11 +94,17 @@ function GmailImportButtonContent({ onImport }: GmailImportButtonProps) {
         }
     }
 
+    const updateTargetAccount = (itemId: string, accountId: string) => {
+        setFoundItems(prev => prev.map(item =>
+            item.id === itemId ? { ...item, targetAccountId: accountId } : item
+        ))
+    }
+
     if (showModal) {
         return (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                 <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowModal(false)} />
-                <div className="relative w-full max-w-3xl bg-dark-900 rounded-2xl border border-dark-700 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+                <div className="relative w-full max-w-4xl bg-dark-900 rounded-2xl border border-dark-700 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
                     <div className="flex items-center justify-between p-6 border-b border-dark-800">
                         <h2 className="text-xl font-display font-bold text-white flex items-center gap-2">
                             <Mail className="w-5 h-5 text-blue-400" />
@@ -110,6 +130,7 @@ function GmailImportButtonContent({ onImport }: GmailImportButtonProps) {
                                     <th className="p-4">Type</th>
                                     <th className="p-4">Account / Login</th>
                                     <th className="p-4">Details</th>
+                                    <th className="p-4">Assign To (Payouts)</th>
                                     <th className="p-4">Date</th>
                                 </tr>
                             </thead>
@@ -143,6 +164,25 @@ function GmailImportButtonContent({ onImport }: GmailImportButtonProps) {
                                                 ? <span className="text-green-400 font-bold">+${item.amount?.toLocaleString()}</span>
                                                 : <span className="text-dark-300">Size: {(item.size / 1000).toFixed(0)}K</span>
                                             }
+                                        </td>
+                                        <td className="p-4">
+                                            {item.type === 'Payout' ? (
+                                                <select
+                                                    value={item.targetAccountId || ''}
+                                                    onChange={(e) => updateTargetAccount(item.id, e.target.value)}
+                                                    className="bg-dark-800 border-dark-700 text-sm rounded-lg p-2 w-48 text-white focus:ring-primary-500 focus:border-primary-500"
+                                                    disabled={!selectedIds.has(item.id)}
+                                                >
+                                                    <option value="">Select Account...</option>
+                                                    {fundedAccounts.map(acc => (
+                                                        <option key={acc.id} value={acc.id}>
+                                                            {acc.name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            ) : (
+                                                <span className="text-dark-500 text-xs">-</span>
+                                            )}
                                         </td>
                                         <td className="p-4 text-sm text-dark-300">{item.date.toLocaleDateString()}</td>
                                     </tr>

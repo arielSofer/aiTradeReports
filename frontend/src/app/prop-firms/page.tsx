@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { getPropAccounts, createPropAccount, PropFirmAccount } from '@/lib/firebase/propFirms'
+import { getPropAccounts, createPropAccount, PropFirmAccount, addWithdrawal } from '@/lib/firebase/propFirms'
 import { createAccount } from '@/lib/firebase/firestore'
 import { PropDashboard } from '@/components/prop-firms/PropDashboard'
 import { PropAccountList } from '@/components/prop-firms/PropAccountList'
@@ -77,29 +77,48 @@ function PropFirmsContent() {
         if (!user) return
 
         let importedCount = 0
-        for (const acc of found) {
-            // Check if already exists? (Optional, skipping check for now)
+        for (const item of found) {
+            // Case 1: Payout Import
+            if (item.type === 'Payout') {
+                if (item.targetAccountId && item.amount) {
+                    // Find the account to get split details if needed, or default
+                    const targetAccount = accounts.find(a => a.id === item.targetAccountId)
+                    const split = targetAccount?.profitSplit || 100 // Default to 100 if unknown, usually 90 or 100
 
-            // Find price
-            // Mapping provider name "Topstep" to data
-            const firm = PROP_FIRMS.find(f => f.name.toLowerCase().includes(acc.provider.toLowerCase()))
-            const tier = firm?.accounts.find(a => a.size === acc.size)
-            const price = tier?.price || 0
+                    await addWithdrawal(
+                        item.targetAccountId,
+                        item.amount,
+                        split,
+                        item.date,
+                        `Imported Payout. Original Date: ${item.date.toLocaleDateString()}`
+                    )
+                    importedCount++
+                }
+            }
+            // Case 2: Account Import
+            else {
+                // Find price
+                // Mapping provider name "Topstep" to data
+                const firm = PROP_FIRMS.find(f => f.name.toLowerCase().includes(item.provider.toLowerCase()))
+                const tier = firm?.accounts.find(a => a.size === item.size)
+                const price = tier?.price || 0
 
-            await handleCreateAccount({
-                name: `${acc.provider} ${(acc.size / 1000).toFixed(0)}K - ${acc.login}`,
-                provider: acc.provider,
-                size: acc.size,
-                cost: price,
-                purchaseDate: acc.date,
-                status: 'challenge_active',
-                isFunded: false,
-                notes: `Imported from Gmail. Login: ${acc.login}`,
-                profitSplit: 100,
-                color: firm?.logoColor || 'bg-blue-500'
-            })
-            importedCount++
+                await handleCreateAccount({
+                    name: `${item.provider} ${(item.size / 1000).toFixed(0)}K - ${item.login}`,
+                    provider: item.provider,
+                    size: item.size,
+                    cost: price,
+                    purchaseDate: item.date,
+                    status: 'challenge_active',
+                    isFunded: false,
+                    notes: `Imported from Gmail. Login: ${item.login}`,
+                    profitSplit: 100,
+                    color: firm?.logoColor || 'bg-blue-500'
+                })
+                importedCount++
+            }
         }
+
         if (importedCount > 0) {
             await fetchAccounts()
             // Optionally show toast success
@@ -139,7 +158,7 @@ function PropFirmsContent() {
                         </div>
 
                         <div className="flex items-center gap-3">
-                            <GmailImportButton onImport={handleGmailImport} />
+                            <GmailImportButton onImport={handleGmailImport} existingAccounts={accounts} />
 
                             <Link
                                 href="/prop-firms/discounts"
