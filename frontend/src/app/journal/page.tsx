@@ -23,12 +23,13 @@ import { AddTradeModal, TradeFormData } from '@/components/AddTradeModal'
 import { useAuth } from '@/contexts/AuthContext'
 import { getTrades, createTrade, getAccounts, FirestoreAccount, calculateStats } from '@/lib/firebase/firestore'
 import { Timestamp } from 'firebase/firestore'
-import { Trade } from '@/lib/store'
+import { Trade, useStore } from '@/lib/store'
 import { TradeDetailsModal } from '@/components/TradeDetailsModal'
 import { Pencil } from 'lucide-react'
 
 function JournalContent() {
   const { user } = useAuth()
+  const { isSidebarCollapsed } = useStore()
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [showAddTrade, setShowAddTrade] = useState(false)
   const [selectedTrade, setSelectedTrade] = useState<string | null>(null)
@@ -181,7 +182,10 @@ function JournalContent() {
     <div className="flex min-h-screen">
       <Sidebar />
 
-      <main className="flex-1 ml-64">
+      <main className={cn(
+        "flex-1 transition-all duration-300",
+        isSidebarCollapsed ? "ml-28" : "ml-72"
+      )}>
         <Header
           onAddTradeClick={() => setShowAddTrade(true)}
         />

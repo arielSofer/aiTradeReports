@@ -6,8 +6,10 @@ import { ArrowLeft, ExternalLink, Percent, Copy, Check } from 'lucide-react'
 import Link from 'next/link'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
+import { useStore } from '@/lib/store'
 
 export default function DiscountsPage() {
+    const { isSidebarCollapsed } = useStore()
     const [copiedCode, setCopiedCode] = useState<string | null>(null)
 
     const handleCopy = (code: string) => {
@@ -20,7 +22,10 @@ export default function DiscountsPage() {
         <div className="flex h-screen bg-dark-950 overflow-hidden">
             <Sidebar />
 
-            <main className="flex-1 overflow-y-auto">
+            <main className={cn(
+                "flex-1 overflow-y-auto transition-all duration-300",
+                isSidebarCollapsed ? "ml-28" : "ml-72"
+            )}>
                 <div className="p-8 max-w-7xl mx-auto space-y-8">
 
                     {/* Header */}

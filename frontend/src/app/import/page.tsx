@@ -18,6 +18,7 @@ import {
   ChevronDown
 } from 'lucide-react'
 import { cn, formatCurrency } from '@/lib/utils'
+import { useStore } from '@/lib/store'
 import { useAuth } from '@/contexts/AuthContext'
 import { uploadApi } from '@/lib/api'
 import { getAccounts, batchCreateTrades } from '@/lib/firebase/firestore'
@@ -91,6 +92,7 @@ interface ImportResult {
 
 function ImportContent() {
   const { user } = useAuth()
+  const { isSidebarCollapsed } = useStore()
   const [selectedBroker, setSelectedBroker] = useState<string | null>(null)
   const [file, setFile] = useState<File | null>(null)
   const [status, setStatus] = useState<ImportStatus>('idle')
@@ -251,7 +253,10 @@ function ImportContent() {
     <div className="flex min-h-screen">
       <Sidebar />
 
-      <main className="flex-1 ml-64">
+      <main className={cn(
+        "flex-1 transition-all duration-300",
+        isSidebarCollapsed ? "ml-28" : "ml-72"
+      )}>
         {/* Header */}
         <header className="sticky top-0 z-40 bg-dark-950/80 backdrop-blur-xl border-b border-dark-800/50">
           <div className="flex items-center justify-between px-6 py-4">

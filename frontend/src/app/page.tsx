@@ -19,6 +19,7 @@ import { getTrades, calculateStats, createTrade, getAccounts, FirestoreAccount }
 import { Timestamp } from 'firebase/firestore'
 import { ChevronDown, Wallet } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { cn } from '@/lib/utils'
 
 function DashboardContent() {
   const router = useRouter()
@@ -33,7 +34,7 @@ function DashboardContent() {
   const [searchQuery, setSearchQuery] = useState('')
 
   const { user } = useAuth()
-  const { trades, stats, setTrades, setStats, setDailyPnL, setHourlyStats } = useStore()
+  const { trades, stats, setTrades, setStats, setDailyPnL, setHourlyStats, isSidebarCollapsed } = useStore()
 
   const refreshData = useCallback(() => setRefreshKey(prev => prev + 1), [])
 
@@ -303,7 +304,14 @@ function DashboardContent() {
     <div className="flex min-h-screen">
       <Sidebar />
 
-      <main className="flex-1 ml-64">
+      <main className={cn(
+        "flex-1 transition-all duration-300 ease-in-out",
+        isSidebarCollapsed ? "ml-28" : "ml-72" // 20 (width) + 4 (left) + 4 (gap) = ~28, but simplified logic:
+        // Sidebar is left-4 (1rem). Width is 20 (5rem) or 64 (16rem).
+        // So content should start at least at 1rem + Width + Gap.
+        // Expanded: 1rem + 16rem + 1rem gap = 18rem => ml-72
+        // Collapsed: 1rem + 5rem + 1rem gap = 7rem => ml-28
+      )}>
         <Header
           onAddTradeClick={() => document.getElementById('add-trade-trigger')?.click()}
           onSearch={setSearchQuery}

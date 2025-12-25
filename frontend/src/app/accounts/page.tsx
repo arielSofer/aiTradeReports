@@ -3,11 +3,11 @@
 import { useState, useEffect } from 'react'
 import { Sidebar } from '@/components/Sidebar'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
-import { 
-  Plus, 
-  Wallet, 
-  Settings, 
-  Trash2, 
+import {
+  Plus,
+  Wallet,
+  Settings,
+  Trash2,
   RefreshCw,
   ExternalLink,
   MoreVertical,
@@ -17,13 +17,14 @@ import {
 } from 'lucide-react'
 import { formatCurrency, cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
-import { 
-  getAccounts, 
-  createAccount, 
+import {
+  getAccounts,
+  createAccount,
   deleteAccount as deleteFirestoreAccount,
   getTrades,
-  FirestoreAccount 
+  FirestoreAccount
 } from '@/lib/firebase/firestore'
+import { useStore } from '@/lib/store'
 
 const brokers = [
   { id: 'interactive_brokers', name: 'Interactive Brokers', icon: '🏦' },
@@ -37,6 +38,7 @@ const brokers = [
 
 function AccountsContent() {
   const { user } = useAuth()
+  const { isSidebarCollapsed } = useStore()
   const [accounts, setAccounts] = useState<FirestoreAccount[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
@@ -66,18 +68,18 @@ function AccountsContent() {
     try {
       const userAccounts = await getAccounts(user.uid)
       setAccounts(userAccounts)
-      
+
       // Calculate stats for each account from trades
       const allTrades = await getTrades(user.uid)
       const stats: Record<string, { pnl: number; trades: number }> = {}
-      
+
       // Initialize stats for all accounts
       userAccounts.forEach(account => {
         if (account.id) {
           stats[account.id] = { pnl: 0, trades: 0 }
         }
       })
-      
+
       // Calculate stats from trades
       allTrades.forEach(trade => {
         if (trade.accountId && stats[trade.accountId]) {
@@ -85,9 +87,9 @@ function AccountsContent() {
           stats[trade.accountId].pnl += (trade.pnlNet || 0)
         }
       })
-      
+
       setAccountStats(stats)
-      
+
       // Calculate total P&L from all trades
       const totalPnl = allTrades.reduce((sum, trade) => sum + (trade.pnlNet || 0), 0)
       setTotalPnL(totalPnl)
@@ -106,21 +108,21 @@ function AccountsContent() {
       alert('Please log in first')
       return
     }
-    
+
     if (!newAccount.name) {
       alert('Please enter an account name')
       return
     }
-    
+
     if (!newAccount.broker) {
       alert('Please select a broker')
       return
     }
-    
+
     setSaving(true)
     try {
       const brokerName = brokers.find(b => b.id === newAccount.broker)?.name || newAccount.broker
-      
+
       console.log('Creating account:', {
         userId: user.uid,
         name: newAccount.name,
@@ -128,7 +130,7 @@ function AccountsContent() {
         currency: newAccount.currency,
         isDemo: newAccount.isDemo
       })
-      
+
       const accountId = await createAccount(user.uid, {
         name: newAccount.name,
         broker: brokerName,
@@ -137,12 +139,12 @@ function AccountsContent() {
         isDemo: newAccount.isDemo,
         isActive: true
       })
-      
+
       console.log('Account created with ID:', accountId)
-      
+
       // Reload accounts
       await loadAccounts()
-      
+
       setShowAddModal(false)
       setNewAccount({ name: '', broker: '', currency: 'USD', isDemo: false })
     } catch (error: any) {
@@ -170,8 +172,11 @@ function AccountsContent() {
   return (
     <div className="flex min-h-screen">
       <Sidebar />
-      
-      <main className="flex-1 ml-64">
+
+      <main className={cn(
+        "flex-1 transition-all duration-300",
+        isSidebarCollapsed ? "ml-28" : "ml-72"
+      )}>
         {/* Header */}
         <header className="sticky top-0 z-40 bg-dark-950/80 backdrop-blur-xl border-b border-dark-800/50">
           <div className="flex items-center justify-between px-6 py-4">
@@ -276,9 +281,9 @@ function AccountsContent() {
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <button 
+                        <button
                           onClick={loadAccounts}
-                          className="p-2 hover:bg-dark-800 rounded-lg transition-colors" 
+                          className="p-2 hover:bg-dark-800 rounded-lg transition-colors"
                           title="Refresh"
                         >
                           <RefreshCw className="w-4 h-4 text-dark-400" />
@@ -286,7 +291,7 @@ function AccountsContent() {
                         <button className="p-2 hover:bg-dark-800 rounded-lg transition-colors" title="Settings">
                           <Settings className="w-4 h-4 text-dark-400" />
                         </button>
-                        <button 
+                        <button
                           onClick={() => account.id && handleDeleteAccount(account.id)}
                           className="p-2 hover:bg-dark-800 rounded-lg transition-colors text-loss/50 hover:text-loss"
                           title="Delete"
@@ -307,7 +312,7 @@ function AccountsContent() {
       {showAddModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowAddModal(false)} />
-          
+
           <div className="relative w-full max-w-lg bg-dark-900 rounded-2xl border border-dark-700 shadow-2xl">
             <div className="p-6 border-b border-dark-800">
               <h2 className="text-xl font-display font-bold text-white">Add Trading Account</h2>
@@ -365,8 +370,8 @@ function AccountsContent() {
               <button onClick={() => setShowAddModal(false)} className="btn-secondary" disabled={saving}>
                 Cancel
               </button>
-              <button 
-                onClick={handleAddAccount} 
+              <button
+                onClick={handleAddAccount}
                 className="btn-primary flex items-center gap-2"
                 disabled={saving || !newAccount.name || !newAccount.broker}
               >

@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 import { formatCurrency, cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
+import { useStore } from '@/lib/store'
 import { getTrades, getAccounts, FirestoreAccount } from '@/lib/firebase/firestore'
 import {
   BarChart,
@@ -73,6 +74,7 @@ interface Trade {
 
 function AnalyticsContent() {
   const { user } = useAuth()
+  const { isSidebarCollapsed } = useStore()
   const [trades, setTrades] = useState<Trade[]>([])
   const [accounts, setAccounts] = useState<FirestoreAccount[]>([])
   const [selectedAccountId, setSelectedAccountId] = useState<string | 'all'>('all')
@@ -345,7 +347,10 @@ function AnalyticsContent() {
     <div className="flex min-h-screen">
       <Sidebar />
 
-      <main className="flex-1 ml-64">
+      <main className={cn(
+        "flex-1 transition-all duration-300",
+        isSidebarCollapsed ? "ml-28" : "ml-72"
+      )}>
         <Header
           onAddTradeClick={() => window.location.href = '/'}
         />

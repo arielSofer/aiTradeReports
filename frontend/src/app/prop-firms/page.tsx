@@ -14,6 +14,8 @@ import Link from 'next/link'
 import { Header } from '@/components/Header'
 
 import { GmailImportButton, FoundAccount } from '@/components/prop-firms/GmailImportButton'
+import { useStore } from '@/lib/store'
+import { cn } from '@/lib/utils'
 import { PROP_FIRMS } from '@/lib/data/propFirmsData'
 
 export default function PropFirmsPage() {
@@ -26,6 +28,7 @@ export default function PropFirmsPage() {
 
 function PropFirmsContent() {
     const { user } = useAuth()
+    const { isSidebarCollapsed } = useStore() // Get sidebar state
     const [accounts, setAccounts] = useState<PropFirmAccount[]>([])
     const [loading, setLoading] = useState(true)
     const [isAddModalOpen, setIsAddModalOpen] = useState(false)
@@ -129,7 +132,10 @@ function PropFirmsContent() {
         return (
             <div className="flex h-screen bg-dark-950">
                 <Sidebar />
-                <main className="flex-1 p-8 flex items-center justify-center">
+                <main className={cn(
+                    "flex-1 p-8 flex items-center justify-center transition-all duration-300",
+                    isSidebarCollapsed ? "ml-28" : "ml-72"
+                )}>
                     <Loader2 className="w-8 h-8 text-primary animate-spin" />
                 </main>
             </div>
@@ -140,7 +146,10 @@ function PropFirmsContent() {
         <div className="flex h-screen bg-dark-950 overflow-hidden">
             <Sidebar />
 
-            <main className="flex-1 overflow-y-auto">
+            <main className={cn(
+                "flex-1 overflow-y-auto transition-all duration-300",
+                isSidebarCollapsed ? "ml-28" : "ml-72"
+            )}>
                 <Header
                     onAddTradeClick={() => setIsAddModalOpen(true)}
                 />

@@ -79,6 +79,10 @@ interface StoreState {
   setSelectedAccount: (id: string | null) => void
   setIsLoading: (loading: boolean) => void
   logout: () => void
+
+  // Sidebar
+  isSidebarCollapsed: boolean
+  toggleSidebar: () => void
 }
 
 export const useStore = create<StoreState>((set) => ({
@@ -112,6 +116,10 @@ export const useStore = create<StoreState>((set) => ({
     localStorage.removeItem('token')
     set({ user: null, token: null, trades: [], stats: null })
   },
+
+  // Sidebar
+  isSidebarCollapsed: false,
+  toggleSidebar: () => set((state) => ({ isSidebarCollapsed: !state.isSidebarCollapsed })),
 }))
 
 

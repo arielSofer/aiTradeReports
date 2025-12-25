@@ -3,10 +3,10 @@
 import { useState } from 'react'
 import { Sidebar } from '@/components/Sidebar'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
-import { 
-  User, 
-  Bell, 
-  Shield, 
+import {
+  User,
+  Bell,
+  Shield,
   CreditCard,
   Palette,
   Globe,
@@ -15,9 +15,11 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
+import { useStore } from '@/lib/store'
 
 function SettingsContent() {
   const { user, profile } = useAuth()
+  const { isSidebarCollapsed } = useStore()
   const [activeTab, setActiveTab] = useState('profile')
   const [saved, setSaved] = useState(false)
 
@@ -37,8 +39,11 @@ function SettingsContent() {
   return (
     <div className="flex min-h-screen">
       <Sidebar />
-      
-      <main className="flex-1 ml-64">
+
+      <main className={cn(
+        "flex-1 transition-all duration-300",
+        isSidebarCollapsed ? "ml-28" : "ml-72"
+      )}>
         {/* Header */}
         <header className="sticky top-0 z-40 bg-dark-950/80 backdrop-blur-xl border-b border-dark-800/50">
           <div className="flex items-center justify-between px-6 py-4">
@@ -46,7 +51,7 @@ function SettingsContent() {
               <h2 className="text-xl font-display font-bold text-white">Settings</h2>
               <p className="text-sm text-dark-500">Manage your account and preferences</p>
             </div>
-            <button 
+            <button
               onClick={handleSave}
               className="btn-primary flex items-center gap-2"
             >
@@ -96,12 +101,12 @@ function SettingsContent() {
             {activeTab === 'profile' && (
               <div className="chart-container p-6 space-y-6">
                 <h3 className="text-lg font-display font-semibold text-white">Profile Settings</h3>
-                
+
                 <div className="flex items-center gap-6">
                   {user?.photoURL ? (
-                    <img 
-                      src={user.photoURL} 
-                      alt="Profile" 
+                    <img
+                      src={user.photoURL}
+                      alt="Profile"
                       className="w-20 h-20 rounded-full object-cover"
                     />
                   ) : (
@@ -120,18 +125,18 @@ function SettingsContent() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-dark-300 mb-2">Full Name</label>
-                    <input 
-                      type="text" 
-                      defaultValue={profile?.displayName || user?.displayName || ''} 
-                      className="input w-full" 
+                    <input
+                      type="text"
+                      defaultValue={profile?.displayName || user?.displayName || ''}
+                      className="input w-full"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-dark-300 mb-2">Email</label>
-                    <input 
-                      type="email" 
-                      defaultValue={user?.email || ''} 
-                      className="input w-full" 
+                    <input
+                      type="email"
+                      defaultValue={user?.email || ''}
+                      className="input w-full"
                       disabled
                     />
                   </div>
@@ -163,7 +168,7 @@ function SettingsContent() {
             {activeTab === 'notifications' && (
               <div className="chart-container p-6 space-y-6">
                 <h3 className="text-lg font-display font-semibold text-white">Notification Preferences</h3>
-                
+
                 <div className="space-y-4">
                   {[
                     { label: 'Daily P&L Summary', description: 'Receive a daily email with your trading summary' },
@@ -190,7 +195,7 @@ function SettingsContent() {
             {activeTab === 'security' && (
               <div className="chart-container p-6 space-y-6">
                 <h3 className="text-lg font-display font-semibold text-white">Security Settings</h3>
-                
+
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-dark-300 mb-2">Current Password</label>
@@ -222,7 +227,7 @@ function SettingsContent() {
             {activeTab === 'appearance' && (
               <div className="chart-container p-6 space-y-6">
                 <h3 className="text-lg font-display font-semibold text-white">Appearance</h3>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-dark-300 mb-3">Theme</label>
                   <div className="grid grid-cols-3 gap-4">
@@ -264,7 +269,7 @@ function SettingsContent() {
             {activeTab === 'billing' && (
               <div className="chart-container p-6 space-y-6">
                 <h3 className="text-lg font-display font-semibold text-white">Billing & Subscription</h3>
-                
+
                 <div className="p-6 bg-gradient-to-br from-primary-600/20 to-accent-purple/20 rounded-xl border border-primary-500/30">
                   <div className="flex items-center justify-between mb-4">
                     <div>
