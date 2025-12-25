@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { getPropAccounts, createPropAccount, PropFirmAccount } from '@/lib/firebase/propFirms'
+import { getPropAccounts, createPropAccount, PropFirmAccount, addWithdrawal } from '@/lib/firebase/propFirms'
 import { createAccount } from '@/lib/firebase/firestore'
 import { PropDashboard } from '@/components/prop-firms/PropDashboard'
 import { PropAccountList } from '@/components/prop-firms/PropAccountList'
@@ -77,7 +77,10 @@ function PropFirmsContent() {
         if (!user) return
 
         let importedCount = 0
-        for (const acc of found) {
+
+        // 1. Process New Accounts First
+        const accountItems = found.filter(i => i.type === 'Trading Combine')
+        for (const acc of accountItems) {
             // Check if already exists? (Optional, skipping check for now)
 
             // Find price
@@ -100,6 +103,32 @@ function PropFirmsContent() {
             })
             importedCount++
         }
+
+        // 2. Process Payouts
+        const payoutItems = found.filter(i => i.type === 'Payout')
+        if (payoutItems.length > 0) {
+            // Fetch latest accounts to match against
+            const currentAccounts = await getPropAccounts(user.uid)
+
+            for (const pay of payoutItems) {
+                // Find account by login in name or notes
+                const targetAccount = currentAccounts.find(a => a.name.includes(pay.login) || a.notes?.includes(pay.login))
+
+                if (targetAccount && targetAccount.id) {
+                    await addWithdrawal(
+                        targetAccount.id,
+                        pay.amount || 0,
+                        targetAccount.profitSplit || 100,
+                        pay.date,
+                        'Imported Payout from Gmail'
+                    )
+                    importedCount++
+                } else {
+                    console.warn(`Could not find account for payout login: ${pay.login}`)
+                }
+            }
+        }
+
         if (importedCount > 0) {
             await fetchAccounts()
             // Optionally show toast success
