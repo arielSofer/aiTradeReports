@@ -29,6 +29,10 @@ export interface FirestoreAccount {
   isActive: boolean
   createdAt: any
   updatedAt: any
+  // Prop Firm specific fields
+  status?: string
+  provider?: string
+  size?: number
 }
 
 export async function createAccount(
