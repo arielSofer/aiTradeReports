@@ -216,6 +216,7 @@ export function GmailImportButton(props: GmailImportButtonProps) {
 
 async function fetchTopstepEmails(accessToken: string, startDate: string, onStatus: (msg: string) => void): Promise<FoundAccount[]> {
     const found: FoundAccount[] = []
+    let nextPageToken: string | undefined = undefined
 
     // Build Query
     // We look for "Trading Combine Started" OR "Payout Request Confirmation"
@@ -227,19 +228,38 @@ async function fetchTopstepEmails(accessToken: string, startDate: string, onStat
         q += ` after:${dateStr}`
     }
 
-    onStatus('Searching emails...')
     const query = encodeURIComponent(q)
-    const listRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${query}&maxResults=200`, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-    })
+    let totalMessages: any[] = []
 
-    if (!listRes.ok) throw new Error('Failed to list messages')
-    const listData = await listRes.json()
-    const messages = listData.messages || []
+    onStatus('Searching emails...')
 
-    if (messages.length === 0) return []
+    // Pagination Loop
+    // Limit to 10 pages (~2000 emails) to prevent infinite loops but cover sufficient history
+    for (let page = 0; page < 10; page++) {
+        let url = `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${query}&maxResults=200`
+        if (nextPageToken) url += `&pageToken=${nextPageToken}`
 
-    onStatus(`Scanning ${messages.length} emails...`)
+        const listRes = await fetch(url, {
+            headers: { Authorization: `Bearer ${accessToken}` }
+        })
+
+        if (!listRes.ok) throw new Error('Failed to list messages')
+        const listData = await listRes.json()
+        const messages = listData.messages || []
+
+        if (messages.length > 0) {
+            totalMessages = [...totalMessages, ...messages]
+        }
+
+        nextPageToken = listData.nextPageToken
+        if (!nextPageToken) break
+
+        onStatus(`Found ${totalMessages.length} emails so far...`)
+    }
+
+    if (totalMessages.length === 0) return []
+
+    onStatus(`Scanning content of ${totalMessages.length} emails...`)
 
     // Helper to decode Base64Url
     const decode = (str: string) => {
@@ -279,95 +299,100 @@ async function fetchTopstepEmails(accessToken: string, startDate: string, onStat
     }
 
     // Enable console logs for debugging
-    console.log(`Starting scan of ${messages.length} messages`)
+    console.log(`Starting scan of ${totalMessages.length} messages`)
 
     // Limit concurrency if needed, but 200 is manageable usually. Sequential for safety and status updates.
-    for (let i = 0; i < messages.length; i++) {
-        const msgId = messages[i].id
+    // Process in chunks to avoid overwhelming browser/limit
+    for (let i = 0; i < totalMessages.length; i++) {
+        const msgId = totalMessages[i].id
         // Report status every 10 emails
-        if (i % 10 === 0) onStatus(`Scanning ${i}/${messages.length}...`)
+        if (i % 10 === 0) onStatus(`Scanning ${i}/${totalMessages.length}...`)
 
-        const detailRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msgId}`, {
-            headers: { Authorization: `Bearer ${accessToken}` }
-        })
-        const msg = await detailRes.json()
+        try {
+            const detailRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msgId}`, {
+                headers: { Authorization: `Bearer ${accessToken}` }
+            })
+            const msg = await detailRes.json()
 
-        const headers = msg.payload?.headers || []
-        const subject = headers.find((h: any) => h.name === 'Subject')?.value || ''
-        const dateStr = headers.find((h: any) => h.name === 'Date')?.value || ''
+            const headers = msg.payload?.headers || []
+            const subject = headers.find((h: any) => h.name === 'Subject')?.value || ''
+            const dateStr = headers.find((h: any) => h.name === 'Date')?.value || ''
 
-        // Parse Body
-        const rawHtml = findHtmlPart(msg.payload?.parts ? [msg.payload] : []) || getBody(msg.payload)
-        if (!rawHtml) continue
+            // Parse Body
+            const rawHtml = findHtmlPart(msg.payload?.parts ? [msg.payload] : []) || getBody(msg.payload)
+            if (!rawHtml) continue
 
-        const parser = new DOMParser()
-        const doc = parser.parseFromString(rawHtml, 'text/html')
-        const textContent = doc.body.textContent || ''
+            const parser = new DOMParser()
+            const doc = parser.parseFromString(rawHtml, 'text/html')
+            const textContent = doc.body.textContent || ''
 
-        // 1. New Account
-        if (subject.toLowerCase().includes('started')) {
-            const accountNameMatch = textContent.match(/Account Name:?\s*([A-Za-z0-9-]+)/i)
-            if (accountNameMatch) {
-                const login = accountNameMatch[1]
-                let size = 0
-                if (login.includes('50K')) size = 50000
-                else if (login.includes('100K')) size = 100000
-                else if (login.includes('150K')) size = 150000
-                else if (login.includes('300K')) size = 300000
-                else size = 50000
+            // 1. New Account
+            if (subject.toLowerCase().includes('started')) {
+                const accountNameMatch = textContent.match(/Account Name:?\s*([A-Za-z0-9-]+)/i)
+                if (accountNameMatch) {
+                    const login = accountNameMatch[1]
+                    let size = 0
+                    if (login.includes('50K')) size = 50000
+                    else if (login.includes('100K')) size = 100000
+                    else if (login.includes('150K')) size = 150000
+                    else if (login.includes('300K')) size = 300000
+                    else size = 50000
 
-                found.push({
-                    id: msgId,
-                    login,
-                    size,
-                    type: 'Trading Combine',
-                    date: new Date(dateStr),
-                    provider: 'Topstep'
-                })
+                    found.push({
+                        id: msgId,
+                        login,
+                        size,
+                        type: 'Trading Combine',
+                        date: new Date(dateStr),
+                        provider: 'Topstep'
+                    })
+                }
             }
-        }
-        // 2. Payout
-        else if (subject.toLowerCase().includes('payout')) {
-            // "Payout Request Confirmation"
-            console.log('Analyzing Payout Email:', subject, textContent.substring(0, 500))
+            // 2. Payout
+            else if (subject.toLowerCase().includes('payout')) {
+                // "Payout Request Confirmation"
+                console.log('Analyzing Payout Email:', subject, textContent.substring(0, 500))
 
-            let login: string | undefined
-            let amount: number | undefined
+                let login: string | undefined
+                let amount: number | undefined
 
-            // Pattern 1: Specific sentence "account [ID] in the amount of $ [AMOUNT]"
-            // Example: "for your account EXPRESSMay... in the amount of $ 799.00"
-            // Note: Space after $ is common in some templates
-            const sentenceMatch = textContent.match(/account\s+([A-Za-z0-9-]+)\s+in\s+the\s+amount\s+of\s+\$\s*([\d,]+(?:\.\d{2})?)/i)
+                // Pattern 1: Specific sentence "account [ID] in the amount of $ [AMOUNT]"
+                // Example: "for your account EXPRESSMay... in the amount of $ 799.00"
+                // Note: Space after $ is common in some templates
+                const sentenceMatch = textContent.match(/account\s+([A-Za-z0-9-]+)\s+in\s+the\s+amount\s+of\s+\$\s*([\d,]+(?:\.\d{2})?)/i)
 
-            if (sentenceMatch) {
-                login = sentenceMatch[1]
-                amount = parseFloat(sentenceMatch[2].replace(/,/g, ''))
-            } else {
-                // Pattern 2: Generic fallback
-                console.log('Specific sentence match failed, trying generic...')
+                if (sentenceMatch) {
+                    login = sentenceMatch[1]
+                    amount = parseFloat(sentenceMatch[2].replace(/,/g, ''))
+                } else {
+                    // Pattern 2: Generic fallback
+                    console.log('Specific sentence match failed, trying generic...')
 
-                // Login
-                const loginMatch = textContent.match(/(?:Account(?:\s+Name)?|Login|Trading\s+Account)[:\s]+([A-Za-z0-9-]+)/i)
-                if (loginMatch) login = loginMatch[1].trim()
+                    // Login
+                    const loginMatch = textContent.match(/(?:Account(?:\s+Name)?|Login|Trading\s+Account)[:\s]+([A-Za-z0-9-]+)/i)
+                    if (loginMatch) login = loginMatch[1].trim()
 
-                // Amount
-                const amountMatch = textContent.match(/\$\s*([\d,]+(?:\.\d{2})?)/i)
-                if (amountMatch) amount = parseFloat(amountMatch[1].replace(/,/g, ''))
+                    // Amount
+                    const amountMatch = textContent.match(/\$\s*([\d,]+(?:\.\d{2})?)/i)
+                    if (amountMatch) amount = parseFloat(amountMatch[1].replace(/,/g, ''))
+                }
+
+                if (login && amount && !isNaN(amount)) {
+                    found.push({
+                        id: msgId,
+                        login,
+                        size: 0,
+                        type: 'Payout',
+                        date: new Date(dateStr),
+                        provider: 'Topstep',
+                        amount
+                    })
+                } else {
+                    console.warn('Payout regex failed:', { login, amount, subject })
+                }
             }
-
-            if (login && amount && !isNaN(amount)) {
-                found.push({
-                    id: msgId,
-                    login,
-                    size: 0,
-                    type: 'Payout',
-                    date: new Date(dateStr),
-                    provider: 'Topstep',
-                    amount
-                })
-            } else {
-                console.warn('Payout regex failed:', { login, amount, subject })
-            }
+        } catch (err) {
+            console.error('Error fetching message details', err)
         }
     }
 
