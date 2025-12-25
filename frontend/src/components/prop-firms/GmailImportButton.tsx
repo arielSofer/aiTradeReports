@@ -37,6 +37,7 @@ function GmailImportButtonContent({ onImport }: GmailImportButtonProps) {
             setIsLoading(true)
             setStatus('Scanning emails...')
             try {
+                console.log('Starting Import. Start Date:', startDate)
                 const items = await fetchTopstepEmails(tokenResponse.access_token, startDate, (msg) => setStatus(msg))
                 if (items.length > 0) {
                     setFoundItems(items)
@@ -44,7 +45,7 @@ function GmailImportButtonContent({ onImport }: GmailImportButtonProps) {
                     setSelectedIds(new Set(items.map(a => a.id)))
                     setShowModal(true)
                 } else {
-                    alert('No relevant Topstep emails found matching criteria.')
+                    alert('No relevant Topstep emails found matching criteria. Check console for debug info.')
                 }
             } catch (error) {
                 console.error('Gmail Scan Error:', error)
@@ -228,16 +229,23 @@ async function fetchTopstepEmails(accessToken: string, startDate: string, onStat
         q += ` after:${dateStr}`
     }
 
+    console.log('Query String:', q)
+
     const query = encodeURIComponent(q)
     let totalMessages: any[] = []
 
     onStatus('Searching emails...')
 
     // Pagination Loop
-    // Limit to 10 pages (~2000 emails) to prevent infinite loops but cover sufficient history
-    for (let page = 0; page < 10; page++) {
+    // Limit increased to 50 pages (~10,000 emails) to ensure we get everything
+    let pageCount = 0
+    const maxPages = 50
+
+    while (pageCount < maxPages) {
         let url = `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${query}&maxResults=200`
         if (nextPageToken) url += `&pageToken=${nextPageToken}`
+
+        console.log(`Fetching page ${pageCount + 1}. Url:`, url)
 
         const listRes = await fetch(url, {
             headers: { Authorization: `Bearer ${accessToken}` }
@@ -247,17 +255,27 @@ async function fetchTopstepEmails(accessToken: string, startDate: string, onStat
         const listData = await listRes.json()
         const messages = listData.messages || []
 
+        console.log(`Page ${pageCount + 1} found ${messages.length} messages. Next Page Token:`, listData.nextPageToken)
+
         if (messages.length > 0) {
             totalMessages = [...totalMessages, ...messages]
         }
 
         nextPageToken = listData.nextPageToken
-        if (!nextPageToken) break
+        pageCount++
 
-        onStatus(`Found ${totalMessages.length} emails so far...`)
+        onStatus(`Found ${totalMessages.length} emails so far (Page ${pageCount})...`)
+
+        if (!nextPageToken) {
+            console.log('No more pages.')
+            break
+        }
     }
 
-    if (totalMessages.length === 0) return []
+    if (totalMessages.length === 0) {
+        console.log('Total messages found is 0.')
+        return []
+    }
 
     onStatus(`Scanning content of ${totalMessages.length} emails...`)
 
@@ -317,6 +335,11 @@ async function fetchTopstepEmails(accessToken: string, startDate: string, onStat
             const headers = msg.payload?.headers || []
             const subject = headers.find((h: any) => h.name === 'Subject')?.value || ''
             const dateStr = headers.find((h: any) => h.name === 'Date')?.value || ''
+
+            // Console log dates periodically to trace progress
+            if (i % 20 === 0) {
+                console.log(`Processing email #${i}: ${subject} [${dateStr}]`)
+            }
 
             // Parse Body
             const rawHtml = findHtmlPart(msg.payload?.parts ? [msg.payload] : []) || getBody(msg.payload)
@@ -412,5 +435,6 @@ async function fetchTopstepEmails(accessToken: string, startDate: string, onStat
 
     // Sort by date desc
     const result = [...Array.from(uniqueAccounts.values()), ...payouts].sort((a, b) => b.date.getTime() - a.date.getTime())
+    console.log('Final found items:', result)
     return result
 }
