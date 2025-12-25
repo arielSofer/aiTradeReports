@@ -13,6 +13,7 @@ import { EconomicCalendar } from '@/components/EconomicCalendar'
 import { AddTradeModal, TradeFormData } from '@/components/AddTradeModal'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { AccountSelector } from '@/components/AccountSelector'
+import { TagFilter } from '@/components/TagFilter'
 import { useStore } from '@/lib/store'
 import { useAuth } from '@/contexts/AuthContext'
 import { getTrades, calculateStats, createTrade, getAccounts, FirestoreAccount } from '@/lib/firebase/firestore'
@@ -34,7 +35,7 @@ function DashboardContent() {
   const [searchQuery, setSearchQuery] = useState('')
 
   const { user } = useAuth()
-  const { trades, stats, setTrades, setStats, setDailyPnL, setHourlyStats, isSidebarCollapsed } = useStore()
+  const { trades, stats, setTrades, setStats, setDailyPnL, setHourlyStats, isSidebarCollapsed, selectedTags, setSelectedTags } = useStore()
 
   const refreshData = useCallback(() => setRefreshKey(prev => prev + 1), [])
 
@@ -244,7 +245,7 @@ function DashboardContent() {
         commission: data.commission,
         stopLoss: data.stopLoss,
         takeProfit: data.takeProfit,
-        tags: data.tags ? data.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+        tags: data.tags || [],
         notes: data.notes || undefined,
       })
 
@@ -278,7 +279,7 @@ function DashboardContent() {
         durationMinutes: data.exitTime && data.entryTime
           ? Math.round((new Date(data.exitTime).getTime() - new Date(data.entryTime).getTime()) / 60000)
           : undefined,
-        tags: data.tags ? data.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+        tags: data.tags || [],
         notes: data.notes || undefined,
       }
 

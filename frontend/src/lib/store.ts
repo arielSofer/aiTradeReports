@@ -83,6 +83,10 @@ interface StoreState {
   // Sidebar
   isSidebarCollapsed: boolean
   toggleSidebar: () => void
+
+  // Filters
+  selectedTags: string[]
+  setSelectedTags: (tags: string[]) => void
 }
 
 export const useStore = create<StoreState>((set) => ({
@@ -120,6 +124,10 @@ export const useStore = create<StoreState>((set) => ({
   // Sidebar
   isSidebarCollapsed: false,
   toggleSidebar: () => set((state) => ({ isSidebarCollapsed: !state.isSidebarCollapsed })),
+
+  // Filters
+  selectedTags: [],
+  setSelectedTags: (selectedTags) => set({ selectedTags }),
 }))
 
 

@@ -25,10 +25,11 @@ import { getTrades, createTrade, getAccounts, FirestoreAccount, calculateStats }
 import { Timestamp } from 'firebase/firestore'
 import { Trade, useStore } from '@/lib/store'
 import { TradeDetailsModal } from '@/components/TradeDetailsModal'
+import { TagFilter } from '@/components/TagFilter'
 
 function JournalContent() {
   const { user } = useAuth()
-  const { isSidebarCollapsed } = useStore()
+  const { isSidebarCollapsed, selectedTags, setSelectedTags } = useStore()
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [showAddTrade, setShowAddTrade] = useState(false)
   const [selectedTrade, setSelectedTrade] = useState<string | null>(null)
@@ -93,8 +94,13 @@ function JournalContent() {
     loadTrades()
   }, [user, selectedAccountId, refreshKey])
 
+  // Filter trades locally for the view
+  const filteredTrades = selectedTags.length > 0
+    ? trades.filter(t => selectedTags.every(tag => t.tags.includes(tag)))
+    : trades
+
   // Group trades by date
-  const tradesByDate = trades.reduce((acc, trade) => {
+  const tradesByDate = filteredTrades.reduce((acc, trade) => {
     const date = getLocalDateKey(trade.entryTime)
     if (!acc[date]) acc[date] = []
     acc[date].push(trade)
@@ -119,7 +125,7 @@ function JournalContent() {
         exitPrice: data.exitPrice,
         quantity: data.quantity,
         commission: data.commission || 0,
-        tags: data.tags ? data.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+        tags: data.tags || [],
         notes: data.notes,
       })
 
@@ -202,6 +208,13 @@ function JournalContent() {
                 accounts={accounts}
                 selectedAccountId={selectedAccountId}
                 onChange={(id) => setSelectedAccountId(id)}
+              />
+
+              <div className="h-6 w-px bg-dark-800 mx-2" />
+              <TagFilter
+                availableTags={Array.from(new Set(trades.flatMap(t => t.tags)))}
+                selectedTags={selectedTags}
+                onChange={setSelectedTags}
               />
 
               <button className="btn-secondary flex items-center gap-2">

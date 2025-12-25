@@ -5,6 +5,7 @@ import { X, Plus, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TradeDetailsModal } from './TradeDetailsModal'
 import { Trade } from '@/lib/store'
+import { TagInput } from './TagInput'
 
 interface AddTradeModalProps {
   isOpen: boolean
@@ -25,7 +26,7 @@ export interface TradeFormData {
   commission: number
   stopLoss?: number
   takeProfit?: number
-  tags: string
+  tags: string[]
   notes: string
 }
 
@@ -42,7 +43,7 @@ const initialFormData: TradeFormData = {
   commission: 0,
   stopLoss: undefined,
   takeProfit: undefined,
-  tags: '',
+  tags: [],
   notes: '',
 }
 
@@ -336,19 +337,19 @@ export function AddTradeModal({ isOpen, onClose, onSubmit }: AddTradeModalProps)
           {/* Tags */}
           <div className="space-y-2">
             <label className="block text-sm font-medium text-dark-300">Tags</label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                name="tags"
-                value={formData.tags}
-                onChange={handleChange}
-                placeholder="breakout, momentum, fomo (comma separated)"
-                className="input w-full"
-              />
+            <label className="block text-sm font-medium text-dark-300">Tags</label>
+            <div className="flex gap-2 items-start">
+              <div className="flex-1">
+                <TagInput
+                  tags={formData.tags}
+                  onChange={(newTags) => setFormData(prev => ({ ...prev, tags: newTags }))}
+                  placeholder="Type tag and press Enter..."
+                />
+              </div>
               <button
                 type="button"
                 onClick={() => setIsDetailsOpen(true)}
-                className="btn-secondary whitespace-nowrap"
+                className="btn-secondary whitespace-nowrap h-10" // align height with input
               >
                 Select Details
               </button>
@@ -367,16 +368,15 @@ export function AddTradeModal({ isOpen, onClose, onSubmit }: AddTradeModalProps)
             // TradeDetailsModal expects a Trade object but we only have FormData
             // Let's create a temporary Trade-like object
             trade={{
-              id: 'temp-new',
               ...initialFormData,
               ...formData,
-              tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean)
+              // tags is already string[] in formData now
             } as any}
             onSave={(updatedTrade) => {
               if (updatedTrade && updatedTrade.tags) {
                 setFormData(prev => ({
                   ...prev,
-                  tags: updatedTrade.tags.join(', ')
+                  tags: updatedTrade.tags
                 }))
               }
               setIsDetailsOpen(false)
