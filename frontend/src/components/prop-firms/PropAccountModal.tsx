@@ -184,6 +184,18 @@ export function PropAccountModal({ isOpen, onClose, onSubmit, initialData }: Pro
                         </div>
                     )}
 
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium text-dark-300">Account Name</label>
+                        <input
+                            type="text"
+                            name="name"
+                            value={formData.name || ''}
+                            onChange={handleChange}
+                            placeholder="e.g. Topstep 50K - Account 1"
+                            className="input w-full"
+                        />
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-dark-300">Provider *</label>
