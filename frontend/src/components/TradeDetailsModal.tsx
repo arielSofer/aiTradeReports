@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { X, Save, Check } from 'lucide-react'
-import { Trade } from '@/lib/store'
+import { Trade, useStore } from '@/lib/store'
 import { TRADE_DETAILS_CONFIG } from '@/lib/tradeDetailsConfig'
 import { cn } from '@/lib/utils'
 import { updateTrade } from '@/lib/firebase/firestore'
@@ -21,6 +21,9 @@ export function TradeDetailsModal({ isOpen, onClose, trade, onSave, isNewTrade }
     const [customTags, setCustomTags] = useState<string[]>([])
     const [notes, setNotes] = useState(trade.notes || '')
     const [isSaving, setIsSaving] = useState(false)
+
+    const { trades } = useStore()
+    const allTags = Array.from(new Set(trades.flatMap(t => t.tags)))
 
     // Initialize selected options from trade tags
     useEffect(() => {
@@ -161,6 +164,7 @@ export function TradeDetailsModal({ isOpen, onClose, trade, onSave, isNewTrade }
                             tags={customTags}
                             onChange={setCustomTags}
                             placeholder="Add custom tags..."
+                            suggestions={allTags}
                         />
                     </div>
 

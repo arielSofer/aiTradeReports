@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { X, Plus, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TradeDetailsModal } from './TradeDetailsModal'
-import { Trade } from '@/lib/store'
+import { Trade, useStore } from '@/lib/store'
 import { TagInput } from './TagInput'
 
 interface AddTradeModalProps {
@@ -52,6 +52,9 @@ export function AddTradeModal({ isOpen, onClose, onSubmit }: AddTradeModalProps)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
+
+  const { trades } = useStore()
+  const allTags = Array.from(new Set(trades.flatMap(t => t.tags)))
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target
@@ -344,6 +347,7 @@ export function AddTradeModal({ isOpen, onClose, onSubmit }: AddTradeModalProps)
                   tags={formData.tags}
                   onChange={(newTags) => setFormData(prev => ({ ...prev, tags: newTags }))}
                   placeholder="Type tag and press Enter..."
+                  suggestions={allTags}
                 />
               </div>
               <button
