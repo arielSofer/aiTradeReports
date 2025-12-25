@@ -278,6 +278,9 @@ async function fetchTopstepEmails(accessToken: string, startDate: string, onStat
         return null
     }
 
+    // Enable console logs for debugging
+    console.log(`Starting scan of ${messages.length} messages`)
+
     // Limit concurrency if needed, but 200 is manageable usually. Sequential for safety and status updates.
     for (let i = 0; i < messages.length; i++) {
         const msgId = messages[i].id
@@ -326,41 +329,43 @@ async function fetchTopstepEmails(accessToken: string, startDate: string, onStat
         // 2. Payout
         else if (subject.toLowerCase().includes('payout')) {
             // Looking for "Account: ..." and Amount
-            // Logic based on typical Topstep payout email content
+            // "Payout Request Confirmation"
 
-            // Try to find "Login: ..." or "Account: ..."
-            // Topstep Payout emails might just say "Account Name: ..." or similar
-            const loginMatch = textContent.match(/(?:Account Name|Account|Login)[:\s]+([A-Za-z0-9-]+)/i)
+            console.log('Analying Payout Email:', subject, textContent.substring(0, 500))
+
+            // Flexibly find Login/Account
+            // Matches: "Account Name: 123", "Login: 123", "Account: 123"
+            const loginMatch = textContent.match(/(?:Account(?:\s+Name)?|Login|Trading\s+Account)[:\s]+([A-Za-z0-9-]+)/i)
 
             // Amount
-            // "You requested a payout of $1,500.00"
-            // or "Amount: $1,500.00"
-            const amountMatch = textContent.match(/\$([\d,]+\.\d{2})/i)
+            // Matches: "$1,500.00", "$1500", "$ 1,500"
+            const amountMatch = textContent.match(/\$\s*([\d,]+(?:\.\d{2})?)/i)
 
             if (loginMatch && amountMatch) {
-                const login = loginMatch[1]
+                const login = loginMatch[1].trim()
                 const amountRaw = amountMatch[1].replace(/,/g, '')
                 const amount = parseFloat(amountRaw)
 
-                found.push({
-                    id: msgId,
-                    login,
-                    size: 0,
-                    type: 'Payout',
-                    date: new Date(dateStr),
-                    provider: 'Topstep',
-                    amount
-                })
+                if (!isNaN(amount)) {
+                    found.push({
+                        id: msgId,
+                        login,
+                        size: 0,
+                        type: 'Payout',
+                        date: new Date(dateStr),
+                        provider: 'Topstep',
+                        amount
+                    })
+                }
+            } else {
+                console.warn('Payout regex failed:', { hasLogin: !!loginMatch, hasAmount: !!amountMatch })
             }
         }
     }
 
-    // We do NOT deduplicate Payouts (user can have multiple payouts)
-    // We DO deduplicate Accounts (only one start email per login usually, or multiple if reset? But usually we just want unique accounts)
-    // Actually, distinct emails = distinct events. Let's keep them all and let user choose.
-    // However, duplicate "Started" emails for same login might exist if forwarded.
-    // Let's deduplicate ACCOUNTS by login, but KEEP PAYOUTS.
-
+    // Deduplication Logic
+    // Accounts: Keep latest or all? User might want to import older ones too.
+    // Let's deduplicate accounts by Login (assuming one "Started" per account ID)
     const uniqueAccounts = new Map<string, FoundAccount>()
     const payouts: FoundAccount[] = []
 
@@ -376,6 +381,5 @@ async function fetchTopstepEmails(accessToken: string, startDate: string, onStat
 
     // Sort by date desc
     const result = [...Array.from(uniqueAccounts.values()), ...payouts].sort((a, b) => b.date.getTime() - a.date.getTime())
-
     return result
 }
