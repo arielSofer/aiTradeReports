@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Sidebar } from '@/components/Sidebar'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { Header } from '@/components/Header'
+import { AccountSelector } from '@/components/AccountSelector'
 import {
   Calendar,
   ChevronLeft,
@@ -194,60 +195,11 @@ function JournalContent() {
             </div>
             <div className="flex items-center gap-3">
               {/* Account Selector */}
-              <div className="relative">
-                <button
-                  onClick={() => setShowAccountDropdown(!showAccountDropdown)}
-                  className="btn-secondary flex items-center gap-2"
-                >
-                  <Wallet className="w-4 h-4" />
-                  {selectedAccount ? selectedAccount.name : 'All Accounts'}
-                  <ChevronDown className="w-4 h-4" />
-                </button>
-
-                {showAccountDropdown && (
-                  <>
-                    <div
-                      className="fixed inset-0 z-10"
-                      onClick={() => setShowAccountDropdown(false)}
-                    />
-                    <div className="absolute right-0 top-full mt-2 w-56 bg-dark-900 border border-dark-700 rounded-xl shadow-xl z-20">
-                      <div className="p-2">
-                        <button
-                          onClick={() => {
-                            setSelectedAccountId('all')
-                            setShowAccountDropdown(false)
-                          }}
-                          className={cn(
-                            'w-full text-left px-3 py-2 rounded-lg text-sm transition-colors',
-                            selectedAccountId === 'all'
-                              ? 'bg-primary/20 text-primary'
-                              : 'text-dark-300 hover:bg-dark-800'
-                          )}
-                        >
-                          All Accounts
-                        </button>
-                        {accounts.map(account => (
-                          <button
-                            key={account.id}
-                            onClick={() => {
-                              setSelectedAccountId(account.id!)
-                              setShowAccountDropdown(false)
-                            }}
-                            className={cn(
-                              'w-full text-left px-3 py-2 rounded-lg text-sm transition-colors',
-                              selectedAccountId === account.id
-                                ? 'bg-primary/20 text-primary'
-                                : 'text-dark-300 hover:bg-dark-800'
-                            )}
-                          >
-                            {account.name}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
+              <AccountSelector
+                accounts={accounts}
+                selectedAccountId={selectedAccountId}
+                onChange={(id) => setSelectedAccountId(id)}
+              />
 
               <button className="btn-secondary flex items-center gap-2">
                 <Filter className="w-4 h-4" />

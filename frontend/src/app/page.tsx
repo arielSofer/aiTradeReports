@@ -12,6 +12,7 @@ import { TradingCalendar } from '@/components/TradingCalendar'
 import { EconomicCalendar } from '@/components/EconomicCalendar'
 import { AddTradeModal, TradeFormData } from '@/components/AddTradeModal'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
+import { AccountSelector } from '@/components/AccountSelector'
 import { useStore } from '@/lib/store'
 import { useAuth } from '@/contexts/AuthContext'
 import { getTrades, calculateStats, createTrade, getAccounts, FirestoreAccount } from '@/lib/firebase/firestore'
@@ -311,98 +312,12 @@ function DashboardContent() {
         <div className="p-6 space-y-6">
           {/* Account Selector */}
           <div className="flex items-center justify-between">
-            <div className="relative">
-              <button
-                onClick={() => setShowAccountDropdown(!showAccountDropdown)}
-                className="flex items-center gap-3 px-4 py-2.5 bg-dark-800/50 hover:bg-dark-700/50 border border-dark-700 rounded-xl transition-all"
-              >
-                <div className="w-8 h-8 rounded-lg bg-primary-500/20 flex items-center justify-center">
-                  <Wallet className="w-4 h-4 text-primary-400" />
-                </div>
-                <div className="text-right">
-                  <p className="text-xs text-dark-500">מציג סטטיסטיקות של</p>
-                  <p className="text-sm font-medium text-white">
-                    {selectedAccountId === 'all'
-                      ? 'כל התיקים'
-                      : accounts.find(a => a.id === selectedAccountId)?.name || 'בחר תיק'}
-                  </p>
-                </div>
-                <ChevronDown className={`w-4 h-4 text-dark-400 transition-transform ${showAccountDropdown ? 'rotate-180' : ''}`} />
-              </button>
-
-              {/* Dropdown */}
-              {showAccountDropdown && (
-                <>
-                  <div
-                    className="fixed inset-0 z-40"
-                    onClick={() => setShowAccountDropdown(false)}
-                  />
-                  <div className="absolute top-full left-0 mt-2 w-64 bg-dark-800 border border-dark-700 rounded-xl shadow-2xl z-50 overflow-hidden">
-                    <div className="p-2">
-                      <button
-                        onClick={() => {
-                          setSelectedAccountId('all')
-                          setShowAccountDropdown(false)
-                        }}
-                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${selectedAccountId === 'all'
-                          ? 'bg-primary-500/20 text-primary-400'
-                          : 'hover:bg-dark-700 text-dark-300'
-                          }`}
-                      >
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary-500/30 to-accent-purple/30 flex items-center justify-center">
-                          <Wallet className="w-4 h-4" />
-                        </div>
-                        <div className="text-right flex-1">
-                          <p className="text-sm font-medium">כל התיקים</p>
-                          <p className="text-xs text-dark-500">{accounts.length} תיקים</p>
-                        </div>
-                      </button>
-
-                      {accounts.length > 0 && (
-                        <div className="my-2 border-t border-dark-700" />
-                      )}
-
-                      {accounts.map(account => (
-                        <button
-                          key={account.id}
-                          onClick={() => {
-                            setSelectedAccountId(account.id || 'all')
-                            setShowAccountDropdown(false)
-                          }}
-                          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${selectedAccountId === account.id
-                            ? 'bg-primary-500/20 text-primary-400'
-                            : 'hover:bg-dark-700 text-dark-300'
-                            }`}
-                        >
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${account.isDemo ? 'bg-accent-purple/20' : 'bg-primary-500/20'
-                            }`}>
-                            <Wallet className={`w-4 h-4 ${account.isDemo ? 'text-accent-purple' : 'text-primary-400'}`} />
-                          </div>
-                          <div className="text-right flex-1">
-                            <div className="flex items-center gap-2">
-                              <p className="text-sm font-medium">{account.name}</p>
-                              {account.isDemo && (
-                                <span className="px-1.5 py-0.5 bg-accent-purple/20 text-accent-purple text-[10px] rounded">
-                                  דמו
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-xs text-dark-500">{account.broker}</p>
-                          </div>
-                        </button>
-                      ))}
-
-                      {accounts.length === 0 && (
-                        <div className="px-3 py-4 text-center">
-                          <p className="text-sm text-dark-500">אין תיקים עדיין</p>
-                          <p className="text-xs text-dark-600 mt-1">הוסף תיק בעמוד התיקים</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
+            <AccountSelector
+              accounts={accounts}
+              selectedAccountId={selectedAccountId}
+              onChange={(id) => setSelectedAccountId(id)}
+              label="מציג סטטיסטיקות של"
+            />
           </div>
 
           {isLoading ? (
