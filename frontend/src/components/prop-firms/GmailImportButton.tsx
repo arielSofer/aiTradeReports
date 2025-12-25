@@ -191,8 +191,8 @@ async function fetchTopstepAccounts(accessToken: string, onStatus: (msg: string)
 
     // 1. Search for emails
     onStatus('Searching emails...')
-    const query = encodeURIComponent('from:noreply@topstep.com')
-    const listRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${query}&maxResults=20`, {
+    const query = encodeURIComponent('from:noreply@topstep.com subject:"Trading Combine Started"')
+    const listRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${query}&maxResults=200`, {
         headers: { Authorization: `Bearer ${accessToken}` }
     })
 
