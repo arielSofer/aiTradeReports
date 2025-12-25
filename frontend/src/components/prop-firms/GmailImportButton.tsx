@@ -220,8 +220,9 @@ async function fetchTopstepEmails(accessToken: string, startDate: string, onStat
     let nextPageToken: string | undefined = undefined
 
     // Build Query
-    // We look for "Trading Combine Started" OR "Payout Request Confirmation"
-    let q = 'from:noreply@topstep.com (subject:"Trading Combine Started" OR subject:"Payout Request Confirmation")'
+    // We broaden the search to catch variations like "Your Trading Combine has Started"
+    // subject:(Trading Combine) means subject contains both words in any order
+    let q = 'from:noreply@topstep.com (subject:(Trading Combine) OR subject:(Payout))'
 
     if (startDate) {
         // Gmail format: after:YYYY/MM/DD
@@ -412,6 +413,12 @@ async function fetchTopstepEmails(accessToken: string, startDate: string, onStat
                     })
                 } else {
                     console.warn('Payout regex failed:', { login, amount, subject })
+                }
+            } else {
+                // Catch-all for debugging skipped emails
+                // Log only occasionally or if needed
+                if (i < 50 || i % 20 === 0) {
+                    console.log(`Skipped email (no match): ${subject}`)
                 }
             }
         } catch (err) {
