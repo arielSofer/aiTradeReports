@@ -19,6 +19,7 @@ export interface FoundAccount {
     provider: string
     amount?: number // For payouts
     targetAccountId?: string // For linking payouts to existing accounts
+    cost?: number // Cost of the account/evaluation
 }
 
 interface GmailImportButtonProps {
@@ -486,10 +487,21 @@ async function fetchTopstepEmails(accessToken: string, startDate: string, onStat
                 if (accountMatch) {
                     const login = accountMatch[1]
                     let size = 0
-                    if (textContent.includes('50,000') || textContent.includes('50000') || textContent.includes('50K')) size = 50000
-                    else if (textContent.includes('100,000') || textContent.includes('100000') || textContent.includes('100K')) size = 100000
-                    else if (textContent.includes('150,000') || textContent.includes('150000') || textContent.includes('150K')) size = 150000
-                    else size = 50000
+                    let cost = 0
+                    // MFFU Core Plan pricing (as of 2024)
+                    if (textContent.includes('50,000') || textContent.includes('50000') || textContent.includes('50K')) {
+                        size = 50000
+                        cost = 77
+                    } else if (textContent.includes('100,000') || textContent.includes('100000') || textContent.includes('100K')) {
+                        size = 100000
+                        cost = 150
+                    } else if (textContent.includes('150,000') || textContent.includes('150000') || textContent.includes('150K')) {
+                        size = 150000
+                        cost = 220
+                    } else {
+                        size = 50000
+                        cost = 77
+                    }
 
                     found.push({
                         id: msgId,
@@ -497,7 +509,8 @@ async function fetchTopstepEmails(accessToken: string, startDate: string, onStat
                         size,
                         type: 'Trading Combine',
                         date: new Date(dateStr),
-                        provider: 'MFFU'
+                        provider: 'MFFU',
+                        cost
                     })
                 }
             }
@@ -509,10 +522,21 @@ async function fetchTopstepEmails(accessToken: string, startDate: string, onStat
                 if (accountMatch) {
                     const login = accountMatch[1]
                     let size = 0
-                    if (textContent.includes('50,000') || textContent.includes('50000') || textContent.includes('50K')) size = 50000
-                    else if (textContent.includes('100,000') || textContent.includes('100000') || textContent.includes('100K')) size = 100000
-                    else if (textContent.includes('150,000') || textContent.includes('150000') || textContent.includes('150K')) size = 150000
-                    else size = 50000
+                    let cost = 0
+                    // MFFU Core Plan pricing (as of 2024)
+                    if (textContent.includes('50,000') || textContent.includes('50000') || textContent.includes('50K')) {
+                        size = 50000
+                        cost = 77
+                    } else if (textContent.includes('100,000') || textContent.includes('100000') || textContent.includes('100K')) {
+                        size = 100000
+                        cost = 150
+                    } else if (textContent.includes('150,000') || textContent.includes('150000') || textContent.includes('150K')) {
+                        size = 150000
+                        cost = 220
+                    } else {
+                        size = 50000
+                        cost = 77
+                    }
 
                     found.push({
                         id: msgId,
@@ -520,7 +544,8 @@ async function fetchTopstepEmails(accessToken: string, startDate: string, onStat
                         size,
                         type: 'Trading Combine',
                         date: new Date(dateStr),
-                        provider: 'MFFU'
+                        provider: 'MFFU',
+                        cost
                     })
                 }
             } else {

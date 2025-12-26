@@ -100,11 +100,10 @@ function PropFirmsContent() {
             }
             // Case 2: Account Import
             else {
-                // Find price
-                // Mapping provider name "Topstep" to data
+                // Find price - use item.cost if available, otherwise lookup from PROP_FIRMS
                 const firm = PROP_FIRMS.find(f => f.name.toLowerCase().includes(item.provider.toLowerCase()))
                 const tier = firm?.accounts.find(a => a.size === item.size)
-                const price = tier?.price || 0
+                const price = item.cost || tier?.price || 0
 
                 await handleCreateAccount({
                     name: `${item.provider} ${(item.size / 1000).toFixed(0)}K - ${item.login}`,
