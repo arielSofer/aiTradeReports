@@ -135,58 +135,75 @@ function GmailImportButtonContent({ onImport, existingAccounts }: GmailImportBut
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-dark-800/50">
-                                {foundItems.map(item => (
-                                    <tr key={item.id} className="hover:bg-dark-800/30 transition-colors">
-                                        <td className="p-4">
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedIds.has(item.id)}
-                                                onChange={(e) => {
-                                                    const newSet = new Set(selectedIds)
-                                                    if (e.target.checked) newSet.add(item.id)
-                                                    else newSet.delete(item.id)
-                                                    setSelectedIds(newSet)
-                                                }}
-                                                className="rounded border-dark-600 bg-dark-800"
-                                            />
-                                        </td>
-                                        <td className="p-4">
-                                            <span className={cn(
-                                                "text-xs px-2 py-1 rounded-full font-medium",
-                                                item.type === 'Payout' ? "bg-green-500/20 text-green-400" : "bg-blue-500/20 text-blue-400"
-                                            )}>
-                                                {item.type === 'Payout' ? 'Payout' : 'Account'}
-                                            </span>
-                                        </td>
-                                        <td className="p-4 font-mono text-sm text-white">{item.login}</td>
-                                        <td className="p-4 text-sm text-dark-200">
-                                            {item.type === 'Payout'
-                                                ? <span className="text-green-400 font-bold">+${item.amount?.toLocaleString()}</span>
-                                                : <span className="text-dark-300">Size: {(item.size / 1000).toFixed(0)}K</span>
-                                            }
-                                        </td>
-                                        <td className="p-4">
-                                            {item.type === 'Payout' ? (
-                                                <select
-                                                    value={item.targetAccountId || ''}
-                                                    onChange={(e) => updateTargetAccount(item.id, e.target.value)}
-                                                    className="bg-dark-800 border-dark-700 text-sm rounded-lg p-2 w-48 text-white focus:ring-primary-500 focus:border-primary-500"
-                                                    disabled={!selectedIds.has(item.id)}
-                                                >
-                                                    <option value="">Select Account...</option>
-                                                    {fundedAccounts.map(acc => (
-                                                        <option key={acc.id} value={acc.id}>
-                                                            {acc.name}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                            ) : (
-                                                <span className="text-dark-500 text-xs">-</span>
-                                            )}
-                                        </td>
-                                        <td className="p-4 text-sm text-dark-300">{item.date.toLocaleDateString()}</td>
-                                    </tr>
-                                ))}
+                                {foundItems
+                                    .filter(item => {
+                                        // Filter out already-imported accounts (compare login to account name)
+                                        if (item.type === 'Trading Combine') {
+                                            return !existingAccounts.some(acc => acc.name.includes(item.login))
+                                        }
+                                        // Filter out already-imported payouts (by amount + date match)
+                                        if (item.type === 'Payout') {
+                                            return !existingAccounts.some(acc =>
+                                                acc.withdrawalHistory?.some((w: any) =>
+                                                    w.amount === item.amount &&
+                                                    new Date(w.date).toDateString() === item.date.toDateString()
+                                                )
+                                            )
+                                        }
+                                        return true
+                                    })
+                                    .map(item => (
+                                        <tr key={item.id} className="hover:bg-dark-800/30 transition-colors">
+                                            <td className="p-4">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedIds.has(item.id)}
+                                                    onChange={(e) => {
+                                                        const newSet = new Set(selectedIds)
+                                                        if (e.target.checked) newSet.add(item.id)
+                                                        else newSet.delete(item.id)
+                                                        setSelectedIds(newSet)
+                                                    }}
+                                                    className="rounded border-dark-600 bg-dark-800"
+                                                />
+                                            </td>
+                                            <td className="p-4">
+                                                <span className={cn(
+                                                    "text-xs px-2 py-1 rounded-full font-medium",
+                                                    item.type === 'Payout' ? "bg-green-500/20 text-green-400" : "bg-blue-500/20 text-blue-400"
+                                                )}>
+                                                    {item.type === 'Payout' ? 'Payout' : 'Account'}
+                                                </span>
+                                            </td>
+                                            <td className="p-4 font-mono text-sm text-white">{item.login}</td>
+                                            <td className="p-4 text-sm text-dark-200">
+                                                {item.type === 'Payout'
+                                                    ? <span className="text-green-400 font-bold">+${item.amount?.toLocaleString()}</span>
+                                                    : <span className="text-dark-300">Size: {(item.size / 1000).toFixed(0)}K</span>
+                                                }
+                                            </td>
+                                            <td className="p-4">
+                                                {item.type === 'Payout' ? (
+                                                    <select
+                                                        value={item.targetAccountId || ''}
+                                                        onChange={(e) => updateTargetAccount(item.id, e.target.value)}
+                                                        className="bg-dark-800 border-dark-700 text-sm rounded-lg p-2 w-48 text-white focus:ring-primary-500 focus:border-primary-500"
+                                                        disabled={!selectedIds.has(item.id)}
+                                                    >
+                                                        <option value="">Select Account...</option>
+                                                        {fundedAccounts.map(acc => (
+                                                            <option key={acc.id} value={acc.id}>
+                                                                {acc.name}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                ) : (
+                                                    <span className="text-dark-500 text-xs">-</span>
+                                                )}
+                                            </td>
+                                            <td className="p-4 text-sm text-dark-300">{item.date.toLocaleDateString()}</td>
+                                        </tr>
+                                    ))}
                             </tbody>
                         </table>
                     </div>
@@ -260,9 +277,8 @@ async function fetchTopstepEmails(accessToken: string, startDate: string, onStat
     let nextPageToken: string | undefined = undefined
 
     // Build Query
-    // We broaden the search to catch variations like "Your Trading Combine has Started"
-    // subject:(Trading Combine) means subject contains both words in any order
-    let q = 'from:noreply@topstep.com (subject:(Trading Combine) OR subject:(Payout))'
+    // We broaden the search to catch variations and include MFFU
+    let q = '(from:noreply@topstep.com OR from:*myfundedfutures*) (subject:(Trading Combine) OR subject:(Payout) OR subject:(Tradovate Account Credentials) OR subject:(Passed Your Evaluation))'
 
     if (startDate) {
         // Gmail format: after:YYYY/MM/DD
@@ -453,6 +469,49 @@ async function fetchTopstepEmails(accessToken: string, startDate: string, onStat
                     })
                 } else {
                     console.warn('Payout regex failed:', { login, amount, subject })
+                }
+            }
+            // 3. MFFU Account Credentials
+            else if (subject.toLowerCase().includes('tradovate account credentials')) {
+                // Extract account number from body
+                const accountMatch = textContent.match(/Account(?:\\s+(?:Name|Number|ID)?)?[:\\s]+([A-Za-z0-9-]+)/i)
+                if (accountMatch) {
+                    const login = accountMatch[1]
+                    let size = 0
+                    if (login.includes('50') || textContent.includes('50,000') || textContent.includes('50000')) size = 50000
+                    else if (login.includes('100') || textContent.includes('100,000') || textContent.includes('100000')) size = 100000
+                    else if (login.includes('150') || textContent.includes('150,000') || textContent.includes('150000')) size = 150000
+                    else size = 50000
+
+                    found.push({
+                        id: msgId,
+                        login,
+                        size,
+                        type: 'Trading Combine',
+                        date: new Date(dateStr),
+                        provider: 'MFFU'
+                    })
+                }
+            }
+            // 4. MFFU Evaluation Passed
+            else if (subject.toLowerCase().includes('passed your evaluation')) {
+                const accountMatch = textContent.match(/Account(?:\\s+(?:Name|Number|ID)?)?[:\\s]+([A-Za-z0-9-]+)/i)
+                if (accountMatch) {
+                    const login = accountMatch[1]
+                    let size = 0
+                    if (login.includes('50') || textContent.includes('50,000') || textContent.includes('50000')) size = 50000
+                    else if (login.includes('100') || textContent.includes('100,000') || textContent.includes('100000')) size = 100000
+                    else if (login.includes('150') || textContent.includes('150,000') || textContent.includes('150000')) size = 150000
+                    else size = 50000
+
+                    found.push({
+                        id: msgId,
+                        login,
+                        size,
+                        type: 'Trading Combine',
+                        date: new Date(dateStr),
+                        provider: 'MFFU'
+                    })
                 }
             } else {
                 // Catch-all for debugging skipped emails
