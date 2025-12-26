@@ -406,7 +406,7 @@ async function fetchTopstepEmails(accessToken: string, startDate: string, onStat
             const doc = parser.parseFromString(rawHtml, 'text/html')
             const textContent = doc.body.textContent || ''
 
-            // 1. New Account
+            // 1. Topstep New Account (subject contains "started")
             if (subject.toLowerCase().includes('started')) {
                 const accountNameMatch = textContent.match(/Account Name:?\s*([A-Za-z0-9-]+)/i)
                 if (accountNameMatch) {
@@ -428,7 +428,7 @@ async function fetchTopstepEmails(accessToken: string, startDate: string, onStat
                     })
                 }
             }
-            // 2. Payout
+            // 2. Topstep Payout (subject contains "payout")
             else if (subject.toLowerCase().includes('payout')) {
                 // "Payout Request Confirmation"
                 console.log('Analyzing Payout Email:', subject, textContent.substring(0, 500))
@@ -471,16 +471,18 @@ async function fetchTopstepEmails(accessToken: string, startDate: string, onStat
                     console.warn('Payout regex failed:', { login, amount, subject })
                 }
             }
-            // 3. MFFU Account Credentials
+            // 3. MFFU Account Credentials (subject contains "Tradovate Account Credentials")
             else if (subject.toLowerCase().includes('tradovate account credentials')) {
-                // Extract account number from body
-                const accountMatch = textContent.match(/Account(?:\\s+(?:Name|Number|ID)?)?[:\\s]+([A-Za-z0-9-]+)/i)
+                console.log('Parsing MFFU Account Credentials:', subject)
+                // Extract account ID - pattern like "Account ID MFFUEVST131173035"
+                const accountMatch = textContent.match(/Account\s*ID\s*:?\s*([A-Za-z0-9]+)/i)
+                console.log('MFFU match:', accountMatch, textContent.substring(0, 300))
                 if (accountMatch) {
                     const login = accountMatch[1]
                     let size = 0
-                    if (login.includes('50') || textContent.includes('50,000') || textContent.includes('50000')) size = 50000
-                    else if (login.includes('100') || textContent.includes('100,000') || textContent.includes('100000')) size = 100000
-                    else if (login.includes('150') || textContent.includes('150,000') || textContent.includes('150000')) size = 150000
+                    if (textContent.includes('50,000') || textContent.includes('50000') || textContent.includes('50K')) size = 50000
+                    else if (textContent.includes('100,000') || textContent.includes('100000') || textContent.includes('100K')) size = 100000
+                    else if (textContent.includes('150,000') || textContent.includes('150000') || textContent.includes('150K')) size = 150000
                     else size = 50000
 
                     found.push({
@@ -493,15 +495,17 @@ async function fetchTopstepEmails(accessToken: string, startDate: string, onStat
                     })
                 }
             }
-            // 4. MFFU Evaluation Passed
+            // 4. MFFU Evaluation Passed (subject contains "Passed Your Evaluation")
             else if (subject.toLowerCase().includes('passed your evaluation')) {
-                const accountMatch = textContent.match(/Account(?:\\s+(?:Name|Number|ID)?)?[:\\s]+([A-Za-z0-9-]+)/i)
+                console.log('Parsing MFFU Evaluation Passed:', subject)
+                const accountMatch = textContent.match(/Account\s*ID\s*:?\s*([A-Za-z0-9]+)/i)
+                console.log('MFFU Eval match:', accountMatch)
                 if (accountMatch) {
                     const login = accountMatch[1]
                     let size = 0
-                    if (login.includes('50') || textContent.includes('50,000') || textContent.includes('50000')) size = 50000
-                    else if (login.includes('100') || textContent.includes('100,000') || textContent.includes('100000')) size = 100000
-                    else if (login.includes('150') || textContent.includes('150,000') || textContent.includes('150000')) size = 150000
+                    if (textContent.includes('50,000') || textContent.includes('50000') || textContent.includes('50K')) size = 50000
+                    else if (textContent.includes('100,000') || textContent.includes('100000') || textContent.includes('100K')) size = 100000
+                    else if (textContent.includes('150,000') || textContent.includes('150000') || textContent.includes('150K')) size = 150000
                     else size = 50000
 
                     found.push({
