@@ -38,6 +38,26 @@ function GmailImportButtonContent({ onImport, existingAccounts }: GmailImportBut
 
     const fundedAccounts = existingAccounts.filter(a => a.isFunded)
 
+    // Helper to filter out already-imported items
+    const filterImportedItems = (items: FoundAccount[]) => {
+        return items.filter(item => {
+            // Filter out already-imported accounts (compare login to account name)
+            if (item.type === 'Trading Combine') {
+                return !existingAccounts.some(acc => acc.name.includes(item.login))
+            }
+            // Filter out already-imported payouts (by amount + date match)
+            if (item.type === 'Payout') {
+                return !existingAccounts.some(acc =>
+                    acc.withdrawalHistory?.some((w: any) =>
+                        w.amount === item.amount &&
+                        new Date(w.date).toDateString() === item.date.toDateString()
+                    )
+                )
+            }
+            return true
+        })
+    }
+
     const login = useGoogleLogin({
         onSuccess: async (tokenResponse) => {
             setIsLoading(true)
@@ -47,8 +67,9 @@ function GmailImportButtonContent({ onImport, existingAccounts }: GmailImportBut
                 const items = await fetchTopstepEmails(tokenResponse.access_token, startDate, (msg) => setStatus(msg))
                 if (items.length > 0) {
                     setFoundItems(items)
-                    // Select all by default
-                    setSelectedIds(new Set(items.map(a => a.id)))
+                    // Select only non-imported items by default
+                    const filteredItems = filterImportedItems(items)
+                    setSelectedIds(new Set(filteredItems.map(a => a.id)))
                     setShowModal(true)
                 } else {
                     alert('No relevant Topstep emails found matching criteria. Check console for debug info.')
@@ -70,7 +91,9 @@ function GmailImportButtonContent({ onImport, existingAccounts }: GmailImportBut
     })
 
     const handleImportConfirm = async () => {
-        const toImport = foundItems.filter(a => selectedIds.has(a.id))
+        // Only consider non-imported items that are selected
+        const filteredItems = filterImportedItems(foundItems)
+        const toImport = filteredItems.filter(a => selectedIds.has(a.id))
 
         // Validate Payouts have a target account
         const invalidPayouts = toImport.filter(item => item.type === 'Payout' && !item.targetAccountId)
@@ -135,75 +158,58 @@ function GmailImportButtonContent({ onImport, existingAccounts }: GmailImportBut
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-dark-800/50">
-                                {foundItems
-                                    .filter(item => {
-                                        // Filter out already-imported accounts (compare login to account name)
-                                        if (item.type === 'Trading Combine') {
-                                            return !existingAccounts.some(acc => acc.name.includes(item.login))
-                                        }
-                                        // Filter out already-imported payouts (by amount + date match)
-                                        if (item.type === 'Payout') {
-                                            return !existingAccounts.some(acc =>
-                                                acc.withdrawalHistory?.some((w: any) =>
-                                                    w.amount === item.amount &&
-                                                    new Date(w.date).toDateString() === item.date.toDateString()
-                                                )
-                                            )
-                                        }
-                                        return true
-                                    })
-                                    .map(item => (
-                                        <tr key={item.id} className="hover:bg-dark-800/30 transition-colors">
-                                            <td className="p-4">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedIds.has(item.id)}
-                                                    onChange={(e) => {
-                                                        const newSet = new Set(selectedIds)
-                                                        if (e.target.checked) newSet.add(item.id)
-                                                        else newSet.delete(item.id)
-                                                        setSelectedIds(newSet)
-                                                    }}
-                                                    className="rounded border-dark-600 bg-dark-800"
-                                                />
-                                            </td>
-                                            <td className="p-4">
-                                                <span className={cn(
-                                                    "text-xs px-2 py-1 rounded-full font-medium",
-                                                    item.type === 'Payout' ? "bg-green-500/20 text-green-400" : "bg-blue-500/20 text-blue-400"
-                                                )}>
-                                                    {item.type === 'Payout' ? 'Payout' : 'Account'}
-                                                </span>
-                                            </td>
-                                            <td className="p-4 font-mono text-sm text-white">{item.login}</td>
-                                            <td className="p-4 text-sm text-dark-200">
-                                                {item.type === 'Payout'
-                                                    ? <span className="text-green-400 font-bold">+${item.amount?.toLocaleString()}</span>
-                                                    : <span className="text-dark-300">Size: {(item.size / 1000).toFixed(0)}K</span>
-                                                }
-                                            </td>
-                                            <td className="p-4">
-                                                {item.type === 'Payout' ? (
-                                                    <select
-                                                        value={item.targetAccountId || ''}
-                                                        onChange={(e) => updateTargetAccount(item.id, e.target.value)}
-                                                        className="bg-dark-800 border-dark-700 text-sm rounded-lg p-2 w-48 text-white focus:ring-primary-500 focus:border-primary-500"
-                                                        disabled={!selectedIds.has(item.id)}
-                                                    >
-                                                        <option value="">Select Account...</option>
-                                                        {fundedAccounts.map(acc => (
-                                                            <option key={acc.id} value={acc.id}>
-                                                                {acc.name}
-                                                            </option>
-                                                        ))}
-                                                    </select>
-                                                ) : (
-                                                    <span className="text-dark-500 text-xs">-</span>
-                                                )}
-                                            </td>
-                                            <td className="p-4 text-sm text-dark-300">{item.date.toLocaleDateString()}</td>
-                                        </tr>
-                                    ))}
+                                {filterImportedItems(foundItems).map(item => (
+                                    <tr key={item.id} className="hover:bg-dark-800/30 transition-colors">
+                                        <td className="p-4">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedIds.has(item.id)}
+                                                onChange={(e) => {
+                                                    const newSet = new Set(selectedIds)
+                                                    if (e.target.checked) newSet.add(item.id)
+                                                    else newSet.delete(item.id)
+                                                    setSelectedIds(newSet)
+                                                }}
+                                                className="rounded border-dark-600 bg-dark-800"
+                                            />
+                                        </td>
+                                        <td className="p-4">
+                                            <span className={cn(
+                                                "text-xs px-2 py-1 rounded-full font-medium",
+                                                item.type === 'Payout' ? "bg-green-500/20 text-green-400" : "bg-blue-500/20 text-blue-400"
+                                            )}>
+                                                {item.type === 'Payout' ? 'Payout' : 'Account'}
+                                            </span>
+                                        </td>
+                                        <td className="p-4 font-mono text-sm text-white">{item.login}</td>
+                                        <td className="p-4 text-sm text-dark-200">
+                                            {item.type === 'Payout'
+                                                ? <span className="text-green-400 font-bold">+${item.amount?.toLocaleString()}</span>
+                                                : <span className="text-dark-300">Size: {(item.size / 1000).toFixed(0)}K</span>
+                                            }
+                                        </td>
+                                        <td className="p-4">
+                                            {item.type === 'Payout' ? (
+                                                <select
+                                                    value={item.targetAccountId || ''}
+                                                    onChange={(e) => updateTargetAccount(item.id, e.target.value)}
+                                                    className="bg-dark-800 border-dark-700 text-sm rounded-lg p-2 w-48 text-white focus:ring-primary-500 focus:border-primary-500"
+                                                    disabled={!selectedIds.has(item.id)}
+                                                >
+                                                    <option value="">Select Account...</option>
+                                                    {fundedAccounts.map(acc => (
+                                                        <option key={acc.id} value={acc.id}>
+                                                            {acc.name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            ) : (
+                                                <span className="text-dark-500 text-xs">-</span>
+                                            )}
+                                        </td>
+                                        <td className="p-4 text-sm text-dark-300">{item.date.toLocaleDateString()}</td>
+                                    </tr>
+                                ))}
                             </tbody>
                         </table>
                     </div>
