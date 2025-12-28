@@ -13,13 +13,17 @@ import {
   MoreVertical,
   TrendingUp,
   CheckCircle,
-  XCircle
+  XCircle,
+  Edit2,
+  Check,
+  X
 } from 'lucide-react'
 import { formatCurrency, cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import {
   getAccounts,
   createAccount,
+  updateAccount,
   deleteAccount as deleteFirestoreAccount,
   getTrades,
   FirestoreAccount
@@ -45,6 +49,8 @@ function AccountsContent() {
   const [saving, setSaving] = useState(false)
   const [totalPnL, setTotalPnL] = useState(0)
   const [accountStats, setAccountStats] = useState<Record<string, { pnl: number; trades: number }>>({})
+  const [editingNickname, setEditingNickname] = useState<string | null>(null)
+  const [nicknameValue, setNicknameValue] = useState('')
   const [newAccount, setNewAccount] = useState({
     name: '',
     broker: '',
@@ -169,6 +175,19 @@ function AccountsContent() {
     }
   }
 
+  const handleSaveNickname = async (accountId: string) => {
+    if (!user) return
+    try {
+      await updateAccount(accountId, { nickname: nicknameValue || undefined })
+      setAccounts(accounts.map(a =>
+        a.id === accountId ? { ...a, nickname: nicknameValue || undefined } : a
+      ))
+      setEditingNickname(null)
+    } catch (error) {
+      console.error('Error saving nickname:', error)
+    }
+  }
+
   return (
     <div className="flex min-h-screen">
       <Sidebar />
@@ -246,7 +265,7 @@ function AccountsContent() {
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <h3 className="font-bold text-white">{account.name}</h3>
+                          <h3 className="font-bold text-white">{account.nickname || account.name}</h3>
                           {account.isDemo && (
                             <span className="px-2 py-0.5 bg-accent-purple/20 text-accent-purple text-xs rounded">
                               Demo
@@ -258,47 +277,92 @@ function AccountsContent() {
                             <XCircle className="w-4 h-4 text-dark-500" />
                           )}
                         </div>
-                        <p className="text-sm text-dark-500">{account.broker}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm text-dark-500">{account.broker}</p>
+                          {account.nickname && (
+                            <span className="text-xs text-dark-600">({account.name})</span>
+                          )}
+                        </div>
+                        {/* Nickname Editor */}
+                        {editingNickname === account.id ? (
+                          <div className="flex items-center gap-2 mt-2">
+                            <input
+                              type="text"
+                              value={nicknameValue}
+                              onChange={(e) => setNicknameValue(e.target.value)}
+                              placeholder="כינוי..."
+                              className="px-2 py-1 bg-dark-700 border border-dark-600 rounded text-sm text-white w-32"
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleSaveNickname(account.id!)
+                                if (e.key === 'Escape') setEditingNickname(null)
+                              }}
+                            />
+                            <button
+                              onClick={() => handleSaveNickname(account.id!)}
+                              className="p-1 bg-profit/20 text-profit rounded hover:bg-profit/30"
+                            >
+                              <Check className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => setEditingNickname(null)}
+                              className="p-1 bg-loss/20 text-loss rounded hover:bg-loss/30"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setEditingNickname(account.id!)
+                              setNicknameValue(account.nickname || '')
+                            }}
+                            className="text-xs text-dark-500 hover:text-primary-400 mt-1 flex items-center gap-1"
+                          >
+                            <Edit2 className="w-3 h-3" />
+                            {account.nickname ? 'ערוך כינוי' : 'הוסף כינוי'}
+                          </button>
+                        )}
                       </div>
                     </div>
+                  </div>
 
-                    <div className="flex items-center gap-8">
-                      <div className="text-right">
-                        <p className="text-xl font-bold text-white">
-                          {formatCurrency(account.initialBalance || 0)}
-                        </p>
-                        <p className={cn(
-                          'text-sm',
-                          (accountStats[account.id || '']?.pnl || 0) >= 0 ? 'text-profit' : 'text-loss'
-                        )}>
-                          {(accountStats[account.id || '']?.pnl || 0) >= 0 ? '+' : ''}{formatCurrency(accountStats[account.id || '']?.pnl || 0)} P&L
-                        </p>
-                      </div>
+                  <div className="flex items-center gap-8">
+                    <div className="text-right">
+                      <p className="text-xl font-bold text-white">
+                        {formatCurrency(account.initialBalance || 0)}
+                      </p>
+                      <p className={cn(
+                        'text-sm',
+                        (accountStats[account.id || '']?.pnl || 0) >= 0 ? 'text-profit' : 'text-loss'
+                      )}>
+                        {(accountStats[account.id || '']?.pnl || 0) >= 0 ? '+' : ''}{formatCurrency(accountStats[account.id || '']?.pnl || 0)} P&L
+                      </p>
+                    </div>
 
-                      <div className="text-right">
-                        <p className="text-lg font-bold text-white">{accountStats[account.id || '']?.trades || 0}</p>
-                        <p className="text-sm text-dark-500">Trades</p>
-                      </div>
+                    <div className="text-right">
+                      <p className="text-lg font-bold text-white">{accountStats[account.id || '']?.trades || 0}</p>
+                      <p className="text-sm text-dark-500">Trades</p>
+                    </div>
 
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={loadAccounts}
-                          className="p-2 hover:bg-dark-800 rounded-lg transition-colors"
-                          title="Refresh"
-                        >
-                          <RefreshCw className="w-4 h-4 text-dark-400" />
-                        </button>
-                        <button className="p-2 hover:bg-dark-800 rounded-lg transition-colors" title="Settings">
-                          <Settings className="w-4 h-4 text-dark-400" />
-                        </button>
-                        <button
-                          onClick={() => account.id && handleDeleteAccount(account.id)}
-                          className="p-2 hover:bg-dark-800 rounded-lg transition-colors text-loss/50 hover:text-loss"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={loadAccounts}
+                        className="p-2 hover:bg-dark-800 rounded-lg transition-colors"
+                        title="Refresh"
+                      >
+                        <RefreshCw className="w-4 h-4 text-dark-400" />
+                      </button>
+                      <button className="p-2 hover:bg-dark-800 rounded-lg transition-colors" title="Settings">
+                        <Settings className="w-4 h-4 text-dark-400" />
+                      </button>
+                      <button
+                        onClick={() => account.id && handleDeleteAccount(account.id)}
+                        className="p-2 hover:bg-dark-800 rounded-lg transition-colors text-loss/50 hover:text-loss"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -387,8 +451,9 @@ function AccountsContent() {
             </div>
           </div>
         </div>
-      )}
-    </div>
+      )
+      }
+    </div >
   )
 }
 

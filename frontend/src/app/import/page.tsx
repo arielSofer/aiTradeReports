@@ -566,44 +566,33 @@ function ImportContent() {
                     </a>
                   </div>
                 ) : (
-                  <div className="relative" ref={accountDropdownRef}>
-                    <button
-                      onClick={() => setShowAccountDropdown(!showAccountDropdown)}
-                      className="w-full flex items-center justify-between p-4 bg-dark-800 rounded-lg border border-dark-700 hover:border-primary-500/50 transition-colors"
-                    >
-                      <span className="text-white">
-                        {selectedAccountId
-                          ? accounts.find(a => a.id === selectedAccountId)?.name || 'בחר תיק'
-                          : 'בחר תיק'}
-                      </span>
-                      <ChevronDown className={cn(
-                        'w-5 h-5 text-dark-400 transition-transform',
-                        showAccountDropdown && 'rotate-180'
-                      )} />
-                    </button>
-
-                    {showAccountDropdown && (
-                      <div className="absolute z-10 w-full mt-2 bg-dark-800 rounded-lg border border-dark-700 shadow-xl max-h-60 overflow-auto">
-                        {accounts.map((account) => (
-                          <button
-                            key={account.id}
-                            onClick={() => {
-                              setSelectedAccountId(account.id)
-                              setShowAccountDropdown(false)
-                            }}
-                            className={cn(
-                              'w-full text-left px-4 py-3 hover:bg-dark-700 transition-colors',
-                              selectedAccountId === account.id && 'bg-primary-500/10'
-                            )}
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="text-white">{account.name}</span>
-                              <span className="text-sm text-dark-400">{account.broker}</span>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-[300px] overflow-y-auto pr-2">
+                    {accounts.map((account) => (
+                      <button
+                        key={account.id}
+                        onClick={() => setSelectedAccountId(account.id)}
+                        className={cn(
+                          'p-4 rounded-xl border-2 transition-all text-left',
+                          selectedAccountId === account.id
+                            ? 'border-primary-500 bg-primary-500/10'
+                            : 'border-dark-700 bg-dark-800 hover:border-dark-600'
+                        )}
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className={cn(
+                            'w-3 h-3 rounded-full',
+                            selectedAccountId === account.id ? 'bg-primary-500' : 'bg-dark-600'
+                          )} />
+                          <span className="text-xs text-dark-400">{account.broker || 'Trading'}</span>
+                        </div>
+                        <div className="font-medium text-white truncate" title={account.name}>
+                          {account.nickname || account.name}
+                        </div>
+                        {account.nickname && (
+                          <div className="text-xs text-dark-500 truncate mt-0.5">{account.name}</div>
+                        )}
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>

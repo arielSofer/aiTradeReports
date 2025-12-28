@@ -22,6 +22,7 @@ export interface FirestoreAccount {
   id?: string
   userId: string
   name: string
+  nickname?: string // User-friendly display name
   broker: string
   currency: string
   initialBalance: number
