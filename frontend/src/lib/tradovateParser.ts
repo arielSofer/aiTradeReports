@@ -89,6 +89,7 @@ export function parseTradovateCsv(csvContent: string): TradovateTrade[] {
     const durationIdx = header.indexOf('duration')
 
     const trades: TradovateTrade[] = []
+    const seenFillIds = new Set<string>() // Track unique fill ID combinations
 
     for (let i = 1; i < lines.length; i++) {
         const line = lines[i]
@@ -99,6 +100,15 @@ export function parseTradovateCsv(csvContent: string): TradovateTrade[] {
 
         const buyFillId = values[buyFillIdIdx] || ''
         const sellFillId = values[sellFillIdIdx] || ''
+
+        // Deduplicate by buyFillId + sellFillId combination
+        const fillKey = `${buyFillId}-${sellFillId}`
+        if (seenFillIds.has(fillKey)) {
+            console.log(`Skipping duplicate trade: ${fillKey}`)
+            continue
+        }
+        seenFillIds.add(fillKey)
+
         const boughtTimestamp = values[boughtTimestampIdx] || ''
         const soldTimestamp = values[soldTimestampIdx] || ''
 
