@@ -2,6 +2,8 @@ import { create } from 'zustand'
 
 export interface Trade {
   id: string
+  accountId?: string
+  accountName?: string
   symbol: string
   direction: 'long' | 'short'
   status: 'open' | 'closed'

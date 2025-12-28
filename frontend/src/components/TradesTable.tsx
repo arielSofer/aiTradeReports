@@ -247,9 +247,20 @@ export function TradesTable({ trades, onTradeDeleted }: TradesTableProps) {
                       )}
                       onClick={() => setSelectedTrade(trade.id)}
                     >
-                      {/* Date/Time */}
+                      {/* Date/Time & Account */}
                       <td className="px-4 py-3">
-                        <div className="text-sm text-dark-200">{formatDateTime(trade.entryTime)}</div>
+                        <div className="text-sm">
+                          {trade.accountName && (
+                            <div className="text-xs text-dark-500 mb-0.5">{trade.accountName}</div>
+                          )}
+                          <div className="text-dark-200">
+                            <span className="text-profit">↗ {new Date(trade.entryTime).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}</span>
+                            {trade.exitTime && (
+                              <span className="text-loss ml-2">↘ {new Date(trade.exitTime).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}</span>
+                            )}
+                          </div>
+                          <div className="text-xs text-dark-500">{new Date(trade.entryTime).toLocaleDateString('he-IL')}</div>
+                        </div>
                       </td>
 
                       {/* Symbol */}

@@ -77,24 +77,29 @@ function DashboardContent() {
           })
 
           // Convert Firestore trades to our format
-          const convertedTrades = firestoreTrades.map(t => ({
-            id: t.id || 'temp-' + Math.random(),
-            symbol: t.symbol,
-            direction: t.direction,
-            status: t.status,
-            entryTime: t.entryTime?.toDate?.()?.toISOString() || new Date().toISOString(),
-            exitTime: t.exitTime?.toDate?.()?.toISOString(),
-            entryPrice: t.entryPrice,
-            exitPrice: t.exitPrice,
-            quantity: t.quantity,
-            commission: t.commission,
-            pnlNet: t.pnlNet,
-            pnlPercent: t.pnlPercent,
-            isWinner: t.pnlNet ? t.pnlNet > 0 : undefined,
-            durationMinutes: undefined,
-            tags: t.tags || [],
-            notes: t.notes,
-          }))
+          const convertedTrades = firestoreTrades.map(t => {
+            const account = accounts.find(a => a.id === t.accountId)
+            return {
+              id: t.id || 'temp-' + Math.random(),
+              accountId: t.accountId,
+              accountName: account?.name || '',
+              symbol: t.symbol,
+              direction: t.direction,
+              status: t.status,
+              entryTime: t.entryTime?.toDate?.()?.toISOString() || new Date().toISOString(),
+              exitTime: t.exitTime?.toDate?.()?.toISOString(),
+              entryPrice: t.entryPrice,
+              exitPrice: t.exitPrice,
+              quantity: t.quantity,
+              commission: t.commission,
+              pnlNet: t.pnlNet,
+              pnlPercent: t.pnlPercent,
+              isWinner: t.pnlNet ? t.pnlNet > 0 : undefined,
+              durationMinutes: undefined,
+              tags: t.tags || [],
+              notes: t.notes,
+            }
+          })
 
           setTrades(convertedTrades)
 
