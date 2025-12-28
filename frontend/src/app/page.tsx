@@ -330,7 +330,7 @@ function DashboardContent() {
               accounts={accounts}
               selectedAccountId={selectedAccountId}
               onChange={(id) => setSelectedAccountId(id)}
-              label="מציג סטטיסטיקות של"
+              label="Showing statistics for"
             />
           </div>
 
@@ -338,7 +338,7 @@ function DashboardContent() {
             <div className="flex items-center justify-center py-12">
               <div className="text-center">
                 <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
-                <p className="text-dark-500">טוען נתונים...</p>
+                <p className="text-dark-500">Loading data...</p>
               </div>
             </div>
           ) : (

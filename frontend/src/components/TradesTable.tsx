@@ -62,7 +62,7 @@ export function TradesTable({ trades, onTradeDeleted }: TradesTableProps) {
       }
     } catch (error) {
       console.error('Error deleting trade:', error)
-      alert('שגיאה במחיקת העסקה')
+      alert('Error deleting trade')
     } finally {
       setIsDeleting(false)
     }
@@ -102,18 +102,18 @@ export function TradesTable({ trades, onTradeDeleted }: TradesTableProps) {
                 <AlertTriangle className="w-6 h-6 text-loss" />
               </div>
               <div>
-                <h3 className="text-lg font-display font-bold text-white">מחיקת עסקה</h3>
-                <p className="text-sm text-dark-400">האם אתה בטוח שברצונך למחוק עסקה זו?</p>
+                <h3 className="text-lg font-display font-bold text-white">Delete Trade</h3>
+                <p className="text-sm text-dark-400">Are you sure you want to delete this trade?</p>
               </div>
             </div>
-            <p className="text-dark-300 mb-6">פעולה זו לא ניתנת לביטול.</p>
+            <p className="text-dark-300 mb-6">This action cannot be undone.</p>
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setDeleteConfirm(null)}
                 className="btn-secondary"
                 disabled={isDeleting}
               >
-                ביטול
+                Cancel
               </button>
               <button
                 onClick={() => handleDelete(deleteConfirm)}
@@ -123,12 +123,12 @@ export function TradesTable({ trades, onTradeDeleted }: TradesTableProps) {
                 {isDeleting ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    מוחק...
+                    Deleting...
                   </>
                 ) : (
                   <>
                     <Trash2 className="w-4 h-4" />
-                    מחק
+                    Delete
                   </>
                 )}
               </button>
@@ -378,7 +378,7 @@ export function TradesTable({ trades, onTradeDeleted }: TradesTableProps) {
                               "p-1.5 rounded transition-colors group/btn",
                               isExpanded ? "bg-primary/20" : "hover:bg-primary/20"
                             )}
-                            title="הצג על גרף"
+                            title="View on chart"
                           >
                             <BarChart3 className={cn(
                               "w-4 h-4 group-hover/btn:text-primary",
@@ -392,7 +392,7 @@ export function TradesTable({ trades, onTradeDeleted }: TradesTableProps) {
                                 setAiReviewTrade(trade)
                               }}
                               className="p-1.5 hover:bg-purple-500/20 rounded transition-colors group/ai"
-                              title="סקירת AI"
+                              title="AI Review"
                             >
                               <Sparkles className="w-4 h-4 text-dark-400 group-hover/ai:text-purple-400" />
                             </button>
@@ -400,7 +400,7 @@ export function TradesTable({ trades, onTradeDeleted }: TradesTableProps) {
                           <button
                             onClick={(e) => e.stopPropagation()}
                             className="p-1.5 hover:bg-dark-700 rounded transition-colors"
-                            title="צפה"
+                            title="View"
                           >
                             <Eye className="w-4 h-4 text-dark-400" />
                           </button>
@@ -410,7 +410,7 @@ export function TradesTable({ trades, onTradeDeleted }: TradesTableProps) {
                               setDetailsTrade(trade)
                             }}
                             className="p-1.5 hover:bg-dark-700 rounded transition-colors"
-                            title="ערוך"
+                            title="Edit"
                           >
                             <Edit className="w-4 h-4 text-dark-400" />
                           </button>
@@ -420,7 +420,7 @@ export function TradesTable({ trades, onTradeDeleted }: TradesTableProps) {
                               setDeleteConfirm(String(trade.id))
                             }}
                             className="p-1.5 hover:bg-loss/20 rounded transition-colors group/del"
-                            title="מחק"
+                            title="Delete"
                           >
                             <Trash2 className="w-4 h-4 text-dark-400 group-hover/del:text-loss" />
                           </button>

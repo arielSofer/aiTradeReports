@@ -102,7 +102,7 @@ Respond in Hebrew.`
           await new Promise(resolve => setTimeout(resolve, parseInt(retryAfter) * 1000))
           continue
         }
-        throw new Error(`יותר מדי בקשות. אנא נסה שוב בעוד כמה דקות.`)
+        throw new Error(`Too many requests. Please try again in a few minutes.`)
       }
 
       if (!response.ok) {
@@ -110,8 +110,8 @@ Respond in Hebrew.`
         if (response.status >= 400 && response.status < 500 && response.status !== 429) {
           throw new Error(
             response.status === 401
-              ? 'שגיאת אימות. אנא בדוק את מפתח ה-API.'
-              : `שגיאת שירות: ${response.status}`
+              ? 'Authentication error. Please check your API key.'
+              : `Service error: ${response.status}`
           )
         }
         lastError = { status: response.status, message: errorText }
@@ -128,7 +128,7 @@ Respond in Hebrew.`
   }
 
   throw new Error(
-    lastError?.message || 'שגיאה ביצירת סקירה. אנא נסה שוב מאוחר יותר.'
+    lastError?.message || 'Error creating review. Please try again later.'
   )
 }
 

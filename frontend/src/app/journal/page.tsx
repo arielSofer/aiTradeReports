@@ -109,7 +109,7 @@ function JournalContent() {
 
   const handleAddTrade = async (data: TradeFormData) => {
     if (!user || !selectedAccountId || selectedAccountId === 'all') {
-      alert('אנא בחר תיק לפני הוספת עסקה')
+      alert('Please select an account before adding a trade')
       return
     }
 
@@ -133,7 +133,7 @@ function JournalContent() {
       setShowAddTrade(false)
     } catch (error) {
       console.error('Error adding trade:', error)
-      alert('שגיאה בהוספת עסקה')
+      alert('Error adding trade')
     }
   }
 
@@ -236,7 +236,7 @@ function JournalContent() {
         {loading ? (
           <div className="p-12 text-center">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            <p className="text-dark-500 mt-4">טוען עסקאות...</p>
+            <p className="text-dark-500 mt-4">Loading transactions...</p>
           </div>
         ) : (
           <div className="p-6 flex gap-6">

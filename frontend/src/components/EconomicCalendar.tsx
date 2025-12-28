@@ -78,7 +78,7 @@ const currencyFlags: Record<string, string> = {
   ETH: 'Ξ'
 }
 
-// מטבעות זמינים לסינון
+// Available currencies for filtering
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'JPY', 'AUD', 'CAD', 'CHF', 'NZD', 'CNY'] as const
 type Currency = typeof CURRENCIES[number]
 

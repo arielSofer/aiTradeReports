@@ -164,7 +164,7 @@ function ImportContent() {
 
   const handleImport = async () => {
     if (!file || !selectedAccountId) {
-      alert('אנא בחר תיק לפני הייבוא')
+      alert('Please select an account before importing')
       return
     }
 
@@ -251,7 +251,7 @@ function ImportContent() {
         tradesCreated: 0,
         totalPnl: 0,
         winRate: null,
-        errors: [error.response?.data?.detail || error.message || 'שגיאה בהעלאת הקובץ'],
+        errors: [error.response?.data?.detail || error.message || 'Error uploading file'],
       })
       setStatus('error')
     }
@@ -560,9 +560,9 @@ function ImportContent() {
                   </div>
                 ) : accounts.length === 0 ? (
                   <div className="p-4 bg-dark-800 rounded-lg border border-dark-700">
-                    <p className="text-dark-400 text-sm mb-2">אין לך תיקים. אנא צור תיק חדש תחילה.</p>
+                    <p className="text-dark-400 text-sm mb-2">No accounts yet. Please create a new account first.</p>
                     <a href="/accounts" className="text-primary-400 hover:text-primary-300 text-sm">
-                      צור תיק חדש →
+                      Create New Account →
                     </a>
                   </div>
                 ) : (

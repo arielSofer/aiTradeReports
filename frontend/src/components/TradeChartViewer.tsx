@@ -17,9 +17,9 @@ interface CandleData {
 
 // Timeframes
 const TIMEFRAMES = [
-  { value: '5m', label: '5 דק׳' },
-  { value: '15m', label: '15 דק׳' },
-  { value: '1h', label: '1 שעה' },
+  { value: '5m', label: '5 min' },
+  { value: '15m', label: '15 min' },
+  { value: '1h', label: '1 hour' },
 ] as const
 
 type Timeframe = typeof TIMEFRAMES[number]['value']
@@ -444,7 +444,7 @@ export function TradeChartViewer({
           <div className="absolute inset-0 z-10 bg-dark-900/50 backdrop-blur-sm flex items-center justify-center">
             <div className="flex flex-col items-center gap-2">
               <Loader2 className="w-8 h-8 text-primary animate-spin" />
-              <span className="text-sm text-dark-300">טוען נתוני שוק חיו...</span>
+              <span className="text-sm text-dark-300">Loading live market data...</span>
             </div>
           </div>
         )}
@@ -453,7 +453,7 @@ export function TradeChartViewer({
           <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
             <div className="bg-dark-900 border border-loss/20 p-4 rounded-xl shadow-xl max-w-sm text-center">
               <p className="text-loss mb-2">{error}</p>
-              <p className="text-xs text-dark-400">נסה לרענן או לבדוק את הסימול.</p>
+              <p className="text-xs text-dark-400">Try refreshing or check the symbol.</p>
             </div>
           </div>
         )}

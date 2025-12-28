@@ -140,13 +140,13 @@ export function TopstepXImportModal({ isOpen, onClose, onSuccess }: TopstepXImpo
    */
   const handleFetchFromApi = async () => {
     if (!shareId.trim()) {
-      setError('אנא הזן מזהה שיתוף או קישור')
+      setError('Please enter share ID or link')
       return
     }
 
     const extractedId = extractShareId(shareId)
     if (!extractedId) {
-      setError('מזהה לא תקין. הזן מספר או קישור בפורמט: https://topstepx.com/share/stats?share=XXXXXXX')
+      setError('Invalid ID. Enter a number or link in format: https://topstepx.com/share/stats?share=XXXXXXX')
       return
     }
 
@@ -158,13 +158,13 @@ export function TopstepXImportModal({ isOpen, onClose, onSuccess }: TopstepXImpo
       
       if (!response.ok) {
         const data = await response.json()
-        throw new Error(data.error || 'שגיאה בשליפת נתונים מ-TopstepX')
+        throw new Error(data.error || 'Error fetching data from TopstepX')
       }
 
       const data = await response.json()
       
       if (!data.trades || data.trades.length === 0) {
-        throw new Error('לא נמצאו עסקאות עבור מזהה זה')
+        throw new Error('No trades found for this ID')
       }
 
       // Check for duplicates
@@ -179,7 +179,7 @@ export function TopstepXImportModal({ isOpen, onClose, onSuccess }: TopstepXImpo
       setStep('preview')
     } catch (error: any) {
       console.error('Error fetching trades:', error)
-      setError(error.message || 'שגיאה בשליפת נתונים מ-TopstepX')
+      setError(error.message || 'Error fetching data from TopstepX')
     } finally {
       setLoading(false)
     }
@@ -190,7 +190,7 @@ export function TopstepXImportModal({ isOpen, onClose, onSuccess }: TopstepXImpo
    */
   const handleParseHtml = async () => {
     if (!htmlContent.trim()) {
-      setError('אנא הדבק את ה-HTML מדף TopstepX')
+      setError('Please paste HTML from TopstepX page')
       return
     }
 
@@ -201,7 +201,7 @@ export function TopstepXImportModal({ isOpen, onClose, onSuccess }: TopstepXImpo
       const parsedTrades = parseTopstepXHtml(htmlContent)
       
       if (parsedTrades.length === 0) {
-        throw new Error('לא נמצאו עסקאות ב-HTML. וודא שהעתקת את הטבלה כולה.')
+        throw new Error('No trades found in HTML. Make sure you copied the entire table.')
       }
 
       // Mark that these trades have prices
@@ -222,7 +222,7 @@ export function TopstepXImportModal({ isOpen, onClose, onSuccess }: TopstepXImpo
       setStep('preview')
     } catch (error: any) {
       console.error('Error parsing HTML:', error)
-      setError(error.message || 'שגיאה בניתוח ה-HTML')
+      setError(error.message || 'Error analyzing HTML')
     } finally {
       setLoading(false)
     }
@@ -230,7 +230,7 @@ export function TopstepXImportModal({ isOpen, onClose, onSuccess }: TopstepXImpo
 
   const handleSelectAccount = () => {
     if (!selectedAccount) {
-      setError('אנא בחר חשבון')
+      setError('Please select an account')
       return
     }
     setError('')
@@ -310,9 +310,9 @@ export function TopstepXImportModal({ isOpen, onClose, onSuccess }: TopstepXImpo
               <span className="text-xl font-bold text-white">T</span>
             </div>
             <div>
-              <h2 className="text-xl font-display font-bold text-white">ייבוא מ-TopstepX</h2>
+              <h2 className="text-xl font-display font-bold text-white">Import from TopstepX</h2>
               <p className="text-sm text-dark-500">
-                {inputMethod === 'html' ? 'עם מחירי כניסה/יציאה' : 'ייבוא מהיר (ללא מחירים)'}
+                {inputMethod === 'html' ? 'With entry/exit prices' : 'Quick import (no prices)'}
               </p>
             </div>
           </div>
@@ -348,8 +348,8 @@ export function TopstepXImportModal({ isOpen, onClose, onSuccess }: TopstepXImpo
                       )} />
                     </div>
                     <div>
-                      <span className="font-medium text-white block">הדבק HTML</span>
-                      <span className="text-xs text-profit">מומלץ! עם מחירים</span>
+                      <span className="font-medium text-white block">Paste HTML</span>
+                      <span className="text-xs text-profit">Recommended! With prices</span>
                     </div>
                   </div>
                 </button>
@@ -374,8 +374,8 @@ export function TopstepXImportModal({ isOpen, onClose, onSuccess }: TopstepXImpo
                       )} />
                     </div>
                     <div>
-                      <span className="font-medium text-white block">API מהיר</span>
-                      <span className="text-xs text-dark-500">ללא מחירים</span>
+                      <span className="font-medium text-white block">Quick API</span>
+                      <span className="text-xs text-dark-500">Without prices</span>
                     </div>
                   </div>
                 </button>
@@ -387,28 +387,28 @@ export function TopstepXImportModal({ isOpen, onClose, onSuccess }: TopstepXImpo
                   <div className="p-4 bg-profit/10 rounded-xl border border-profit/30">
                     <h4 className="font-medium text-profit mb-2 flex items-center gap-2">
                       <Check className="w-4 h-4" />
-                      שיטה זו כוללת מחירי כניסה/יציאה!
+                      This method includes entry/exit prices!
                     </h4>
                     <ol className="text-sm text-dark-300 space-y-1 list-decimal list-inside" dir="rtl">
-                      <li>פתח את דף השיתוף של TopstepX בדפדפן</li>
-                      <li>לחץ Ctrl+A (בחר הכל) ואז Ctrl+C (העתק)</li>
-                      <li>הדבק כאן למטה (Ctrl+V)</li>
+                      <li>Open the TopstepX share page in your browser</li>
+                      <li>Press Ctrl+A (select all) then Ctrl+C (copy)</li>
+                      <li>Paste below (Ctrl+V)</li>
                     </ol>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-dark-300 mb-2">
-                      הדבק את תוכן הדף כאן:
+                      Paste page content here:
                     </label>
                     <textarea
                       value={htmlContent}
                       onChange={(e) => setHtmlContent(e.target.value)}
-                      placeholder="הדבק כאן את כל תוכן הדף (Ctrl+V)..."
+                      placeholder="Paste all page content here (Ctrl+V)..."
                       className="input w-full h-48 font-mono text-xs"
                       dir="ltr"
                     />
                     <p className="text-xs text-dark-500 mt-2">
-                      טיפ: אפשר גם לפתוח את Developer Tools (F12), ללכת ל-Elements, לבחור את טבלת העסקאות ולהעתיק את ה-HTML
+                      Tip: You can also open Developer Tools (F12), go to Elements, select the trades table and copy the HTML
                     </p>
                   </div>
                 </div>
@@ -420,16 +420,16 @@ export function TopstepXImportModal({ isOpen, onClose, onSuccess }: TopstepXImpo
                   <div className="p-4 bg-accent-orange/10 rounded-xl border border-accent-orange/30">
                     <h4 className="font-medium text-accent-orange mb-2 flex items-center gap-2">
                       <AlertTriangle className="w-4 h-4" />
-                      שים לב: שיטה זו לא כוללת מחירי כניסה/יציאה
+                      Note: This method does not include entry/exit prices
                     </h4>
                     <p className="text-sm text-dark-400">
-                      ה-API של TopstepX לא מספק מחירים. רק P&L וזמנים.
+                      TopstepX API does not provide prices. Only PnL and times.
                     </p>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-dark-300 mb-2">
-                      מזהה שיתוף (Share ID) או קישור
+                      Share ID or link
                     </label>
                     <div className="relative">
                       <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dark-500" />
@@ -437,7 +437,7 @@ export function TopstepXImportModal({ isOpen, onClose, onSuccess }: TopstepXImpo
                         type="text"
                         value={shareId}
                         onChange={(e) => setShareId(e.target.value)}
-                        placeholder="7534754 או https://topstepx.com/share/stats?share=7534754"
+                        placeholder="7534754 or https://topstepx.com/share/stats?share=7534754"
                         className="input w-full pl-11 text-left"
                         dir="ltr"
                         onKeyDown={(e) => {
@@ -467,17 +467,17 @@ export function TopstepXImportModal({ isOpen, onClose, onSuccess }: TopstepXImpo
               <div className="grid grid-cols-3 gap-4">
                 <div className="p-4 bg-dark-800/50 rounded-xl border border-dark-700 text-center">
                   <p className="text-2xl font-bold text-white">{trades.length}</p>
-                  <p className="text-sm text-dark-500">סה"כ עסקאות</p>
+                  <p className="text-sm text-dark-500">Total trades</p>
                 </div>
                 <div className="p-4 bg-dark-800/50 rounded-xl border border-dark-700 text-center">
                   <p className="text-2xl font-bold text-profit">{newTradesCount}</p>
-                  <p className="text-sm text-dark-500">עסקאות חדשות</p>
+                  <p className="text-sm text-dark-500">trades new</p>
                 </div>
                 <div className="p-4 bg-dark-800/50 rounded-xl border border-dark-700 text-center">
                   <p className={cn('text-2xl font-bold', totalPnl >= 0 ? 'text-profit' : 'text-loss')}>
                     {formatCurrency(totalPnl)}
                   </p>
-                  <p className="text-sm text-dark-500">סה"כ רווח/הפסד</p>
+                  <p className="text-sm text-dark-500">Total P/L</p>
                 </div>
               </div>
 
@@ -485,12 +485,12 @@ export function TopstepXImportModal({ isOpen, onClose, onSuccess }: TopstepXImpo
               {hasPrices ? (
                 <div className="p-3 bg-profit/10 rounded-lg border border-profit/30 flex items-center gap-2">
                   <Check className="w-5 h-5 text-profit" />
-                  <span className="text-profit text-sm">מחירי כניסה/יציאה זמינים!</span>
+                  <span className="text-profit text-sm">Entry/exit prices available!</span>
                 </div>
               ) : (
                 <div className="p-3 bg-accent-orange/10 rounded-lg border border-accent-orange/30 flex items-center gap-2">
                   <AlertTriangle className="w-5 h-5 text-accent-orange" />
-                  <span className="text-accent-orange text-sm">מחירי כניסה/יציאה לא זמינים (ייבוא מ-API)</span>
+                  <span className="text-accent-orange text-sm">Entry/exit prices not available (API import)</span>
                 </div>
               )}
 
@@ -498,7 +498,7 @@ export function TopstepXImportModal({ isOpen, onClose, onSuccess }: TopstepXImpo
                 <div className="p-4 bg-accent-orange/20 border border-accent-orange/50 rounded-lg">
                   <div className="flex items-center gap-2 text-accent-orange text-sm mb-2">
                     <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                    {duplicateCount} עסקאות כבר קיימות ויידלגו
+                    {duplicateCount} trades already exist and will be skipped
                   </div>
                   <label className="flex items-center gap-2 text-sm text-dark-400 cursor-pointer">
                     <input
@@ -507,7 +507,7 @@ export function TopstepXImportModal({ isOpen, onClose, onSuccess }: TopstepXImpo
                       onChange={(e) => setSkipDuplicateCheck(e.target.checked)}
                       className="rounded border-dark-600"
                     />
-                    ייבא בכל זאת (יצור כפילויות)
+                    Import anyway (will create duplicates)
                   </label>
                 </div>
               )}
@@ -515,19 +515,19 @@ export function TopstepXImportModal({ isOpen, onClose, onSuccess }: TopstepXImpo
               {/* Trade Preview */}
               <div className="border border-dark-700 rounded-xl overflow-hidden">
                 <div className="p-3 bg-dark-800/50 border-b border-dark-700">
-                  <h4 className="font-medium text-white">תצוגה מקדימה</h4>
+                  <h4 className="font-medium text-white">Preview</h4>
                 </div>
                 <div className="max-h-64 overflow-y-auto">
                   <table className="w-full text-sm">
                     <thead className="bg-dark-800/30 sticky top-0">
                       <tr>
-                        <th className="px-3 py-2 text-left text-dark-500 font-medium">סמל</th>
-                        <th className="px-3 py-2 text-left text-dark-500 font-medium">כיוון</th>
-                        <th className="px-3 py-2 text-right text-dark-500 font-medium">כמות</th>
-                        <th className="px-3 py-2 text-right text-dark-500 font-medium">כניסה</th>
-                        <th className="px-3 py-2 text-right text-dark-500 font-medium">יציאה</th>
+                        <th className="px-3 py-2 text-left text-dark-500 font-medium">Symbol</th>
+                        <th className="px-3 py-2 text-left text-dark-500 font-medium">Direction</th>
+                        <th className="px-3 py-2 text-right text-dark-500 font-medium">Qty</th>
+                        <th className="px-3 py-2 text-right text-dark-500 font-medium">Entry</th>
+                        <th className="px-3 py-2 text-right text-dark-500 font-medium">Exit</th>
                         <th className="px-3 py-2 text-right text-dark-500 font-medium">P&L</th>
-                        <th className="px-3 py-2 text-center text-dark-500 font-medium">סטטוס</th>
+                        <th className="px-3 py-2 text-center text-dark-500 font-medium">Status</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-dark-800/50">
@@ -572,7 +572,7 @@ export function TopstepXImportModal({ isOpen, onClose, onSuccess }: TopstepXImpo
                             </td>
                             <td className="px-3 py-2 text-center">
                               {isDuplicate && !skipDuplicateCheck ? (
-                                <span className="text-xs text-accent-orange">כפיל</span>
+                                <span className="text-xs text-accent-orange">Duplicate</span>
                               ) : (
                                 <Check className="w-4 h-4 text-profit mx-auto" />
                               )}
@@ -584,7 +584,7 @@ export function TopstepXImportModal({ isOpen, onClose, onSuccess }: TopstepXImpo
                   </table>
                   {trades.length > 20 && (
                     <div className="p-3 text-center text-dark-500 text-sm bg-dark-800/30">
-                      ... ועוד {trades.length - 20} עסקאות נוספות
+                      ... and {trades.length - 20} trades additional
                     </div>
                   )}
                 </div>
@@ -596,13 +596,13 @@ export function TopstepXImportModal({ isOpen, onClose, onSuccess }: TopstepXImpo
           {step === 'account' && (
             <div className="space-y-6">
               <div>
-                <h3 className="text-lg font-medium text-white mb-4">בחר חשבון ליבוא</h3>
+                <h3 className="text-lg font-medium text-white mb-4">Select account for import</h3>
                 
                 {accounts.length === 0 ? (
                   <div className="text-center py-8">
                     <Wallet className="w-12 h-12 text-dark-600 mx-auto mb-3" />
-                    <p className="text-dark-400 mb-2">אין חשבונות</p>
-                    <p className="text-sm text-dark-500">צור חשבון חדש בדף הנהלת חשבונות</p>
+                    <p className="text-dark-400 mb-2">No accounts</p>
+                    <p className="text-sm text-dark-500">Create a new account in account management</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -645,8 +645,8 @@ export function TopstepXImportModal({ isOpen, onClose, onSuccess }: TopstepXImpo
           {step === 'importing' && (
             <div className="text-center py-12">
               <Loader2 className="w-16 h-16 text-primary mx-auto mb-6 animate-spin" />
-              <h3 className="text-xl font-medium text-white mb-2">מייבא עסקאות...</h3>
-              <p className="text-dark-400 mb-6">אנא המתן</p>
+              <h3 className="text-xl font-medium text-white mb-2">Importing trades...</h3>
+              <p className="text-dark-400 mb-6">Please wait</p>
               
               <div className="w-full max-w-xs mx-auto">
                 <div className="h-2 bg-dark-800 rounded-full overflow-hidden">
@@ -666,9 +666,9 @@ export function TopstepXImportModal({ isOpen, onClose, onSuccess }: TopstepXImpo
               <div className="w-20 h-20 rounded-full bg-profit/20 flex items-center justify-center mx-auto mb-6">
                 <Check className="w-10 h-10 text-profit" />
               </div>
-              <h3 className="text-xl font-medium text-white mb-2">הייבוא הושלם!</h3>
+              <h3 className="text-xl font-medium text-white mb-2">Import completed!</h3>
               <p className="text-dark-400 mb-6">
-                {importedCount} עסקאות יובאו בהצלחה
+                {importedCount} trades imported successfully
               </p>
             </div>
           )}
@@ -679,7 +679,7 @@ export function TopstepXImportModal({ isOpen, onClose, onSuccess }: TopstepXImpo
           {step === 'input' && (
             <>
               <button onClick={handleClose} className="btn-secondary">
-                ביטול
+                Cancel
               </button>
               <button 
                 onClick={inputMethod === 'html' ? handleParseHtml : handleFetchFromApi}
@@ -689,11 +689,11 @@ export function TopstepXImportModal({ isOpen, onClose, onSuccess }: TopstepXImpo
                 {loading ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    טוען...
+                    Loading...
                   </>
                 ) : (
                   <>
-                    המשך
+                    Continue
                     <ChevronRight className="w-4 h-4" />
                   </>
                 )}
@@ -704,14 +704,14 @@ export function TopstepXImportModal({ isOpen, onClose, onSuccess }: TopstepXImpo
           {step === 'preview' && (
             <>
               <button onClick={() => setStep('input')} className="btn-secondary">
-                חזור
+                Back
               </button>
               <button 
                 onClick={() => setStep('account')}
                 disabled={newTradesCount === 0}
                 className="btn-primary flex items-center gap-2"
               >
-                בחר חשבון
+                Select account
                 <ChevronRight className="w-4 h-4" />
               </button>
             </>
@@ -720,14 +720,14 @@ export function TopstepXImportModal({ isOpen, onClose, onSuccess }: TopstepXImpo
           {step === 'account' && (
             <>
               <button onClick={() => setStep('preview')} className="btn-secondary">
-                חזור
+                Back
               </button>
               <button 
                 onClick={handleSelectAccount}
                 disabled={!selectedAccount || accounts.length === 0}
                 className="btn-primary flex items-center gap-2"
               >
-                התחל ייבוא
+                Start Import
                 <ChevronRight className="w-4 h-4" />
               </button>
             </>
@@ -735,7 +735,7 @@ export function TopstepXImportModal({ isOpen, onClose, onSuccess }: TopstepXImpo
 
           {step === 'success' && (
             <button onClick={handleClose} className="btn-primary w-full">
-              סגור
+              Close
             </button>
           )}
         </div>

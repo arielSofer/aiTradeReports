@@ -117,7 +117,7 @@ Respond in Hebrew.`
           // If we've exhausted retries, return helpful error
           return NextResponse.json(
             {
-              error: 'יותר מדי בקשות. אנא נסה שוב בעוד כמה דקות.',
+              error: 'Too many requests. Please try again in a few minutes.',
               errorCode: 'RATE_LIMIT',
               retryAfter: retryAfter || '60'
             },
@@ -134,10 +134,10 @@ Respond in Hebrew.`
             return NextResponse.json(
               {
                 error: response.status === 401
-                  ? 'שגיאת אימות. אנא בדוק את מפתח ה-API.'
+                  ? 'Authentication error. Please check your API key.'
                   : response.status === 403
-                    ? 'אין הרשאה לגשת לשירות.'
-                    : `שגיאת שירות: ${response.status}`,
+                    ? 'Not authorized to access this service.'
+                    : `Service error: ${response.status}`,
                 errorCode: `HTTP_${response.status}`
               },
               { status: response.status }
@@ -167,8 +167,8 @@ Respond in Hebrew.`
     return NextResponse.json(
       {
         error: lastError?.status === 429
-          ? 'יותר מדי בקשות. אנא נסה שוב בעוד כמה דקות.'
-          : 'שגיאה ביצירת סקירה. אנא נסה שוב מאוחר יותר.',
+          ? 'Too many requests. Please try again in a few minutes.'
+          : 'Error creating review. Please try again later.',
         errorCode: 'RETRY_EXHAUSTED'
       },
       { status: lastError?.status || 500 }

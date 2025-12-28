@@ -104,7 +104,7 @@ export function AITradeReviewModal({ isOpen, onClose, trade }: AITradeReviewModa
 
   const handleGenerateReview = async () => {
     if (!trade || !trade.exitTime) {
-      setError('עסקה חייבת להיות סגורה כדי לקבל סקירה')
+      setError('Trade must be closed to get a review')
       return
     }
 
@@ -117,7 +117,7 @@ export function AITradeReviewModal({ isOpen, onClose, trade }: AITradeReviewModa
       const images = await generateCharts()
 
       if (images.length === 0) {
-        throw new Error('לא הצלחתי ליצור את הגרפים')
+        throw new Error('Failed to create charts')
       }
 
       setChartImages(images)
@@ -185,18 +185,18 @@ export function AITradeReviewModal({ isOpen, onClose, trade }: AITradeReviewModa
         })
       }
 
-      setReview(data.review || 'לא התקבלה סקירה')
+      setReview(data.review || 'No review received')
     } catch (error: any) {
       console.error('Error generating review:', error)
 
       // Show user-friendly error message
-      let errorMessage = error.message || 'שגיאה ביצירת סקירה'
+      let errorMessage = error.message || 'Error creating review'
 
       // Add retry suggestion for rate limits
-      if (error.message?.includes('יותר מדי בקשות')) {
+      if (error.message?.includes('Too many requests')) {
         errorMessage = error.message
       } else if (error.message?.includes('429')) {
-        errorMessage = 'יותר מדי בקשות. אנא נסה שוב בעוד כמה דקות.'
+        errorMessage = 'Too many requests. Please try again in a few minutes.'
       }
 
       setError(errorMessage)
@@ -293,18 +293,18 @@ export function AITradeReviewModal({ isOpen, onClose, trade }: AITradeReviewModa
                 {loading || generatingCharts ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    {generatingCharts ? 'יוצר גרפים...' : 'מבקש סקירה מ-AI...'}
+                    {generatingCharts ? 'Generating charts...' : 'Requesting AI review...'}
                   </>
                 ) : (
                   <>
                     <Sparkles className="w-5 h-5" />
-                    צור סקירת AI
+                    Generate AI Review
                   </>
                 )}
               </button>
               {!trade.exitTime && (
                 <p className="text-sm text-dark-500 mt-4">
-                  רק עסקאות סגורות יכולות לקבל סקירה
+                  Only trades closed can receive a review
                 </p>
               )}
             </div>
@@ -316,7 +316,7 @@ export function AITradeReviewModal({ isOpen, onClose, trade }: AITradeReviewModa
               <div className="text-loss text-sm mb-3 whitespace-pre-wrap">
                 {error}
               </div>
-              {error.includes('יותר מדי בקשות') && (
+              {error.includes('Too many requests') && (
                 <button
                   onClick={handleGenerateReview}
                   disabled={loading || generatingCharts}
@@ -325,12 +325,12 @@ export function AITradeReviewModal({ isOpen, onClose, trade }: AITradeReviewModa
                   {loading || generatingCharts ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      מנסה שוב...
+                      Retrying...
                     </>
                   ) : (
                     <>
                       <Sparkles className="w-4 h-4" />
-                      נסה שוב
+                      Try again
                     </>
                   )}
                 </button>
@@ -355,7 +355,7 @@ export function AITradeReviewModal({ isOpen, onClose, trade }: AITradeReviewModa
                   className="btn-secondary flex items-center gap-2 text-sm"
                 >
                   <Download className="w-4 h-4" />
-                  הורד
+                  Download
                 </button>
               </div>
 
@@ -394,7 +394,7 @@ export function AITradeReviewModal({ isOpen, onClose, trade }: AITradeReviewModa
         {/* Footer */}
         <div className="flex justify-end p-6 border-t border-dark-800">
           <button onClick={onClose} className="btn-secondary">
-            סגור
+            Close
           </button>
         </div>
       </div>

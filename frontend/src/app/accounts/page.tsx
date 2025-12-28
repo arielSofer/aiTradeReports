@@ -290,7 +290,7 @@ function AccountsContent() {
                               type="text"
                               value={nicknameValue}
                               onChange={(e) => setNicknameValue(e.target.value)}
-                              placeholder="כינוי..."
+                              placeholder="Nickname..."
                               className="px-2 py-1 bg-dark-700 border border-dark-600 rounded text-sm text-white w-32"
                               autoFocus
                               onKeyDown={(e) => {
@@ -320,7 +320,7 @@ function AccountsContent() {
                             className="text-xs text-dark-500 hover:text-primary-400 mt-1 flex items-center gap-1"
                           >
                             <Edit2 className="w-3 h-3" />
-                            {account.nickname ? 'ערוך כינוי' : 'הוסף כינוי'}
+                            {account.nickname ? 'Edit Nickname' : 'Add Nickname'}
                           </button>
                         )}
                       </div>
