@@ -59,8 +59,12 @@ INTERVAL_MINUTES = {
 CANDLES_BUFFER = 50
 
 
-def normalize_symbol(raw_symbol: str) -> str:
-    """Normalize symbol from various formats to base symbol."""
+def normalize_symbol(raw_symbol: str) -> tuple[str, str]:
+    """
+    Normalize symbol from various formats to base symbol.
+    Returns (base_symbol, specific_contract) where specific_contract is the 
+    full contract symbol like 'MNQH6' or None if generic.
+    """
     import re
     symbol = raw_symbol.upper().strip()
     
@@ -70,13 +74,20 @@ def normalize_symbol(raw_symbol: str) -> str:
     elif symbol.startswith("F."):
         symbol = symbol[2:]
     
-    # Remove futures contract suffix (e.g., MNQZ24 -> MNQ)
-    futures_pattern = r'^([A-Z]{2,4})[FGHJKMNQUVXZ]\d{1,2}$'
+    # Check if it's a specific contract (e.g., MNQZ24, MNQH6, ESH25)
+    # Pattern: 2-4 letters + month code (FGHJKMNQUVXZ) + 1-2 digit year
+    futures_pattern = r'^([A-Z]{2,4})([FGHJKMNQUVXZ])(\d{1,2})$'
     match = re.match(futures_pattern, symbol)
     if match:
-        symbol = match.group(1)
+        base = match.group(1)
+        month_code = match.group(2)
+        year = match.group(3)
+        # Return base symbol and the specific contract
+        # Format for Databento: MNQH5 -> MNQ (base), MNQH5.FUT (specific)
+        specific_contract = f"{base}{month_code}{year}.FUT"
+        return base, specific_contract
     
-    return symbol
+    return symbol, None
 
 
 def aggregate_candles(candles: List[dict], interval_minutes: int) -> List[dict]:
@@ -143,8 +154,20 @@ async def get_candles(
         print(f"DEBUG: Using Databento API key. Length: {key_len}, Starts with: {start_chars}...")
         
         # Normalize and map symbol
-        normalized = normalize_symbol(symbol)
-        databento_symbol = SYMBOL_MAP.get(normalized, f"{normalized}.c.0")
+        base_symbol, specific_contract = normalize_symbol(symbol)
+        
+        # Use specific contract if available (e.g., MNQH6.FUT), otherwise fallback to continuous
+        if specific_contract:
+            databento_symbol = specific_contract
+            stype_in = "raw_symbol"  # Use exact symbol
+            print(f"DEBUG: Using specific contract: {databento_symbol}")
+        else:
+            databento_symbol = SYMBOL_MAP.get(base_symbol, f"{base_symbol}.c.0")
+            # Determine stype based on symbol format
+            stype_in = "continuous"
+            if databento_symbol.endswith(".FUT"):
+                stype_in = "parent"
+            print(f"DEBUG: Using mapped symbol: {databento_symbol}, stype: {stype_in}")
         
         # Get schema
         schema = SCHEMA_MAP.get(interval, 'ohlcv-1m')
@@ -159,11 +182,6 @@ async def get_candles(
         
         # Initialize Databento client
         client = db.Historical(api_key)
-        
-        # Determine stype based on symbol format
-        stype_in = "continuous"
-        if databento_symbol.endswith(".FUT"):
-            stype_in = "parent"
 
         # Fetch data
         data = client.timeseries.get_range(
