@@ -194,6 +194,7 @@ function ImportContent() {
           entryPrice: t.entryPrice,
           exitPrice: t.exitPrice,
           quantity: t.quantity,
+          pnlNet: t.pnl, // Use actual P&L from CSV
           commission: 0,
           tags: [],
           notes: `Duration: ${t.duration}`,
