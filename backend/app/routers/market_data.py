@@ -156,18 +156,18 @@ async def get_candles(
         # Normalize and map symbol
         base_symbol, specific_contract = normalize_symbol(symbol)
         
-        # Use specific contract if available (e.g., MNQH6.FUT), otherwise fallback to continuous
-        if specific_contract:
-            databento_symbol = specific_contract
-            stype_in = "raw_symbol"  # Use exact symbol
-            print(f"DEBUG: Using specific contract: {databento_symbol}")
+        # For futures, use the continuous contract or parent symbology
+        # Databento raw_symbol format doesn't work well for specific contracts
+        # Instead, use the base symbol with parent or continuous symbology
+        databento_symbol = SYMBOL_MAP.get(base_symbol, f"{base_symbol}.c.0")
+        
+        # Determine stype based on symbol format
+        if databento_symbol.endswith(".FUT"):
+            stype_in = "parent"
         else:
-            databento_symbol = SYMBOL_MAP.get(base_symbol, f"{base_symbol}.c.0")
-            # Determine stype based on symbol format
             stype_in = "continuous"
-            if databento_symbol.endswith(".FUT"):
-                stype_in = "parent"
-            print(f"DEBUG: Using mapped symbol: {databento_symbol}, stype: {stype_in}")
+            
+        print(f"DEBUG: Symbol '{symbol}' -> base: '{base_symbol}' -> databento: '{databento_symbol}', stype: {stype_in}")
         
         # Get schema
         schema = SCHEMA_MAP.get(interval, 'ohlcv-1m')
