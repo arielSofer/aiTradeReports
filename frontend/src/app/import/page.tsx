@@ -23,6 +23,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { uploadApi } from '@/lib/api'
 import { getAccounts, batchCreateTrades } from '@/lib/firebase/firestore'
 import { Timestamp } from 'firebase/firestore'
+import { parseTradovateCsv } from '@/lib/tradovateParser'
 
 const brokers = [
   {
@@ -49,9 +50,9 @@ const brokers = [
   {
     id: 'tradovate',
     name: 'Tradovate',
-    description: 'Trade History or Order History export',
+    description: 'Performance export from Tradovate',
     icon: '📈',
-    columns: ['Date', 'Contract', 'B/S', 'Qty', 'Price', 'P&L', 'Commission']
+    columns: ['symbol', 'boughtTimestamp', 'soldTimestamp', 'buyPrice', 'sellPrice', 'pnl', 'qty']
   },
   {
     id: 'metatrader4',
@@ -172,46 +173,74 @@ function ImportContent() {
     setStatus('uploading')
 
     try {
-      // 1. Parse file on backend (Stateless)
-      const response = await uploadApi.parse(
-        file,
-        selectedBroker || undefined
-      )
+      let trades: any[] = []
 
-      if (!response.success || !response.trades || response.trades.length === 0) {
-        throw new Error(response.message || 'No trades parsed')
+      // Special handling for Tradovate Performance CSV (client-side parsing)
+      if (selectedBroker === 'tradovate') {
+        const csvContent = await file.text()
+        const parsedTrades = parseTradovateCsv(csvContent)
+
+        if (parsedTrades.length === 0) {
+          throw new Error('No trades found in Tradovate CSV')
+        }
+
+        trades = parsedTrades.map(t => ({
+          symbol: t.symbol,
+          direction: t.direction,
+          status: 'closed',
+          assetType: 'futures',
+          entryTime: Timestamp.fromDate(t.entryTime),
+          exitTime: Timestamp.fromDate(t.exitTime),
+          entryPrice: t.entryPrice,
+          exitPrice: t.exitPrice,
+          quantity: t.quantity,
+          commission: 0,
+          tags: [],
+          notes: `Duration: ${t.duration}`,
+          raw_data: { pnl: t.pnl }
+        }))
+      } else {
+        // 1. Parse file on backend (Stateless) for other brokers
+        const response = await uploadApi.parse(
+          file,
+          selectedBroker || undefined
+        )
+
+        if (!response.success || !response.trades || response.trades.length === 0) {
+          throw new Error(response.message || 'No trades parsed')
+        }
+
+        // 2. Format trades for Firestore
+        trades = response.trades.map((t: any) => ({
+          symbol: t.symbol,
+          direction: t.direction,
+          status: t.status,
+          assetType: t.assetType,
+          entryTime: t.entry_time ? Timestamp.fromDate(new Date(t.entry_time)) : Timestamp.now(),
+          exitTime: t.exit_time ? Timestamp.fromDate(new Date(t.exit_time)) : undefined,
+          entryPrice: typeof t.entry_price === 'string' ? parseFloat(t.entry_price) : t.entry_price,
+          exitPrice: typeof t.exit_price === 'string' ? parseFloat(t.exit_price) : t.exit_price,
+          quantity: typeof t.quantity === 'string' ? parseFloat(t.quantity) : t.quantity,
+          commission: typeof t.commission === 'string' ? parseFloat(t.commission) : t.commission,
+          tags: t.tags || [],
+          notes: t.notes,
+          raw_data: t.raw_data
+        }))
       }
-
-      // 2. Format trades for Firestore
-      const trades = response.trades.map((t: any) => ({
-        symbol: t.symbol,
-        direction: t.direction,
-        status: t.status,
-        assetType: t.assetType,
-        entryTime: t.entry_time ? Timestamp.fromDate(new Date(t.entry_time)) : Timestamp.now(),
-        exitTime: t.exit_time ? Timestamp.fromDate(new Date(t.exit_time)) : undefined,
-        entryPrice: typeof t.entry_price === 'string' ? parseFloat(t.entry_price) : t.entry_price,
-        exitPrice: typeof t.exit_price === 'string' ? parseFloat(t.exit_price) : t.exit_price,
-        quantity: typeof t.quantity === 'string' ? parseFloat(t.quantity) : t.quantity,
-        commission: typeof t.commission === 'string' ? parseFloat(t.commission) : t.commission,
-        tags: t.tags || [],
-        notes: t.notes,
-        raw_data: t.raw_data
-      }))
 
       // 3. Save to Firestore
       const createdCount = await batchCreateTrades(
         user.uid,
-        selectedAccountId.toString(), // Ensure string
+        selectedAccountId.toString(),
         trades
       )
 
       setResult({
         success: true,
         tradesCreated: createdCount,
-        totalPnl: 0, // TODO: Sum from trades if needed
-        winRate: response.win_rate || null,
-        errors: response.parse_result?.errors?.map((e: any) => e.message) || [],
+        totalPnl: 0,
+        winRate: null,
+        errors: [],
       })
       setStatus('success')
     } catch (error: any) {
