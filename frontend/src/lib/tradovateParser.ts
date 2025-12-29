@@ -43,32 +43,33 @@ function parseTradovateTimestamp(timestamp: string): Date {
 
     const [, month, day, year, hours, minutes, seconds] = parts
 
-    // Create date string with CT timezone indicator
-    // CT is UTC-6 (CST) or UTC-5 (CDT during daylight saving)
-    // For simplicity, we'll use America/Chicago timezone
+    // Build an ISO string with Central Time offset
+    // CT is UTC-6 in winter (CST) and UTC-5 in summer (CDT)
+    // We'll use a simple approach: create the date string and parse with timezone
     const dateStr = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${hours.padStart(2, '0')}:${minutes}:${seconds}`
 
-    // Create date assuming local time first
-    const localDate = new Date(
-        parseInt(year),
-        parseInt(month) - 1,
-        parseInt(day),
-        parseInt(hours),
-        parseInt(minutes),
-        parseInt(seconds)
+    // Check if this date falls in DST (roughly March-November for US)
+    const monthNum = parseInt(month)
+    const isDST = monthNum >= 3 && monthNum <= 11
+    const ctOffset = isDST ? -5 : -6  // CDT (-5) or CST (-6)
+
+    // Parse as UTC first
+    const utcDate = new Date(
+        Date.UTC(
+            parseInt(year),
+            parseInt(month) - 1,
+            parseInt(day),
+            parseInt(hours),
+            parseInt(minutes),
+            parseInt(seconds)
+        )
     )
 
-    // Adjust for CT -> UTC: CT is typically UTC-6 (winter) or UTC-5 (summer)
-    // Since we're parsing as local (Israel = UTC+2/+3), we need to adjust
-    // CT to Israel offset is about 8-9 hours difference
-    // The timestamps are in CT, but we're treating them as local Israel time
-    // So we need to ADD the difference: Israel is ahead of CT by ~8 hours
-    // Actually, the best approach is to adjust so the time matches the chart
-    // The chart shows ~5-6 hours difference, suggesting we need to subtract hours
+    // Adjust for CT offset: if time is 16:32 CT, UTC would be 16:32 - (-6) = 22:32
+    // So we need to SUBTRACT the offset (add hours since offset is negative)
+    utcDate.setUTCHours(utcDate.getUTCHours() - ctOffset)
 
-    // For now, let's keep the time as-is but the user may need to adjust
-    // The real fix would be to parse with explicit timezone support
-    return localDate
+    return utcDate
 }
 
 /**

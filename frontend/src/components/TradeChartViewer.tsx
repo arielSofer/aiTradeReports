@@ -292,8 +292,23 @@ export function TradeChartViewer({
       const entryTime = new Date(trade.entryTime).getTime() / 1000
       const exitTime = trade.exitTime ? new Date(trade.exitTime).getTime() / 1000 : null
 
+      // Tolerance depends on timeframe
+      const tolerance = timeframe === '1m' ? 60 : timeframe === '5m' ? 300 : timeframe === '15m' ? 900 : 3600
+
+      console.log('Chart debug:', {
+        entryTime,
+        exitTime,
+        timeframe,
+        tolerance,
+        displayedDataRange: displayedData.length > 0 ? {
+          first: new Date(displayedData[0].time * 1000).toISOString(),
+          last: new Date(displayedData[displayedData.length - 1].time * 1000).toISOString(),
+          count: displayedData.length
+        } : 'empty'
+      })
+
       // Find closest candle for entry
-      const entryCandle = displayedData.find(c => Math.abs(c.time - entryTime) < (timeframe === '5m' ? 300 : 3600))
+      const entryCandle = displayedData.find(c => Math.abs(c.time - entryTime) < tolerance)
       if (entryCandle) {
         markers.push({
           time: entryCandle.time,
@@ -302,10 +317,12 @@ export function TradeChartViewer({
           shape: trade.direction === 'long' ? 'arrowUp' : 'arrowDown',
           text: `Entry @ ${trade.entryPrice}`,
         })
+      } else {
+        console.warn('Entry candle not found in displayed data')
       }
 
       if (exitTime) {
-        const exitCandle = displayedData.find(c => Math.abs(c.time - exitTime) < (timeframe === '5m' ? 300 : 3600))
+        const exitCandle = displayedData.find(c => Math.abs(c.time - exitTime) < tolerance)
         if (exitCandle) {
           markers.push({
             time: exitCandle.time,
@@ -314,6 +331,8 @@ export function TradeChartViewer({
             shape: trade.direction === 'long' ? 'arrowDown' : 'arrowUp',
             text: `Exit @ ${trade.exitPrice}`,
           })
+        } else {
+          console.warn('Exit candle not found in displayed data')
         }
       }
 
