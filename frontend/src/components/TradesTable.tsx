@@ -42,6 +42,8 @@ export function TradesTable({ trades, onTradeDeleted }: TradesTableProps) {
   const [isDeleting, setIsDeleting] = useState(false)
   const [aiReviewTrade, setAiReviewTrade] = useState<Trade | null>(null)
   const [detailsTrade, setDetailsTrade] = useState<Trade | null>(null)
+  // Track which trades are being deleted (for fadeout animation)
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -55,14 +57,29 @@ export function TradesTable({ trades, onTradeDeleted }: TradesTableProps) {
   const handleDelete = async (tradeId: string) => {
     setIsDeleting(true)
     try {
-      await deleteTrade(tradeId)
+      // Start fadeout animation
+      setDeletingIds(prev => new Set(Array.from(prev).concat(tradeId)))
       setDeleteConfirm(null)
+
+      // Wait for animation
+      await new Promise(resolve => setTimeout(resolve, 300))
+
+      // Delete from Firestore
+      await deleteTrade(tradeId)
+
+      // Notify parent to update local state (without full refresh)
       if (onTradeDeleted) {
         onTradeDeleted()
       }
     } catch (error) {
       console.error('Error deleting trade:', error)
       alert('Error deleting trade')
+      // Remove from deleting set on error
+      setDeletingIds(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(tradeId)
+        return newSet
+      })
     } finally {
       setIsDeleting(false)
     }
@@ -233,17 +250,19 @@ export function TradesTable({ trades, onTradeDeleted }: TradesTableProps) {
                     </div>
                   </td>
                 </tr>
-              ) : sortedTrades.map((trade, index) => {
+              ) : sortedTrades.filter(t => !deletingIds.has(t.id) || true).map((trade, index) => {
                 const isExpanded = expandedTradeId === trade.id;
+                const isBeingDeleted = deletingIds.has(trade.id);
 
                 return (
                   <>
                     <tr
                       key={trade.id}
                       className={cn(
-                        'table-row cursor-pointer transition-colors',
+                        'table-row cursor-pointer transition-all duration-300',
                         (selectedTrade === trade.id || isExpanded) ? 'bg-dark-800/50' : 'hover:bg-dark-800/30',
-                        isExpanded && 'border-b-0'
+                        isExpanded && 'border-b-0',
+                        isBeingDeleted && 'opacity-0 scale-95 pointer-events-none'
                       )}
                       onClick={() => setSelectedTrade(trade.id)}
                     >
