@@ -88,13 +88,16 @@ function PropFirmsContent() {
                     const targetAccount = accounts.find(a => a.id === item.targetAccountId)
                     const split = targetAccount?.profitSplit || 100 // Default to 100 if unknown, usually 90 or 100
 
-                    await addWithdrawal(
-                        item.targetAccountId,
-                        item.amount,
-                        split,
-                        item.date,
-                        `Imported Payout. Original Date: ${item.date.toLocaleDateString()}`
-                    )
+                    if (user?.uid) {
+                        await addWithdrawal(
+                            user.uid,
+                            item.targetAccountId,
+                            item.amount,
+                            split,
+                            item.date,
+                            `Imported Payout. Original Date: ${item.date.toLocaleDateString()}`
+                        )
+                    }
                     importedCount++
                 }
             }

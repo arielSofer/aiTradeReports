@@ -81,6 +81,7 @@ function DashboardContent() {
             const account = accounts.find(a => a.id === t.accountId)
             return {
               id: t.id || 'temp-' + Math.random(),
+              userId: t.userId,
               accountId: t.accountId,
               accountName: account?.name || '',
               symbol: t.symbol,
@@ -262,6 +263,7 @@ function DashboardContent() {
       // Add to local state
       const newTrade = {
         id: newTradeId,
+        userId: user.uid,
         symbol: data.symbol.toUpperCase(),
         direction: data.direction,
         status: data.exitPrice ? 'closed' as const : 'open' as const,

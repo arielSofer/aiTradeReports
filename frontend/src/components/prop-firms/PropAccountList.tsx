@@ -18,25 +18,25 @@ export function PropAccountList({ accounts, onUpdate }: PropAccountListProps) {
     const [deletingId, setDeletingId] = useState<string | null>(null)
 
     const handleEdit = async (data: Partial<PropFirmAccount>) => {
-        if (editingAccount?.id) {
-            await updatePropAccount(editingAccount.id, data)
+        if (editingAccount?.id && editingAccount?.userId) {
+            await updatePropAccount(editingAccount.userId, editingAccount.id, data)
             setEditingAccount(null)
             onUpdate()
         }
     }
 
-    const handleDelete = async (id: string) => {
+    const handleDelete = async (id: string, userId: string) => {
         if (confirm('Are you sure you want to delete this account? This cannot be undone.')) {
             setDeletingId(id)
-            await deletePropAccount(id)
+            await deletePropAccount(userId, id)
             setDeletingId(null)
             onUpdate()
         }
     }
 
     const handleAddWithdrawal = async (amount: number, splitPercentage: number, date: Date, note: string) => {
-        if (withdrawalAccount?.id) {
-            await addWithdrawal(withdrawalAccount.id, amount, splitPercentage, date, note)
+        if (withdrawalAccount?.id && withdrawalAccount?.userId) {
+            await addWithdrawal(withdrawalAccount.userId, withdrawalAccount.id, amount, splitPercentage, date, note)
             setWithdrawalAccount(null)
             onUpdate()
         }
@@ -59,7 +59,7 @@ export function PropAccountList({ accounts, onUpdate }: PropAccountListProps) {
                         key={account.id}
                         account={account}
                         onEdit={() => setEditingAccount(account)}
-                        onDelete={() => handleDelete(account.id!)}
+                        onDelete={() => handleDelete(account.id!, account.userId!)}
                         onAddWithdrawal={() => setWithdrawalAccount(account)}
                         isDeleting={deletingId === account.id}
                     />

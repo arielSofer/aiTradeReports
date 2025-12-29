@@ -3,6 +3,7 @@ import { Trade, Stats, DailyPnL, HourlyStat } from './store'
 export const mockTrades: Trade[] = [
   {
     id: '1',
+    userId: 'mock-user-1',
     symbol: 'AAPL',
     direction: 'long',
     status: 'closed',
@@ -21,6 +22,7 @@ export const mockTrades: Trade[] = [
   },
   {
     id: '2',
+    userId: 'mock-user-1',
     symbol: 'MSFT',
     direction: 'long',
     status: 'closed',
@@ -39,6 +41,7 @@ export const mockTrades: Trade[] = [
   },
   {
     id: '3',
+    userId: 'mock-user-1',
     symbol: 'TSLA',
     direction: 'short',
     status: 'closed',
@@ -57,6 +60,7 @@ export const mockTrades: Trade[] = [
   },
   {
     id: '4',
+    userId: 'mock-user-1',
     symbol: 'NVDA',
     direction: 'long',
     status: 'closed',
@@ -75,6 +79,7 @@ export const mockTrades: Trade[] = [
   },
   {
     id: '5',
+    userId: 'mock-user-1',
     symbol: 'GOOGL',
     direction: 'long',
     status: 'closed',
@@ -93,6 +98,7 @@ export const mockTrades: Trade[] = [
   },
   {
     id: '6',
+    userId: 'mock-user-1',
     symbol: 'META',
     direction: 'long',
     status: 'closed',
@@ -111,6 +117,7 @@ export const mockTrades: Trade[] = [
   },
   {
     id: '7',
+    userId: 'mock-user-1',
     symbol: 'AMZN',
     direction: 'short',
     status: 'closed',
@@ -129,6 +136,7 @@ export const mockTrades: Trade[] = [
   },
   {
     id: '8',
+    userId: 'mock-user-1',
     symbol: 'AMD',
     direction: 'long',
     status: 'closed',
@@ -147,6 +155,7 @@ export const mockTrades: Trade[] = [
   },
   {
     id: '9',
+    userId: 'mock-user-1',
     symbol: 'SPY',
     direction: 'long',
     status: 'closed',
@@ -165,6 +174,7 @@ export const mockTrades: Trade[] = [
   },
   {
     id: '10',
+    userId: 'mock-user-1',
     symbol: 'QQQ',
     direction: 'short',
     status: 'closed',

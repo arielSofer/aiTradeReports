@@ -52,13 +52,21 @@ export interface WithdrawalRecord {
     note?: string
 }
 
-const COLLECTION_NAME = 'prop_accounts'
+const SUBCOLLECTION_NAME = 'prop_accounts'
+
+function getCollectionRef(userId: string) {
+    return collection(db, 'users', userId, SUBCOLLECTION_NAME)
+}
+
+function getDocRef(userId: string, docId: string) {
+    return doc(db, 'users', userId, SUBCOLLECTION_NAME, docId)
+}
 
 export async function createPropAccount(
     userId: string,
     data: Omit<PropFirmAccount, 'id' | 'userId' | 'createdAt' | 'updatedAt' | 'withdrawalHistory' | 'totalWithdrawals'>
 ): Promise<string> {
-    const collectionRef = collection(db, COLLECTION_NAME)
+    const collectionRef = getCollectionRef(userId)
 
     const docRef = await addDoc(collectionRef, {
         ...data,
@@ -74,11 +82,9 @@ export async function createPropAccount(
 }
 
 export async function getPropAccounts(userId: string): Promise<PropFirmAccount[]> {
-    const collectionRef = collection(db, COLLECTION_NAME)
-    const q = query(
-        collectionRef,
-        where('userId', '==', userId)
-    )
+    const collectionRef = getCollectionRef(userId)
+    // No need for where('userId') clause as it's scoped by collection path
+    const q = query(collectionRef)
 
     const snapshot = await getDocs(q)
     const accounts = snapshot.docs.map(doc => {
@@ -104,10 +110,11 @@ export async function getPropAccounts(userId: string): Promise<PropFirmAccount[]
 }
 
 export async function updatePropAccount(
+    userId: string,
     accountId: string,
     data: Partial<PropFirmAccount>
 ): Promise<void> {
-    const docRef = doc(db, COLLECTION_NAME, accountId)
+    const docRef = getDocRef(userId, accountId)
 
     // If we're updating purchaseDate, ensure it's a Date object if it's not already
     const updateData: any = { ...data }
@@ -122,13 +129,14 @@ export async function updatePropAccount(
 }
 
 export async function addWithdrawal(
+    userId: string,
     accountId: string,
     amount: number,
     splitPercentage: number,
     date: Date,
     note?: string
 ): Promise<void> {
-    const accountRef = doc(db, COLLECTION_NAME, accountId)
+    const accountRef = getDocRef(userId, accountId)
     const accountSnap = await getDoc(accountRef)
 
     if (!accountSnap.exists()) {
@@ -158,7 +166,7 @@ export async function addWithdrawal(
     })
 }
 
-export async function deletePropAccount(accountId: string): Promise<void> {
-    const docRef = doc(db, COLLECTION_NAME, accountId)
+export async function deletePropAccount(userId: string, accountId: string): Promise<void> {
+    const docRef = getDocRef(userId, accountId)
     await deleteDoc(docRef)
 }

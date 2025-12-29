@@ -67,6 +67,7 @@ function JournalContent() {
 
           const convertedTrades: Trade[] = firestoreTrades.map(t => ({
             id: t.id || '',
+            userId: t.userId,
             symbol: t.symbol,
             direction: t.direction,
             status: t.status,

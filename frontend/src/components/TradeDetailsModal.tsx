@@ -174,9 +174,9 @@ export function TradeDetailsModal({ isOpen = true, onClose, trade, onSave, isNew
             const updatedTradeStart = { ...trade, ...additionalFields }
 
             // Update via API only if it's an existing trade
-            if (!isNewTrade) {
+            if (!isNewTrade && user) {
                 if (trade.id) {
-                    await updateTrade(String(trade.id), additionalFields)
+                    await updateTrade(user.uid, String(trade.id), additionalFields)
                     console.log('Trade updated successfully')
                 } else {
                     console.warn('Trade has no ID, cannot update')

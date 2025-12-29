@@ -38,7 +38,7 @@ export function TradesTable({ trades, onTradeDeleted }: TradesTableProps) {
   const [selectedTrade, setSelectedTrade] = useState<string | null>(null)
   const [expandedTradeId, setExpandedTradeId] = useState<string | null>(null)
   const [isChartFullScreen, setIsChartFullScreen] = useState(false)
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<Trade | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [aiReviewTrade, setAiReviewTrade] = useState<Trade | null>(null)
   const [detailsTrade, setDetailsTrade] = useState<Trade | null>(null)
@@ -54,7 +54,7 @@ export function TradesTable({ trades, onTradeDeleted }: TradesTableProps) {
     }
   }
 
-  const handleDelete = async (tradeId: string) => {
+  const handleDelete = async (tradeId: string, userId: string) => {
     setIsDeleting(true)
     try {
       // Start fadeout animation
@@ -65,7 +65,7 @@ export function TradesTable({ trades, onTradeDeleted }: TradesTableProps) {
       await new Promise(resolve => setTimeout(resolve, 300))
 
       // Delete from Firestore
-      await deleteTrade(tradeId)
+      await deleteTrade(userId, tradeId)
 
       // Notify parent to update local state (without full refresh)
       if (onTradeDeleted) {
@@ -133,7 +133,7 @@ export function TradesTable({ trades, onTradeDeleted }: TradesTableProps) {
                 Cancel
               </button>
               <button
-                onClick={() => handleDelete(deleteConfirm)}
+                onClick={() => deleteConfirm && handleDelete(deleteConfirm.id, deleteConfirm.userId)}
                 className="px-4 py-2 bg-loss text-white rounded-lg hover:bg-loss/80 transition-colors flex items-center gap-2"
                 disabled={isDeleting}
               >
@@ -436,7 +436,7 @@ export function TradesTable({ trades, onTradeDeleted }: TradesTableProps) {
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
-                              setDeleteConfirm(String(trade.id))
+                              setDeleteConfirm(trade)
                             }}
                             className="p-1.5 hover:bg-loss/20 rounded transition-colors group/del"
                             title="Delete"

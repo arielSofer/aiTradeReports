@@ -16,6 +16,15 @@ import {
 } from 'firebase/firestore'
 import { db } from './config'
 
+// Helper to get nested collection ref
+function getCollectionRef(userId: string, col: string) {
+  return collection(db, 'users', userId, col)
+}
+
+function getDocRef(userId: string, col: string, docId: string) {
+  return doc(db, 'users', userId, col, docId)
+}
+
 // ==================== ACCOUNTS ====================
 
 export interface FirestoreAccount {
@@ -40,7 +49,7 @@ export async function createAccount(
   userId: string,
   data: Omit<FirestoreAccount, 'id' | 'userId' | 'createdAt' | 'updatedAt'>
 ): Promise<string> {
-  const accountsRef = collection(db, 'accounts')
+  const accountsRef = getCollectionRef(userId, 'accounts')
 
   const docRef = await addDoc(accountsRef, {
     ...data,
@@ -53,11 +62,9 @@ export async function createAccount(
 }
 
 export async function getAccounts(userId: string): Promise<FirestoreAccount[]> {
-  const accountsRef = collection(db, 'accounts')
-  const q = query(
-    accountsRef,
-    where('userId', '==', userId)
-  )
+  const accountsRef = getCollectionRef(userId, 'accounts')
+  // No need for where('userId')
+  const q = query(accountsRef)
 
   const snapshot = await getDocs(q)
   const accounts = snapshot.docs.map(doc => ({
@@ -73,8 +80,8 @@ export async function getAccounts(userId: string): Promise<FirestoreAccount[]> {
   })
 }
 
-export async function getAccount(accountId: string): Promise<FirestoreAccount | null> {
-  const accountRef = doc(db, 'accounts', accountId)
+export async function getAccount(userId: string, accountId: string): Promise<FirestoreAccount | null> {
+  const accountRef = getDocRef(userId, 'accounts', accountId)
   const snapshot = await getDoc(accountRef)
 
   if (snapshot.exists()) {
@@ -84,19 +91,20 @@ export async function getAccount(accountId: string): Promise<FirestoreAccount | 
 }
 
 export async function updateAccount(
+  userId: string,
   accountId: string,
   data: Partial<FirestoreAccount>
 ): Promise<void> {
-  const accountRef = doc(db, 'accounts', accountId)
+  const accountRef = getDocRef(userId, 'accounts', accountId)
   await updateDoc(accountRef, {
     ...data,
     updatedAt: serverTimestamp()
   })
 }
 
-export async function deleteAccount(accountId: string): Promise<void> {
+export async function deleteAccount(userId: string, accountId: string): Promise<void> {
   // Delete all trades for this account first
-  const tradesRef = collection(db, 'trades')
+  const tradesRef = getCollectionRef(userId, 'trades')
   const q = query(tradesRef, where('accountId', '==', accountId))
   const snapshot = await getDocs(q)
 
@@ -104,7 +112,7 @@ export async function deleteAccount(accountId: string): Promise<void> {
   await Promise.all(deletePromises)
 
   // Delete account
-  const accountRef = doc(db, 'accounts', accountId)
+  const accountRef = getDocRef(userId, 'accounts', accountId)
   await deleteDoc(accountRef)
 }
 
@@ -146,7 +154,7 @@ export async function createTrade(
   accountId: string,
   data: Omit<FirestoreTrade, 'id' | 'userId' | 'accountId' | 'createdAt' | 'updatedAt'>
 ): Promise<string> {
-  const tradesRef = collection(db, 'trades')
+  const tradesRef = getCollectionRef(userId, 'trades')
 
   // Calculate P&L if closed
   let pnlGross: number = 0
@@ -205,8 +213,10 @@ export async function batchCreateTrades(
   let totalCreated = 0
 
   for (const chunk of chunks) {
+    // Note: Batches can't easily reference dynamic paths per operation if they vary, 
+    // but here they are all for same userId.
     const batch = writeBatch(db)
-    const tradesRef = collection(db, 'trades')
+    const tradesRef = getCollectionRef(userId, 'trades')
 
     for (const data of chunk) {
       const docRef = doc(tradesRef)
@@ -264,12 +274,10 @@ export async function getTrades(
     limitCount?: number
   }
 ): Promise<FirestoreTrade[]> {
-  const tradesRef = collection(db, 'trades')
+  const tradesRef = getCollectionRef(userId, 'trades')
 
-  // Simple query with just userId filter - no orderBy to avoid index requirement
-  const constraints: QueryConstraint[] = [
-    where('userId', '==', userId)
-  ]
+  // No need for where('userId')
+  const constraints: QueryConstraint[] = []
 
   if (options?.limitCount) {
     constraints.push(limit(options.limitCount))
@@ -306,8 +314,8 @@ export async function getTrades(
   })
 }
 
-export async function getTrade(tradeId: string): Promise<FirestoreTrade | null> {
-  const tradeRef = doc(db, 'trades', tradeId)
+export async function getTrade(userId: string, tradeId: string): Promise<FirestoreTrade | null> {
+  const tradeRef = getDocRef(userId, 'trades', tradeId)
   const snapshot = await getDoc(tradeRef)
 
   if (snapshot.exists()) {
@@ -317,14 +325,15 @@ export async function getTrade(tradeId: string): Promise<FirestoreTrade | null> 
 }
 
 export async function updateTrade(
+  userId: string,
   tradeId: string,
   data: Partial<FirestoreTrade>
 ): Promise<void> {
-  const tradeRef = doc(db, 'trades', tradeId)
+  const tradeRef = getDocRef(userId, 'trades', tradeId)
 
   // Recalculate P&L if prices changed
   if (data.exitPrice || data.entryPrice) {
-    const trade = await getTrade(tradeId)
+    const trade = await getTrade(userId, tradeId)
     if (trade) {
       const entryPrice = data.entryPrice || trade.entryPrice
       const exitPrice = data.exitPrice || trade.exitPrice
@@ -352,8 +361,8 @@ export async function updateTrade(
   })
 }
 
-export async function deleteTrade(tradeId: string): Promise<void> {
-  const tradeRef = doc(db, 'trades', tradeId)
+export async function deleteTrade(userId: string, tradeId: string): Promise<void> {
+  const tradeRef = getDocRef(userId, 'trades', tradeId)
   await deleteDoc(tradeRef)
 }
 
@@ -426,7 +435,7 @@ export async function createImportRecord(
   userId: string,
   data: Omit<ImportRecord, 'id' | 'userId' | 'createdAt'>
 ): Promise<string> {
-  const importsRef = collection(db, 'imports')
+  const importsRef = getCollectionRef(userId, 'imports')
 
   const docRef = await addDoc(importsRef, {
     ...data,
@@ -438,10 +447,9 @@ export async function createImportRecord(
 }
 
 export async function getImportHistory(userId: string): Promise<ImportRecord[]> {
-  const importsRef = collection(db, 'imports')
+  const importsRef = getCollectionRef(userId, 'imports')
   const q = query(
-    importsRef,
-    where('userId', '==', userId)
+    importsRef
   )
 
   const snapshot = await getDocs(q)

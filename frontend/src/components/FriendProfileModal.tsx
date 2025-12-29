@@ -35,6 +35,7 @@ function convertToTrade(ft: FirestoreTrade, accounts: FirestoreAccount[]): Trade
     const account = accounts.find(a => a.id === ft.accountId)
     return {
         id: ft.id || '',
+        userId: ft.userId,
         symbol: ft.symbol,
         direction: ft.direction as 'long' | 'short',
         entryPrice: ft.entryPrice,

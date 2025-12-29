@@ -166,7 +166,7 @@ function AccountsContent() {
     if (!user) return
     if (confirm('Are you sure you want to delete this account? All trades will be lost.')) {
       try {
-        await deleteFirestoreAccount(id)
+        await deleteFirestoreAccount(user.uid, id)
         setAccounts(accounts.filter(a => a.id !== id))
       } catch (error) {
         console.error('Error deleting account:', error)
@@ -178,7 +178,7 @@ function AccountsContent() {
   const handleSaveNickname = async (accountId: string) => {
     if (!user) return
     try {
-      await updateAccount(accountId, { nickname: nicknameValue || undefined })
+      await updateAccount(user.uid, accountId, { nickname: nicknameValue || undefined })
       setAccounts(accounts.map(a =>
         a.id === accountId ? { ...a, nickname: nicknameValue || undefined } : a
       ))

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { Trade } from '@/lib/store'
-import { TrendingUp, TrendingDown, Clock, DollarSign, Maximize2, Minimize2, Play, Pause, SkipBack, Loader2 } from 'lucide-react'
+import { TrendingUp, TrendingDown, Clock, DollarSign, Maximize2, Minimize2, Play, Pause, SkipBack, Loader2, X } from 'lucide-react'
 import { formatCurrency, cn } from '@/lib/utils'
 import { API_BASE_URL } from '@/lib/api'
 import { IChartApi, ISeriesApi, createChart, ColorType } from 'lightweight-charts'
@@ -439,8 +439,10 @@ export function TradeChartViewer({
       // Pause
       setIsPlaying(false)
     } else {
-      // Start playing - always restart from beginning
-      setPlaybackIndex(0)
+      // Resume or Restart
+      if (playbackIndex >= displayedData.length - 1 || playbackIndex === -1) {
+        setPlaybackIndex(0) // Start from beginning if at end
+      }
       setIsPlaying(true)
     }
   }
@@ -520,13 +522,13 @@ export function TradeChartViewer({
 
           <div className="flex items-center gap-2">
             {onToggleFullScreen && (
-              <button onClick={onToggleFullScreen} className="p-2 hover:bg-dark-800 rounded-lg text-dark-400">
+              <button onClick={onToggleFullScreen} className="p-2 hover:bg-dark-800 rounded-lg text-dark-400" title={isFullScreen ? "Exit Fullscreen" : "Fullscreen"}>
                 {isFullScreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
               </button>
             )}
             {onClose && (
-              <button onClick={onClose} className="p-2 hover:bg-dark-800 rounded-lg text-dark-400">
-                <Minimize2 size={20} />
+              <button onClick={onClose} className="p-2 hover:bg-dark-800 rounded-lg text-dark-400" title="Close">
+                <X size={20} />
               </button>
             )}
           </div>

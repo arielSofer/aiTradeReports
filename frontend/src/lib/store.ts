@@ -2,6 +2,7 @@ import { create } from 'zustand'
 
 export interface Trade {
   id: string
+  userId: string
   accountId?: string
   accountName?: string
   symbol: string
@@ -129,7 +130,7 @@ export const useStore = create<StoreState>((set) => ({
   },
 
   // Sidebar
-  isSidebarCollapsed: false,
+  isSidebarCollapsed: true,
   toggleSidebar: () => set((state) => ({ isSidebarCollapsed: !state.isSidebarCollapsed })),
 
   // Filters
