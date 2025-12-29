@@ -134,7 +134,9 @@ export function TradeDetailsModal({ isOpen = true, onClose, trade, onSave, isNew
                 <div className="flex items-center justify-between p-6 border-b border-dark-800">
                     <div>
                         <h2 className="text-2xl font-display font-bold text-white">Trade Details</h2>
-                        <p className="text-dark-400">Add details and reviews for {trade.symbol}</p>
+                        <p className="text-dark-400">
+                            {readOnly ? `Viewing ${trade.symbol} trade` : `Add details and reviews for ${trade.symbol}`}
+                        </p>
                     </div>
                     <button
                         onClick={onClose}
@@ -150,23 +152,37 @@ export function TradeDetailsModal({ isOpen = true, onClose, trade, onSave, isNew
                     {/* Notes Section */}
                     <div className="mb-6 bg-dark-800/50 rounded-xl p-4 border border-dark-700/50">
                         <label className="text-sm font-medium text-dark-300 mb-2 block">Trade Notes</label>
-                        <textarea
-                            value={notes}
-                            onChange={(e) => setNotes(e.target.value)}
-                            className="input w-full min-h-[100px] resize-none"
-                            placeholder="Add your thoughts, emotions, and analysis of this trade..."
-                        />
+                        {readOnly ? (
+                            <div className="input w-full min-h-[60px] text-dark-300">
+                                {notes || <span className="text-dark-500 italic">No notes</span>}
+                            </div>
+                        ) : (
+                            <textarea
+                                value={notes}
+                                onChange={(e) => setNotes(e.target.value)}
+                                className="input w-full min-h-[100px] resize-none"
+                                placeholder="Add your thoughts, emotions, and analysis of this trade..."
+                            />
+                        )}
                     </div>
 
                     {/* Custom Tags Section */}
                     <div className="mb-6 bg-dark-800/50 rounded-xl p-4 border border-dark-700/50">
                         <label className="text-sm font-medium text-dark-300 mb-2 block">Custom Tags</label>
-                        <TagInput
-                            tags={customTags}
-                            onChange={setCustomTags}
-                            placeholder="Add custom tags..."
-                            suggestions={allTags}
-                        />
+                        {readOnly ? (
+                            <div className="flex flex-wrap gap-2">
+                                {customTags.length > 0 ? customTags.map(tag => (
+                                    <span key={tag} className="px-2 py-1 bg-dark-700 text-dark-300 rounded text-sm">{tag}</span>
+                                )) : <span className="text-dark-500 italic">No custom tags</span>}
+                            </div>
+                        ) : (
+                            <TagInput
+                                tags={customTags}
+                                onChange={setCustomTags}
+                                placeholder="Add custom tags..."
+                                suggestions={allTags}
+                            />
+                        )}
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -205,7 +221,8 @@ export function TradeDetailsModal({ isOpen = true, onClose, trade, onSave, isNew
                                                     type="checkbox"
                                                     className="hidden"
                                                     checked={isSelected}
-                                                    onChange={() => toggleOption(category.id, option)}
+                                                    onChange={() => !readOnly && toggleOption(category.id, option)}
+                                                    disabled={readOnly}
                                                 />
                                                 <span className="text-sm font-medium">{option}</span>
                                             </label>
@@ -223,23 +240,25 @@ export function TradeDetailsModal({ isOpen = true, onClose, trade, onSave, isNew
                         onClick={onClose}
                         className="px-6 py-2.5 rounded-xl text-dark-300 hover:bg-dark-800 transition-colors font-medium"
                     >
-                        Cancel
+                        {readOnly ? 'Close' : 'Cancel'}
                     </button>
-                    <button
-                        onClick={handleSave}
-                        disabled={isSaving}
-                        className="px-6 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-xl shadow-lg shadow-primary/20 
-                       flex items-center gap-2 font-medium transition-all transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {isSaving ? (
-                            <>Saving...</>
-                        ) : (
-                            <>
-                                <Save className="w-4 h-4" />
-                                Save Details
-                            </>
-                        )}
-                    </button>
+                    {!readOnly && (
+                        <button
+                            onClick={handleSave}
+                            disabled={isSaving}
+                            className="px-6 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-xl shadow-lg shadow-primary/20 
+                           flex items-center gap-2 font-medium transition-all transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {isSaving ? (
+                                <>Saving...</>
+                            ) : (
+                                <>
+                                    <Save className="w-4 h-4" />
+                                    Save Details
+                                </>
+                            )}
+                        </button>
+                    )}
                 </div>
             </div>
         </div>
