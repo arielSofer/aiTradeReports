@@ -218,6 +218,40 @@ export function TradeChartViewer({
 
   }, [marketData, timeframe, trade.entryTime, trade.exitTime])
 
+  // Playback interval effect
+  useEffect(() => {
+    if (isPlaying && displayedData.length > 0) {
+      // Clear any existing interval
+      if (playbackIntervalRef.current) {
+        clearInterval(playbackIntervalRef.current)
+      }
+
+      // Create new interval - advance one candle every 100ms
+      playbackIntervalRef.current = setInterval(() => {
+        setPlaybackIndex(prev => {
+          if (prev >= displayedData.length - 1) {
+            // Stop when we reach the end
+            setIsPlaying(false)
+            return displayedData.length - 1
+          }
+          return prev + 1
+        })
+      }, 100)
+    } else {
+      // Not playing - clear interval
+      if (playbackIntervalRef.current) {
+        clearInterval(playbackIntervalRef.current)
+        playbackIntervalRef.current = null
+      }
+    }
+
+    return () => {
+      if (playbackIntervalRef.current) {
+        clearInterval(playbackIntervalRef.current)
+      }
+    }
+  }, [isPlaying, displayedData.length])
+
   // Initialize/Update Chart
   useEffect(() => {
     if (!chartContainerRef.current) return
@@ -282,9 +316,13 @@ export function TradeChartViewer({
       resizeHandlerRef.current = handleResize
     }
 
-    // Update Data
+    // Update Data - use sliced data for playback
     if (seriesRef.current && displayedData.length > 0) {
-      seriesRef.current.setData(displayedData as any)
+      // For playback, show only candles up to current index
+      const dataToShow = playbackIndex >= 0 && playbackIndex < displayedData.length
+        ? displayedData.slice(0, playbackIndex + 1)
+        : displayedData
+      seriesRef.current.setData(dataToShow as any)
 
       // Add Markers (Entry/Exit)
       // Filter markers that are within displayed range
