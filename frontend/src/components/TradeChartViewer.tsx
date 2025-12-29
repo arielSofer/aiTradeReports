@@ -220,6 +220,8 @@ export function TradeChartViewer({
 
   // Playback interval effect
   useEffect(() => {
+    console.log('Playback effect triggered:', { isPlaying, displayedDataLength: displayedData.length, playbackIndex })
+
     if (isPlaying && displayedData.length > 0) {
       // Clear any existing interval
       if (playbackIntervalRef.current) {
@@ -229,12 +231,14 @@ export function TradeChartViewer({
       // Create new interval - advance one candle every 100ms
       playbackIntervalRef.current = setInterval(() => {
         setPlaybackIndex(prev => {
-          if (prev >= displayedData.length - 1) {
+          const newIndex = prev + 1
+          console.log('Advancing playback:', prev, '->', newIndex, 'of', displayedData.length)
+          if (newIndex >= displayedData.length - 1) {
             // Stop when we reach the end
             setIsPlaying(false)
             return displayedData.length - 1
           }
-          return prev + 1
+          return newIndex
         })
       }, 100)
     } else {
