@@ -13,7 +13,8 @@ import {
   BarChart3,
   LogOut,
   Trophy,
-  ChevronLeft
+  ChevronLeft,
+  Users
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/lib/store'
@@ -24,6 +25,7 @@ const menuItems = [
   { icon: LineChart, label: 'Analytics', href: '/analytics' },
   { icon: Wallet, label: 'Accounts', href: '/accounts' },
   { icon: Trophy, label: 'Prop Firms', href: '/prop-firms' },
+  { icon: Users, label: 'Friends', href: '/friends' },
   { icon: Upload, label: 'Import', href: '/import' },
   { icon: Settings, label: 'Settings', href: '/settings' },
 ]

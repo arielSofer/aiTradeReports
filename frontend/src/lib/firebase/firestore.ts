@@ -451,3 +451,263 @@ export async function getImportHistory(userId: string): Promise<ImportRecord[]> 
     return bTime - aTime
   }).slice(0, 50)
 }
+
+// ==================== FRIENDS ====================
+
+export interface FriendRequest {
+  id?: string
+  fromUserId: string
+  fromUsername: string
+  toUserId: string
+  toUsername: string
+  status: 'pending' | 'accepted' | 'rejected'
+  createdAt: any
+  updatedAt: any
+}
+
+export interface Friendship {
+  id?: string
+  user1Id: string
+  user2Id: string
+  user1Username: string
+  user2Username: string
+  createdAt: any
+}
+
+export interface FirestoreUserProfile {
+  id?: string
+  username: string
+  displayName?: string
+  email?: string
+  createdAt: any
+  updatedAt: any
+}
+
+// Get or create user profile
+export async function getFirestoreUserProfile(userId: string): Promise<FirestoreUserProfile | null> {
+  const userRef = doc(db, 'users', userId)
+  const userDoc = await getDoc(userRef)
+
+  if (userDoc.exists()) {
+    return { id: userDoc.id, ...userDoc.data() } as FirestoreUserProfile
+  }
+  return null
+}
+
+// Set username (with uniqueness check)
+export async function setUsername(userId: string, username: string): Promise<{ success: boolean; error?: string }> {
+  const normalizedUsername = username.toLowerCase().trim()
+
+  // Validate username
+  if (normalizedUsername.length < 3 || normalizedUsername.length > 20) {
+    return { success: false, error: 'Username must be 3-20 characters' }
+  }
+  if (!/^[a-z0-9_]+$/.test(normalizedUsername)) {
+    return { success: false, error: 'Username can only contain letters, numbers, and underscores' }
+  }
+
+  // Check if username already taken
+  const usersRef = collection(db, 'users')
+  const q = query(usersRef, where('username', '==', normalizedUsername), limit(1))
+  const snapshot = await getDocs(q)
+
+  if (!snapshot.empty && snapshot.docs[0].id !== userId) {
+    return { success: false, error: 'Username already taken' }
+  }
+
+  // Set or update username
+  const userRef = doc(db, 'users', userId)
+  const userDoc = await getDoc(userRef)
+
+  if (userDoc.exists()) {
+    await updateDoc(userRef, {
+      username: normalizedUsername,
+      updatedAt: serverTimestamp()
+    })
+  } else {
+    const { setDoc } = await import('firebase/firestore')
+    await setDoc(userRef, {
+      username: normalizedUsername,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    })
+  }
+
+  return { success: true }
+}
+
+// Search user by username
+export async function searchUserByUsername(username: string): Promise<FirestoreUserProfile | null> {
+  const normalizedUsername = username.toLowerCase().trim()
+  const usersRef = collection(db, 'users')
+  const q = query(usersRef, where('username', '==', normalizedUsername), limit(1))
+  const snapshot = await getDocs(q)
+
+  if (snapshot.empty) return null
+  return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as FirestoreUserProfile
+}
+
+// Send friend request
+export async function sendFriendRequest(
+  fromUserId: string,
+  fromUsername: string,
+  toUsername: string
+): Promise<{ success: boolean; error?: string }> {
+  // Find target user
+  const targetUser = await searchUserByUsername(toUsername)
+  if (!targetUser || !targetUser.id) {
+    return { success: false, error: 'User not found' }
+  }
+
+  if (targetUser.id === fromUserId) {
+    return { success: false, error: 'Cannot send friend request to yourself' }
+  }
+
+  // Check if already friends
+  const existingFriendship = await checkFriendship(fromUserId, targetUser.id)
+  if (existingFriendship) {
+    return { success: false, error: 'Already friends' }
+  }
+
+  // Check if request already sent
+  const requestsRef = collection(db, 'friendRequests')
+  const q = query(
+    requestsRef,
+    where('fromUserId', '==', fromUserId),
+    where('toUserId', '==', targetUser.id),
+    where('status', '==', 'pending'),
+    limit(1)
+  )
+  const existing = await getDocs(q)
+  if (!existing.empty) {
+    return { success: false, error: 'Friend request already sent' }
+  }
+
+  // Create friend request
+  await addDoc(requestsRef, {
+    fromUserId,
+    fromUsername,
+    toUserId: targetUser.id,
+    toUsername: targetUser.username,
+    status: 'pending',
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  })
+
+  return { success: true }
+}
+
+// Get pending friend requests for user
+export async function getPendingFriendRequests(userId: string): Promise<FriendRequest[]> {
+  const requestsRef = collection(db, 'friendRequests')
+  const q = query(
+    requestsRef,
+    where('toUserId', '==', userId),
+    where('status', '==', 'pending')
+  )
+  const snapshot = await getDocs(q)
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FriendRequest))
+}
+
+// Respond to friend request
+export async function respondToFriendRequest(
+  requestId: string,
+  accept: boolean
+): Promise<void> {
+  const requestRef = doc(db, 'friendRequests', requestId)
+  const requestDoc = await getDoc(requestRef)
+
+  if (!requestDoc.exists()) {
+    throw new Error('Request not found')
+  }
+
+  const request = requestDoc.data() as FriendRequest
+
+  // Update request status
+  await updateDoc(requestRef, {
+    status: accept ? 'accepted' : 'rejected',
+    updatedAt: serverTimestamp()
+  })
+
+  // If accepted, create friendship
+  if (accept) {
+    const friendshipsRef = collection(db, 'friendships')
+    await addDoc(friendshipsRef, {
+      user1Id: request.fromUserId,
+      user2Id: request.toUserId,
+      user1Username: request.fromUsername,
+      user2Username: request.toUsername,
+      createdAt: serverTimestamp()
+    })
+  }
+}
+
+// Check if two users are friends
+export async function checkFriendship(userId1: string, userId2: string): Promise<boolean> {
+  const friendshipsRef = collection(db, 'friendships')
+
+  // Check both directions
+  const q1 = query(
+    friendshipsRef,
+    where('user1Id', '==', userId1),
+    where('user2Id', '==', userId2),
+    limit(1)
+  )
+  const q2 = query(
+    friendshipsRef,
+    where('user1Id', '==', userId2),
+    where('user2Id', '==', userId1),
+    limit(1)
+  )
+
+  const [snap1, snap2] = await Promise.all([getDocs(q1), getDocs(q2)])
+  return !snap1.empty || !snap2.empty
+}
+
+// Get all friends for user
+export async function getFriends(userId: string): Promise<{ id: string; username: string }[]> {
+  const friendshipsRef = collection(db, 'friendships')
+
+  // Get friendships where user is user1 or user2
+  const q1 = query(friendshipsRef, where('user1Id', '==', userId))
+  const q2 = query(friendshipsRef, where('user2Id', '==', userId))
+
+  const [snap1, snap2] = await Promise.all([getDocs(q1), getDocs(q2)])
+
+  const friends: { id: string; username: string }[] = []
+
+  snap1.docs.forEach(doc => {
+    const data = doc.data()
+    friends.push({ id: data.user2Id, username: data.user2Username })
+  })
+
+  snap2.docs.forEach(doc => {
+    const data = doc.data()
+    friends.push({ id: data.user1Id, username: data.user1Username })
+  })
+
+  return friends
+}
+
+// Remove friendship
+export async function removeFriend(userId: string, friendId: string): Promise<void> {
+  const friendshipsRef = collection(db, 'friendships')
+
+  const q1 = query(
+    friendshipsRef,
+    where('user1Id', '==', userId),
+    where('user2Id', '==', friendId)
+  )
+  const q2 = query(
+    friendshipsRef,
+    where('user1Id', '==', friendId),
+    where('user2Id', '==', userId)
+  )
+
+  const [snap1, snap2] = await Promise.all([getDocs(q1), getDocs(q2)])
+
+  const batch = writeBatch(db)
+  snap1.docs.forEach(doc => batch.delete(doc.ref))
+  snap2.docs.forEach(doc => batch.delete(doc.ref))
+  await batch.commit()
+}

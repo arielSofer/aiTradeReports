@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { AuthProvider } from '@/contexts/AuthContext'
+import { FriendRequestPopup } from '@/components/FriendRequestPopup'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -18,6 +19,7 @@ export default function RootLayout({
         <AuthProvider>
           <div className="gradient-mesh fixed inset-0 pointer-events-none" />
           {children}
+          <FriendRequestPopup />
         </AuthProvider>
       </body>
     </html>
