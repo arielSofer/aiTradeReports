@@ -37,7 +37,17 @@ function GmailImportButtonContent({ onImport, existingAccounts }: GmailImportBut
     // Filter state
     const [startDate, setStartDate] = useState<string>('')
 
+    // Tab state: 'accounts' or 'payouts'
+    const [activeTab, setActiveTab] = useState<'accounts' | 'payouts'>('accounts')
+
     const fundedAccounts = existingAccounts.filter(a => a.isFunded)
+
+    // Separate items by type
+    const accountItems = foundItems.filter(i => i.type === 'Trading Combine')
+    const payoutItems = foundItems.filter(i => i.type === 'Payout')
+
+    // Get items for current tab
+    const currentTabItems = activeTab === 'accounts' ? accountItems : payoutItems
 
     // Helper to filter out already-imported items
     const filterImportedItems = (items: FoundAccount[]) => {
@@ -125,6 +135,22 @@ function GmailImportButtonContent({ onImport, existingAccounts }: GmailImportBut
     }
 
     if (showModal) {
+        // Helper function to toggle all items in current tab
+        const filteredCurrentItems = filterImportedItems(currentTabItems)
+        const allCurrentSelected = filteredCurrentItems.every(item => selectedIds.has(item.id))
+
+        const toggleSelectAllCurrent = () => {
+            const newSet = new Set(selectedIds)
+            if (allCurrentSelected) {
+                // Deselect all in current tab
+                filteredCurrentItems.forEach(item => newSet.delete(item.id))
+            } else {
+                // Select all in current tab
+                filteredCurrentItems.forEach(item => newSet.add(item.id))
+            }
+            setSelectedIds(newSet)
+        }
+
         return (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                 <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowModal(false)} />
@@ -136,100 +162,155 @@ function GmailImportButtonContent({ onImport, existingAccounts }: GmailImportBut
                         </h2>
                     </div>
 
-                    <div className="p-0 overflow-y-auto flex-1">
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className="border-b border-dark-800 bg-dark-800/50 text-xs font-medium text-dark-400 uppercase tracking-wider">
-                                    <th className="p-4 w-10">
-                                        <input
-                                            type="checkbox"
-                                            checked={selectedIds.size === foundItems.length}
-                                            onChange={(e) => {
-                                                if (e.target.checked) setSelectedIds(new Set(foundItems.map(a => a.id)))
-                                                else setSelectedIds(new Set())
-                                            }}
-                                            className="rounded border-dark-600 bg-dark-800"
-                                        />
-                                    </th>
-                                    <th className="p-4">Type</th>
-                                    <th className="p-4">Account / Login</th>
-                                    <th className="p-4">Details</th>
-                                    <th className="p-4">Assign To (Payouts)</th>
-                                    <th className="p-4">Date</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-dark-800/50">
-                                {filterImportedItems(foundItems).map(item => (
-                                    <tr key={item.id} className="hover:bg-dark-800/30 transition-colors">
-                                        <td className="p-4">
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedIds.has(item.id)}
-                                                onChange={(e) => {
-                                                    const newSet = new Set(selectedIds)
-                                                    if (e.target.checked) newSet.add(item.id)
-                                                    else newSet.delete(item.id)
-                                                    setSelectedIds(newSet)
-                                                }}
-                                                className="rounded border-dark-600 bg-dark-800"
-                                            />
-                                        </td>
-                                        <td className="p-4">
-                                            <span className={cn(
-                                                "text-xs px-2 py-1 rounded-full font-medium",
-                                                item.type === 'Payout' ? "bg-green-500/20 text-green-400" : "bg-blue-500/20 text-blue-400"
-                                            )}>
-                                                {item.type === 'Payout' ? 'Payout' : 'Account'}
-                                            </span>
-                                        </td>
-                                        <td className="p-4 font-mono text-sm text-white">{item.login}</td>
-                                        <td className="p-4 text-sm text-dark-200">
-                                            {item.type === 'Payout'
-                                                ? <span className="text-green-400 font-bold">+${item.amount?.toLocaleString()}</span>
-                                                : <span className="text-dark-300">Size: {(item.size / 1000).toFixed(0)}K</span>
-                                            }
-                                        </td>
-                                        <td className="p-4">
-                                            {item.type === 'Payout' ? (
-                                                <select
-                                                    value={item.targetAccountId || ''}
-                                                    onChange={(e) => updateTargetAccount(item.id, e.target.value)}
-                                                    className="bg-dark-800 border-dark-700 text-sm rounded-lg p-2 w-48 text-white focus:ring-primary-500 focus:border-primary-500"
-                                                    disabled={!selectedIds.has(item.id)}
-                                                >
-                                                    <option value="">Select Account...</option>
-                                                    {fundedAccounts.map(acc => (
-                                                        <option key={acc.id} value={acc.id}>
-                                                            {acc.name}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                            ) : (
-                                                <span className="text-dark-500 text-xs">-</span>
-                                            )}
-                                        </td>
-                                        <td className="p-4 text-sm text-dark-300">{item.date.toLocaleDateString()}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                    {/* Tabs */}
+                    <div className="flex border-b border-dark-800">
+                        <button
+                            onClick={() => setActiveTab('accounts')}
+                            className={cn(
+                                "flex-1 px-6 py-3 text-sm font-medium transition-colors",
+                                activeTab === 'accounts'
+                                    ? "text-primary-400 border-b-2 border-primary-400 bg-dark-800/30"
+                                    : "text-dark-400 hover:text-dark-200"
+                            )}
+                        >
+                            Accounts ({accountItems.length})
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('payouts')}
+                            className={cn(
+                                "flex-1 px-6 py-3 text-sm font-medium transition-colors",
+                                activeTab === 'payouts'
+                                    ? "text-green-400 border-b-2 border-green-400 bg-dark-800/30"
+                                    : "text-dark-400 hover:text-dark-200"
+                            )}
+                        >
+                            Payouts ({payoutItems.length})
+                        </button>
                     </div>
 
-                    <div className="p-6 border-t border-dark-800 flex justify-end gap-3 bg-dark-900">
-                        <button
-                            onClick={() => setShowModal(false)}
-                            className="btn-secondary"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            onClick={handleImportConfirm}
-                            disabled={isLoading || selectedIds.size === 0}
-                            className="btn-primary"
-                        >
-                            {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Check className="w-4 h-4 mr-2" />}
-                            Import {selectedIds.size} Items
-                        </button>
+                    <div className="p-0 overflow-y-auto flex-1">
+                        {filteredCurrentItems.length === 0 ? (
+                            <div className="p-8 text-center text-dark-500">
+                                No {activeTab === 'accounts' ? 'new accounts' : 'new payouts'} found
+                            </div>
+                        ) : (
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="border-b border-dark-800 bg-dark-800/50 text-xs font-medium text-dark-400 uppercase tracking-wider">
+                                        <th className="p-4 w-10">
+                                            <button
+                                                onClick={toggleSelectAllCurrent}
+                                                className={cn(
+                                                    "w-5 h-5 rounded border-2 flex items-center justify-center transition-colors",
+                                                    allCurrentSelected
+                                                        ? "bg-primary-500 border-primary-500"
+                                                        : "border-dark-500 hover:border-dark-400"
+                                                )}
+                                            >
+                                                {allCurrentSelected && <Check className="w-3 h-3 text-white" />}
+                                            </button>
+                                        </th>
+                                        {activeTab === 'accounts' ? (
+                                            <>
+                                                <th className="p-4">Provider</th>
+                                                <th className="p-4">Account</th>
+                                                <th className="p-4">Size</th>
+                                                <th className="p-4">Cost</th>
+                                                <th className="p-4">Date</th>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <th className="p-4">Provider</th>
+                                                <th className="p-4">Account</th>
+                                                <th className="p-4">Amount</th>
+                                                <th className="p-4">Assign To</th>
+                                                <th className="p-4">Date</th>
+                                            </>
+                                        )}
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-dark-800/50">
+                                    {filteredCurrentItems.map(item => (
+                                        <tr key={item.id} className="hover:bg-dark-800/30 transition-colors">
+                                            <td className="p-4">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedIds.has(item.id)}
+                                                    onChange={(e) => {
+                                                        const newSet = new Set(selectedIds)
+                                                        if (e.target.checked) newSet.add(item.id)
+                                                        else newSet.delete(item.id)
+                                                        setSelectedIds(newSet)
+                                                    }}
+                                                    className="rounded border-dark-600 bg-dark-800"
+                                                />
+                                            </td>
+                                            {activeTab === 'accounts' ? (
+                                                <>
+                                                    <td className="p-4">
+                                                        <span className="text-xs px-2 py-1 rounded-full font-medium bg-blue-500/20 text-blue-400">
+                                                            {item.provider}
+                                                        </span>
+                                                    </td>
+                                                    <td className="p-4 font-mono text-sm text-white">{item.login}</td>
+                                                    <td className="p-4 text-sm text-dark-200">{(item.size / 1000).toFixed(0)}K</td>
+                                                    <td className="p-4 text-sm text-dark-300">{item.cost ? `$${item.cost}` : '-'}</td>
+                                                    <td className="p-4 text-sm text-dark-300">{item.date.toLocaleDateString()}</td>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <td className="p-4">
+                                                        <span className="text-xs px-2 py-1 rounded-full font-medium bg-green-500/20 text-green-400">
+                                                            {item.provider}
+                                                        </span>
+                                                    </td>
+                                                    <td className="p-4 font-mono text-sm text-white">{item.login}</td>
+                                                    <td className="p-4 text-sm text-green-400 font-bold">+${item.amount?.toLocaleString()}</td>
+                                                    <td className="p-4">
+                                                        <select
+                                                            value={item.targetAccountId || ''}
+                                                            onChange={(e) => updateTargetAccount(item.id, e.target.value)}
+                                                            className="bg-dark-800 border-dark-700 text-sm rounded-lg p-2 w-40 text-white focus:ring-primary-500 focus:border-primary-500"
+                                                            disabled={!selectedIds.has(item.id)}
+                                                        >
+                                                            <option value="">Select...</option>
+                                                            {fundedAccounts.map(acc => (
+                                                                <option key={acc.id} value={acc.id}>
+                                                                    {acc.name}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                    </td>
+                                                    <td className="p-4 text-sm text-dark-300">{item.date.toLocaleDateString()}</td>
+                                                </>
+                                            )}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+
+                    <div className="p-6 border-t border-dark-800 flex items-center justify-between bg-dark-900">
+                        <div className="text-sm text-dark-400">
+                            {selectedIds.size} items selected
+                        </div>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setShowModal(false)}
+                                className="btn-secondary"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleImportConfirm}
+                                disabled={isLoading || selectedIds.size === 0}
+                                className="btn-primary"
+                            >
+                                {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Check className="w-4 h-4 mr-2" />}
+                                Import Selected ({selectedIds.size})
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
