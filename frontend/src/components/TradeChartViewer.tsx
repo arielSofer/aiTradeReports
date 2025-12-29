@@ -328,8 +328,7 @@ export function TradeChartViewer({
         : displayedData
       seriesRef.current.setData(dataToShow as any)
 
-      // Add Markers (Entry/Exit)
-      // Filter markers that are within displayed range
+      // Add Markers (Entry/Exit) based on CURRENTLY SHOWN data
       const markers = []
       const entryTime = new Date(trade.entryTime).getTime() / 1000
       const exitTime = trade.exitTime ? new Date(trade.exitTime).getTime() / 1000 : null
@@ -337,20 +336,8 @@ export function TradeChartViewer({
       // Tolerance depends on timeframe
       const tolerance = timeframe === '1m' ? 60 : timeframe === '5m' ? 300 : timeframe === '15m' ? 900 : 3600
 
-      console.log('Chart debug:', {
-        entryTime,
-        exitTime,
-        timeframe,
-        tolerance,
-        displayedDataRange: displayedData.length > 0 ? {
-          first: new Date(displayedData[0].time * 1000).toISOString(),
-          last: new Date(displayedData[displayedData.length - 1].time * 1000).toISOString(),
-          count: displayedData.length
-        } : 'empty'
-      })
-
-      // Find closest candle for entry
-      const entryCandle = displayedData.find(c => Math.abs(c.time - entryTime) < tolerance)
+      // Find closest candle for entry IN THE VISIBLE DATA
+      const entryCandle = dataToShow.find(c => Math.abs(c.time - entryTime) < tolerance)
       if (entryCandle) {
         markers.push({
           time: entryCandle.time,
@@ -359,12 +346,10 @@ export function TradeChartViewer({
           shape: trade.direction === 'long' ? 'arrowUp' : 'arrowDown',
           text: `Entry @ ${trade.entryPrice}`,
         })
-      } else {
-        console.warn('Entry candle not found in displayed data')
       }
 
       if (exitTime) {
-        const exitCandle = displayedData.find(c => Math.abs(c.time - exitTime) < tolerance)
+        const exitCandle = dataToShow.find(c => Math.abs(c.time - exitTime) < tolerance)
         if (exitCandle) {
           markers.push({
             time: exitCandle.time,
@@ -373,14 +358,12 @@ export function TradeChartViewer({
             shape: trade.direction === 'long' ? 'arrowDown' : 'arrowUp',
             text: `Exit @ ${trade.exitPrice}`,
           })
-        } else {
-          console.warn('Exit candle not found in displayed data')
         }
       }
 
       seriesRef.current.setMarkers(markers as any)
 
-      // Add SL/TP price lines if they exist
+      // Add SL/TP price lines if they exist AND we have reached the entry
       // First remove any existing price lines
       const existingLines = (seriesRef.current as any)._priceLines || []
       existingLines.forEach((line: any) => {
@@ -388,30 +371,36 @@ export function TradeChartViewer({
       })
       const newLines: any[] = []
 
-      // Stop Loss line (red dashed)
-      if (trade.manualSL) {
-        const slLine = seriesRef.current.createPriceLine({
-          price: trade.manualSL,
-          color: '#ef4444',
-          lineWidth: 2,
-          lineStyle: 2, // Dashed
-          axisLabelVisible: true,
-          title: 'SL',
-        })
-        newLines.push(slLine)
-      }
+      // Only show SL/TP if we have reached the entry time
+      const isEntryReached = dataToShow.some(c => Math.abs(c.time - entryTime) < tolerance) ||
+        (dataToShow.length > 0 && dataToShow[dataToShow.length - 1].time >= entryTime)
 
-      // Take Profit line (green dashed)
-      if (trade.manualTP) {
-        const tpLine = seriesRef.current.createPriceLine({
-          price: trade.manualTP,
-          color: '#10b981',
-          lineWidth: 2,
-          lineStyle: 2, // Dashed
-          axisLabelVisible: true,
-          title: 'TP',
-        })
-        newLines.push(tpLine)
+      if (isEntryReached) {
+        // Stop Loss line (red dashed)
+        if (trade.manualSL) {
+          const slLine = seriesRef.current.createPriceLine({
+            price: trade.manualSL,
+            color: '#ef4444',
+            lineWidth: 2,
+            lineStyle: 2, // Dashed
+            axisLabelVisible: true,
+            title: 'SL',
+          })
+          newLines.push(slLine)
+        }
+
+        // Take Profit line (green dashed)
+        if (trade.manualTP) {
+          const tpLine = seriesRef.current.createPriceLine({
+            price: trade.manualTP,
+            color: '#10b981',
+            lineWidth: 2,
+            lineStyle: 2, // Dashed
+            axisLabelVisible: true,
+            title: 'TP',
+          })
+          newLines.push(tpLine)
+        }
       }
 
       // Store reference for cleanup
