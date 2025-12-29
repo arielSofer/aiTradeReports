@@ -131,6 +131,12 @@ export interface FirestoreTrade {
   takeProfit?: number
   tags: string[]
   notes?: string
+  // Checklist tracking
+  checklistCompleted?: string[]
+  // Manual SL/TP for R:R calculation
+  manualSL?: number
+  manualTP?: number
+  riskRewardRatio?: number
   createdAt: any
   updatedAt: any
 }
@@ -479,6 +485,7 @@ export interface FirestoreUserProfile {
   username: string
   displayName?: string
   email?: string
+  tradeChecklist?: string[]  // Custom checklist items for trades
   createdAt: any
   updatedAt: any
 }
@@ -710,4 +717,37 @@ export async function removeFriend(userId: string, friendId: string): Promise<vo
   snap1.docs.forEach(doc => batch.delete(doc.ref))
   snap2.docs.forEach(doc => batch.delete(doc.ref))
   await batch.commit()
+}
+
+// ==================== TRADE CHECKLIST ====================
+
+// Get user's trade checklist items
+export async function getUserChecklist(userId: string): Promise<string[]> {
+  const userRef = doc(db, 'users', userId)
+  const userDoc = await getDoc(userRef)
+
+  if (userDoc.exists()) {
+    return userDoc.data().tradeChecklist || []
+  }
+  return []
+}
+
+// Update user's trade checklist items
+export async function updateUserChecklist(userId: string, items: string[]): Promise<void> {
+  const userRef = doc(db, 'users', userId)
+  const userDoc = await getDoc(userRef)
+
+  if (userDoc.exists()) {
+    await updateDoc(userRef, {
+      tradeChecklist: items,
+      updatedAt: serverTimestamp()
+    })
+  } else {
+    const { setDoc } = await import('firebase/firestore')
+    await setDoc(userRef, {
+      tradeChecklist: items,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    })
+  }
 }

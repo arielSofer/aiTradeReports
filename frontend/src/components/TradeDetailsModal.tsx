@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X, Save, Check } from 'lucide-react'
+import { X, Save, Check, Calculator } from 'lucide-react'
 import { Trade, useStore } from '@/lib/store'
 import { TRADE_DETAILS_CONFIG } from '@/lib/tradeDetailsConfig'
-import { cn } from '@/lib/utils'
-import { updateTrade } from '@/lib/firebase/firestore'
+import { cn, formatCurrency } from '@/lib/utils'
+import { updateTrade, getUserChecklist } from '@/lib/firebase/firestore'
 import { TagInput } from './TagInput'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface TradeDetailsModalProps {
     isOpen?: boolean
@@ -18,18 +19,41 @@ interface TradeDetailsModalProps {
 }
 
 export function TradeDetailsModal({ isOpen = true, onClose, trade, onSave, isNewTrade, readOnly }: TradeDetailsModalProps) {
+    const { user } = useAuth()
     const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>({})
     const [customTags, setCustomTags] = useState<string[]>([])
     const [notes, setNotes] = useState(trade.notes || '')
     const [isSaving, setIsSaving] = useState(false)
 
+    // Checklist state
+    const [checklistItems, setChecklistItems] = useState<string[]>([])
+    const [checklistCompleted, setChecklistCompleted] = useState<string[]>([])
+
+    // SL/TP state
+    const [manualSL, setManualSL] = useState<string>('')
+    const [manualTP, setManualTP] = useState<string>('')
+
     const { trades } = useStore()
     const allTags = Array.from(new Set(trades.flatMap(t => t.tags)))
+
+    // Load user's checklist items
+    useEffect(() => {
+        if (user && isOpen) {
+            getUserChecklist(user.uid).then(items => {
+                setChecklistItems(items)
+            }).catch(console.error)
+        }
+    }, [user, isOpen])
 
     // Initialize selected options from trade tags
     useEffect(() => {
         if (isOpen && trade) {
             setNotes(trade.notes || '')
+            // Initialize SL/TP from trade if they exist
+            setManualSL((trade as any).manualSL?.toString() || '')
+            setManualTP((trade as any).manualTP?.toString() || '')
+            setChecklistCompleted((trade as any).checklistCompleted || [])
+
             const initialOptions: Record<string, string[]> = {}
             const initialCustomTags: string[] = []
 
@@ -63,6 +87,42 @@ export function TradeDetailsModal({ isOpen = true, onClose, trade, onSave, isNew
         }
     }, [isOpen, trade])
 
+    // Calculate R:R ratio
+    const calculateRR = (): number | null => {
+        const sl = parseFloat(manualSL)
+        const tp = parseFloat(manualTP)
+        const entry = trade.entryPrice
+        const exit = trade.exitPrice
+
+        if (!entry) return null
+
+        const isWinner = (trade.pnlNet || 0) > 0
+
+        if (isWinner && sl) {
+            // For winning trade: R:R = (exit - entry) / (entry - SL) for long
+            // or (entry - exit) / (SL - entry) for short
+            const reward = Math.abs((exit || entry) - entry)
+            const risk = Math.abs(entry - sl)
+            if (risk === 0) return null
+            return reward / risk
+        } else if (!isWinner && tp) {
+            // For losing trade: R:R = (TP - entry) / (entry - exit) for long
+            const expectedReward = Math.abs(tp - entry)
+            const actualLoss = Math.abs((exit || entry) - entry)
+            if (actualLoss === 0) return null
+            return expectedReward / actualLoss
+        }
+        return null
+    }
+
+    const toggleChecklistItem = (item: string) => {
+        setChecklistCompleted(prev =>
+            prev.includes(item)
+                ? prev.filter(i => i !== item)
+                : [...prev, item]
+        )
+    }
+
     const toggleOption = (categoryId: string, option: string) => {
         setSelectedOptions(prev => {
             const current = prev[categoryId] || []
@@ -88,11 +148,6 @@ export function TradeDetailsModal({ isOpen = true, onClose, trade, onSave, isNew
             // Collect all selected options as tags
             const newTags: string[] = [...customTags]
 
-            // We don't need to filter existing unknown tags because they are now in customTags
-            // const knownOptions = new Set(TRADE_DETAILS_CONFIG.flatMap(c => c.options))
-            // const existingUnknownTags = trade.tags.filter(t => !knownOptions.has(t))
-            // newTags.push(...existingUnknownTags)
-
             Object.keys(selectedOptions).forEach(catId => {
                 selectedOptions[catId].forEach(opt => {
                     if (!newTags.includes(opt)) {
@@ -101,12 +156,25 @@ export function TradeDetailsModal({ isOpen = true, onClose, trade, onSave, isNew
                 })
             })
 
-            const updatedTradeStart = { ...trade, tags: newTags, notes }
+            // Prepare additional fields
+            const rrRatio = calculateRR()
+            const additionalFields: any = {
+                tags: newTags,
+                notes,
+                checklistCompleted
+            }
+
+            // Only add SL/TP if provided
+            if (manualSL) additionalFields.manualSL = parseFloat(manualSL)
+            if (manualTP) additionalFields.manualTP = parseFloat(manualTP)
+            if (rrRatio !== null) additionalFields.riskRewardRatio = rrRatio
+
+            const updatedTradeStart = { ...trade, ...additionalFields }
 
             // Update via API only if it's an existing trade
             if (!isNewTrade) {
                 if (trade.id) {
-                    await updateTrade(String(trade.id), { tags: newTags, notes })
+                    await updateTrade(String(trade.id), additionalFields)
                 }
             }
 
@@ -114,9 +182,6 @@ export function TradeDetailsModal({ isOpen = true, onClose, trade, onSave, isNew
             onClose()
         } catch (error) {
             console.error('Failed to save trade details:', error)
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/c515b6be-06d5-4b2c-9fd7-edc0f43b741e', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: 'debug-session', runId: 'pre-fix', hypothesisId: 'H4', location: 'frontend/src/components/TradeDetailsModal.tsx:handleSave:error', message: 'Save failed', data: { errorMessage: error instanceof Error ? error.message : String(error) }, timestamp: Date.now() }) }).catch(() => { })
-            // #endregion
             alert('Failed to save changes')
         } finally {
             setIsSaving(false)
@@ -184,6 +249,105 @@ export function TradeDetailsModal({ isOpen = true, onClose, trade, onSave, isNew
                             />
                         )}
                     </div>
+
+                    {/* Trade Checklist */}
+                    {checklistItems.length > 0 && (
+                        <div className="mb-6 bg-dark-800/50 rounded-xl p-4 border border-dark-700/50">
+                            <label className="text-sm font-medium text-dark-300 mb-3 block">Trade Checklist</label>
+                            <div className="space-y-2">
+                                {checklistItems.map((item, index) => {
+                                    const isChecked = checklistCompleted.includes(item)
+                                    return (
+                                        <label
+                                            key={index}
+                                            className={cn(
+                                                'flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors',
+                                                readOnly ? 'cursor-default' : 'hover:bg-dark-700/50'
+                                            )}
+                                        >
+                                            <div className={cn(
+                                                'w-5 h-5 rounded border-2 flex items-center justify-center transition-colors',
+                                                isChecked
+                                                    ? 'bg-profit border-profit'
+                                                    : 'border-dark-500'
+                                            )}>
+                                                {isChecked && <Check className="w-3 h-3 text-white" />}
+                                            </div>
+                                            <input
+                                                type="checkbox"
+                                                className="hidden"
+                                                checked={isChecked}
+                                                onChange={() => !readOnly && toggleChecklistItem(item)}
+                                                disabled={readOnly}
+                                            />
+                                            <span className={cn(
+                                                'text-sm',
+                                                isChecked ? 'text-white' : 'text-dark-400'
+                                            )}>{item}</span>
+                                        </label>
+                                    )
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Manual SL/TP for R:R Calculation */}
+                    {!readOnly && (
+                        <div className="mb-6 bg-dark-800/50 rounded-xl p-4 border border-dark-700/50">
+                            <div className="flex items-center gap-2 mb-3">
+                                <Calculator className="w-4 h-4 text-primary-400" />
+                                <label className="text-sm font-medium text-dark-300">Risk/Reward Calculation</label>
+                            </div>
+                            <p className="text-xs text-dark-500 mb-4">
+                                {(trade.pnlNet || 0) > 0
+                                    ? "This trade won. Enter your intended Stop Loss to calculate R:R."
+                                    : "This trade lost. Enter your intended Take Profit to calculate R:R."
+                                }
+                            </p>
+                            <div className="grid grid-cols-2 gap-4">
+                                {(trade.pnlNet || 0) > 0 ? (
+                                    <div>
+                                        <label className="text-xs text-dark-400 mb-1 block">Intended Stop Loss</label>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            value={manualSL}
+                                            onChange={(e) => setManualSL(e.target.value)}
+                                            placeholder={`Below ${trade.entryPrice}`}
+                                            className="input w-full"
+                                        />
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <label className="text-xs text-dark-400 mb-1 block">Intended Take Profit</label>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            value={manualTP}
+                                            onChange={(e) => setManualTP(e.target.value)}
+                                            placeholder={`Target price`}
+                                            className="input w-full"
+                                        />
+                                    </div>
+                                )}
+                                <div>
+                                    <label className="text-xs text-dark-400 mb-1 block">R:R Ratio</label>
+                                    <div className="input w-full bg-dark-700/50 flex items-center">
+                                        {calculateRR() !== null ? (
+                                            <span className={cn(
+                                                'font-bold',
+                                                calculateRR()! >= 1 ? 'text-profit' : 'text-loss'
+                                            )}>
+                                                1:{calculateRR()!.toFixed(2)}
+                                            </span>
+                                        ) : (
+                                            <span className="text-dark-500">Enter SL/TP</span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {TRADE_DETAILS_CONFIG.map((category) => (

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Sidebar } from '@/components/Sidebar'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import {
@@ -11,11 +11,16 @@ import {
   Palette,
   Globe,
   Save,
-  Check
+  Check,
+  Plus,
+  X,
+  ClipboardList,
+  Loader2
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { useStore } from '@/lib/store'
+import { getUserChecklist, updateUserChecklist } from '@/lib/firebase/firestore'
 
 function SettingsContent() {
   const { user, profile } = useAuth()
@@ -23,8 +28,59 @@ function SettingsContent() {
   const [activeTab, setActiveTab] = useState('profile')
   const [saved, setSaved] = useState(false)
 
+  // Checklist state
+  const [checklistItems, setChecklistItems] = useState<string[]>([])
+  const [newItem, setNewItem] = useState('')
+  const [isLoadingChecklist, setIsLoadingChecklist] = useState(false)
+  const [isSavingChecklist, setIsSavingChecklist] = useState(false)
+
+  // Load checklist on mount
+  useEffect(() => {
+    if (user) {
+      loadChecklist()
+    }
+  }, [user])
+
+  const loadChecklist = async () => {
+    if (!user) return
+    setIsLoadingChecklist(true)
+    try {
+      const items = await getUserChecklist(user.uid)
+      setChecklistItems(items)
+    } catch (err) {
+      console.error('Error loading checklist:', err)
+    } finally {
+      setIsLoadingChecklist(false)
+    }
+  }
+
+  const handleAddChecklistItem = () => {
+    if (!newItem.trim()) return
+    setChecklistItems([...checklistItems, newItem.trim()])
+    setNewItem('')
+  }
+
+  const handleRemoveChecklistItem = (index: number) => {
+    setChecklistItems(checklistItems.filter((_, i) => i !== index))
+  }
+
+  const handleSaveChecklist = async () => {
+    if (!user) return
+    setIsSavingChecklist(true)
+    try {
+      await updateUserChecklist(user.uid, checklistItems)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    } catch (err) {
+      console.error('Error saving checklist:', err)
+    } finally {
+      setIsSavingChecklist(false)
+    }
+  }
+
   const tabs = [
     { id: 'profile', label: 'Profile', icon: User },
+    { id: 'trading', label: 'Trading', icon: ClipboardList },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'security', label: 'Security', icon: Shield },
     { id: 'appearance', label: 'Appearance', icon: Palette },
@@ -162,6 +218,72 @@ function SettingsContent() {
                     <option>ILS (₪)</option>
                   </select>
                 </div>
+              </div>
+            )}
+
+            {activeTab === 'trading' && (
+              <div className="chart-container p-6 space-y-6">
+                <h3 className="text-lg font-display font-semibold text-white">Trade Checklist</h3>
+                <p className="text-sm text-dark-400">Create a checklist to track for each trade. These items will appear in your trade details.</p>
+
+                {isLoadingChecklist ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-primary-400" />
+                  </div>
+                ) : (
+                  <>
+                    {/* Add new item */}
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newItem}
+                        onChange={(e) => setNewItem(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleAddChecklistItem()}
+                        placeholder="Add checklist item..."
+                        className="input flex-1"
+                      />
+                      <button
+                        onClick={handleAddChecklistItem}
+                        disabled={!newItem.trim()}
+                        className="btn-primary"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* Checklist items */}
+                    <div className="space-y-2">
+                      {checklistItems.length === 0 ? (
+                        <p className="text-dark-500 text-sm py-4 text-center">No checklist items yet. Add your first one above!</p>
+                      ) : (
+                        checklistItems.map((item, index) => (
+                          <div key={index} className="flex items-center justify-between p-3 bg-dark-800/50 rounded-lg">
+                            <span className="text-white">{item}</span>
+                            <button
+                              onClick={() => handleRemoveChecklistItem(index)}
+                              className="p-1 text-dark-400 hover:text-loss transition-colors"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    {/* Save button */}
+                    <button
+                      onClick={handleSaveChecklist}
+                      disabled={isSavingChecklist}
+                      className="btn-primary flex items-center gap-2"
+                    >
+                      {isSavingChecklist ? (
+                        <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>
+                      ) : (
+                        <><Save className="w-4 h-4" /> Save Checklist</>
+                      )}
+                    </button>
+                  </>
+                )}
               </div>
             )}
 
