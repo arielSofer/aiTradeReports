@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard,
   LineChart,
@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/lib/store'
+import { useAuth } from '@/contexts/AuthContext'
 
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/' },
@@ -32,7 +33,21 @@ const menuItems = [
 
 export function Sidebar() {
   const pathname = usePathname()
+  const router = useRouter()
   const { isSidebarCollapsed, toggleSidebar } = useStore()
+  const { user, profile, signOut } = useAuth()
+
+  const handleLogout = async () => {
+    try {
+      await signOut()
+      router.push('/login')
+    } catch (error) {
+      console.error('Logout failed:', error)
+    }
+  }
+
+  const displayName = profile?.displayName || user?.email?.split('@')[0] || 'User'
+  const email = user?.email || ''
 
   return (
     <aside
@@ -105,13 +120,17 @@ export function Sidebar() {
       <div className={cn("absolute bottom-0 left-0 right-0 p-4 transition-all duration-300", isSidebarCollapsed ? "opacity-0 pointer-events-none" : "opacity-100")}>
         <div className="flex items-center gap-3 p-3 rounded-lg bg-dark-900/50 border border-dark-800/30">
           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-accent-purple to-accent-blue flex items-center justify-center shrink-0">
-            <span className="text-sm font-bold text-white">A</span>
+            <span className="text-sm font-bold text-white">{displayName.charAt(0).toUpperCase()}</span>
           </div>
           <div className="flex-1 min-w-0 overflow-hidden">
-            <p className="text-sm font-medium text-dark-200 truncate">Demo Account</p>
-            <p className="text-xs text-dark-500 truncate">Paper Trading</p>
+            <p className="text-sm font-medium text-dark-200 truncate">{displayName}</p>
+            <p className="text-xs text-dark-500 truncate">{email}</p>
           </div>
-          <button className="p-1.5 text-dark-500 hover:text-dark-300 transition-colors">
+          <button
+            onClick={handleLogout}
+            className="p-1.5 text-dark-500 hover:text-dark-300 transition-colors"
+            title="Logout"
+          >
             <LogOut className="w-4 h-4" />
           </button>
         </div>
