@@ -446,18 +446,19 @@ export function TradeChartViewer({
   }, [])
 
   const togglePlayback = () => {
-    if (playbackIndex >= marketData.length - 1) {
-      // Restart
+    if (isPlaying) {
+      // Pause
+      setIsPlaying(false)
+    } else {
+      // Start playing - always restart from beginning
       setPlaybackIndex(0)
       setIsPlaying(true)
-    } else {
-      setIsPlaying(!isPlaying)
     }
   }
 
   const resetPlayback = () => {
     setIsPlaying(false)
-    setPlaybackIndex(marketData.length - 1)
+    setPlaybackIndex(displayedData.length - 1) // Show all data
   }
 
   return (
