@@ -338,6 +338,43 @@ export function TradeChartViewer({
 
       seriesRef.current.setMarkers(markers as any)
 
+      // Add SL/TP price lines if they exist
+      // First remove any existing price lines
+      const existingLines = (seriesRef.current as any)._priceLines || []
+      existingLines.forEach((line: any) => {
+        try { seriesRef.current?.removePriceLine(line) } catch { }
+      })
+      const newLines: any[] = []
+
+      // Stop Loss line (red dashed)
+      if (trade.manualSL) {
+        const slLine = seriesRef.current.createPriceLine({
+          price: trade.manualSL,
+          color: '#ef4444',
+          lineWidth: 2,
+          lineStyle: 2, // Dashed
+          axisLabelVisible: true,
+          title: 'SL',
+        })
+        newLines.push(slLine)
+      }
+
+      // Take Profit line (green dashed)
+      if (trade.manualTP) {
+        const tpLine = seriesRef.current.createPriceLine({
+          price: trade.manualTP,
+          color: '#10b981',
+          lineWidth: 2,
+          lineStyle: 2, // Dashed
+          axisLabelVisible: true,
+          title: 'TP',
+        })
+        newLines.push(tpLine)
+      }
+
+      // Store reference for cleanup
+      (seriesRef.current as any)._priceLines = newLines
+
       if (playbackIndex === marketData.length - 1 && !isPlaying) {
         chartRef.current?.timeScale().fitContent()
       } else if (isPlaying) {
