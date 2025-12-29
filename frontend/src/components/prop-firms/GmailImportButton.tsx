@@ -283,9 +283,20 @@ async function fetchTopstepEmails(accessToken: string, startDate: string, onStat
     const found: FoundAccount[] = []
     let nextPageToken: string | undefined = undefined
 
-    // Build Query
-    // We broaden the search to catch variations and include MFFU
-    let q = '(from:noreply@topstep.com OR from:*myfundedfutures*) (subject:(Trading Combine) OR subject:(Payout) OR subject:(Tradovate Account Credentials) OR subject:(Passed Your Evaluation))'
+    // Build Query - includes Topstep, MFFU, Bulenox, and Take Profit Trader
+    let q = '(' +
+        'from:noreply@topstep.com OR ' +
+        'from:*myfundedfutures* OR ' +
+        'from:*bulenox* OR ' +
+        'from:*takeprofittrader*' +
+        ') (' +
+        'subject:(Trading Combine) OR ' +
+        'subject:(Payout) OR ' +
+        'subject:(Tradovate Account Credentials) OR ' +
+        'subject:(Passed Your Evaluation) OR ' +
+        'subject:(Payment Receipt) OR ' +  // Bulenox payment
+        'subject:(Setting Up Your Trading Test)' +  // TPT account
+        ')'
 
     if (startDate) {
         // Gmail format: after:YYYY/MM/DD
@@ -548,6 +559,72 @@ async function fetchTopstepEmails(accessToken: string, startDate: string, onStat
                         cost
                     })
                 }
+            }
+            // 5. Bulenox Payment Receipt
+            else if (subject.toLowerCase().includes('payment receipt') && subject.toLowerCase().includes('bulenox')) {
+                console.log('Parsing Bulenox Payment Receipt:', subject)
+                // Extract payment amount from email body
+                const amountMatch = textContent.match(/Payment\s*Amount:?\s*\$?\s*([\d,.]+)/i)
+                    || textContent.match(/Amount:?\s*\$?\s*([\d,.]+)\s*USD/i)
+
+                if (amountMatch) {
+                    const cost = parseFloat(amountMatch[1].replace(/,/g, ''))
+
+                    // Try to find account size from email or use a default
+                    let size = 50000 // Default
+                    if (textContent.includes('25,000') || textContent.includes('25000') || textContent.includes('25K') || textContent.includes('25k')) {
+                        size = 25000
+                    } else if (textContent.includes('50,000') || textContent.includes('50000') || textContent.includes('50K') || textContent.includes('50k')) {
+                        size = 50000
+                    } else if (textContent.includes('100,000') || textContent.includes('100000') || textContent.includes('100K') || textContent.includes('100k')) {
+                        size = 100000
+                    } else if (textContent.includes('150,000') || textContent.includes('150000') || textContent.includes('150K') || textContent.includes('150k')) {
+                        size = 150000
+                    } else if (textContent.includes('250,000') || textContent.includes('250000') || textContent.includes('250K') || textContent.includes('250k')) {
+                        size = 250000
+                    }
+
+                    // Generate a login from date + provider
+                    const login = `Bulenox-${size / 1000}K-${new Date(dateStr).toISOString().split('T')[0]}`
+
+                    found.push({
+                        id: msgId,
+                        login,
+                        size,
+                        type: 'Trading Combine',
+                        date: new Date(dateStr),
+                        provider: 'Bulenox',
+                        cost
+                    })
+                }
+            }
+            // 6. Take Profit Trader - Setting Up Your Trading Test
+            else if (subject.toLowerCase().includes('setting up your trading test')) {
+                console.log('Parsing TPT Trading Test:', subject)
+
+                // Try to find account size
+                let size = 50000 // Default
+                if (textContent.includes('25,000') || textContent.includes('25000') || textContent.includes('$25K') || textContent.includes('25K')) {
+                    size = 25000
+                } else if (textContent.includes('50,000') || textContent.includes('50000') || textContent.includes('$50K') || textContent.includes('50K')) {
+                    size = 50000
+                } else if (textContent.includes('100,000') || textContent.includes('100000') || textContent.includes('$100K') || textContent.includes('100K')) {
+                    size = 100000
+                } else if (textContent.includes('150,000') || textContent.includes('150000') || textContent.includes('$150K') || textContent.includes('150K')) {
+                    size = 150000
+                }
+
+                // Generate a login from date + provider
+                const login = `TPT-${size / 1000}K-${new Date(dateStr).toISOString().split('T')[0]}`
+
+                found.push({
+                    id: msgId,
+                    login,
+                    size,
+                    type: 'Trading Combine',
+                    date: new Date(dateStr),
+                    provider: 'Take Profit Trader'
+                })
             } else {
                 // Catch-all for debugging skipped emails
                 // Log only occasionally or if needed
