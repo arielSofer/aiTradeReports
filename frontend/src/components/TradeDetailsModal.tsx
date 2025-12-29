@@ -50,9 +50,9 @@ export function TradeDetailsModal({ isOpen = true, onClose, trade, onSave, isNew
         if (isOpen && trade) {
             setNotes(trade.notes || '')
             // Initialize SL/TP from trade if they exist
-            setManualSL((trade as any).manualSL?.toString() || '')
-            setManualTP((trade as any).manualTP?.toString() || '')
-            setChecklistCompleted((trade as any).checklistCompleted || [])
+            setManualSL(trade.manualSL?.toString() || '')
+            setManualTP(trade.manualTP?.toString() || '')
+            setChecklistCompleted(trade.checklistCompleted || [])
 
             const initialOptions: Record<string, string[]> = {}
             const initialCustomTags: string[] = []
@@ -169,12 +169,17 @@ export function TradeDetailsModal({ isOpen = true, onClose, trade, onSave, isNew
             if (manualTP) additionalFields.manualTP = parseFloat(manualTP)
             if (rrRatio !== null) additionalFields.riskRewardRatio = rrRatio
 
+            console.log('Saving trade with ID:', trade.id, 'Fields:', additionalFields)
+
             const updatedTradeStart = { ...trade, ...additionalFields }
 
             // Update via API only if it's an existing trade
             if (!isNewTrade) {
                 if (trade.id) {
                     await updateTrade(String(trade.id), additionalFields)
+                    console.log('Trade updated successfully')
+                } else {
+                    console.warn('Trade has no ID, cannot update')
                 }
             }
 
@@ -182,7 +187,7 @@ export function TradeDetailsModal({ isOpen = true, onClose, trade, onSave, isNew
             onClose()
         } catch (error) {
             console.error('Failed to save trade details:', error)
-            alert('Failed to save changes')
+            alert('Failed to save changes: ' + (error instanceof Error ? error.message : String(error)))
         } finally {
             setIsSaving(false)
         }

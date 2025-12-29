@@ -19,6 +19,11 @@ export interface Trade {
   durationMinutes?: number
   tags: string[]
   notes?: string
+  // Checklist and R:R fields
+  checklistCompleted?: string[]
+  manualSL?: number
+  manualTP?: number
+  riskRewardRatio?: number
 }
 
 export interface Stats {

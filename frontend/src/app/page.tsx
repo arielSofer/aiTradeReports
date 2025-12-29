@@ -98,6 +98,11 @@ function DashboardContent() {
               durationMinutes: undefined,
               tags: t.tags || [],
               notes: t.notes,
+              // New fields
+              checklistCompleted: t.checklistCompleted,
+              manualSL: t.manualSL,
+              manualTP: t.manualTP,
+              riskRewardRatio: t.riskRewardRatio,
             }
           })
 

@@ -48,7 +48,11 @@ function convertToTrade(ft: FirestoreTrade, accounts: FirestoreAccount[]): Trade
         accountId: ft.accountId,
         accountName: account?.nickname || account?.name,
         notes: ft.notes,
-        tags: ft.tags || []
+        tags: ft.tags || [],
+        checklistCompleted: ft.checklistCompleted,
+        manualSL: ft.manualSL,
+        manualTP: ft.manualTP,
+        riskRewardRatio: ft.riskRewardRatio,
     }
 }
 
