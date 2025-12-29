@@ -9,14 +9,15 @@ import { updateTrade } from '@/lib/firebase/firestore'
 import { TagInput } from './TagInput'
 
 interface TradeDetailsModalProps {
-    isOpen: boolean
+    isOpen?: boolean
     onClose: () => void
     trade: Trade
     onSave: (updatedTrade: Trade) => void
     isNewTrade?: boolean
+    readOnly?: boolean
 }
 
-export function TradeDetailsModal({ isOpen, onClose, trade, onSave, isNewTrade }: TradeDetailsModalProps) {
+export function TradeDetailsModal({ isOpen = true, onClose, trade, onSave, isNewTrade, readOnly }: TradeDetailsModalProps) {
     const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>({})
     const [customTags, setCustomTags] = useState<string[]>([])
     const [notes, setNotes] = useState(trade.notes || '')
