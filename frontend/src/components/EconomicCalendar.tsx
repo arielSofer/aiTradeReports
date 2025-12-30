@@ -260,8 +260,39 @@ export function EconomicCalendar() {
 
   return (
     <div className="chart-container h-[600px] flex flex-col">
-      {/* Header */},
-      {/* ... header content ... */}
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 border-b border-dark-800/50 flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-accent-purple/20 rounded-lg">
+            <Globe className="w-5 h-5 text-accent-purple" />
+          </div>
+          <div>
+            <h3 className="text-lg font-display font-semibold text-white">Economic Calendar</h3>
+            <p className="text-sm text-dark-500">Add your trading events & news</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => loadEvents(true)}
+            disabled={isLoading}
+            className="p-2 hover:bg-dark-800 rounded-lg transition-colors"
+            title="Force refresh from API"
+          >
+            <RefreshCw className={cn(
+              "w-4 h-4 text-dark-400",
+              isLoading && "animate-spin"
+            )} />
+          </button>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="btn-primary flex items-center gap-2 text-sm"
+          >
+            <Plus className="w-4 h-4" />
+            Add Event
+          </button>
+        </div>
+      </div>
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3 p-4 border-b border-dark-800/50 flex-shrink-0">
