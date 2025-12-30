@@ -77,30 +77,68 @@ Example:
             }
         ]
 
-        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-                'Content-Type': 'application/json',
-                'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || 'https://arielsofer.github.io/aiTradeReports',
-                'X-Title': 'TradeTracker',
-            },
-            body: JSON.stringify({
-                model: 'google/gemini-2.0-flash-exp:free',
-                messages: messages,
-            })
-        })
+        // Retry logic with exponential backoff
+        const maxRetries = 3
+        let lastResponse: Response | null = null
+        let lastErrorText: string = ''
 
-        if (!response.ok) {
-            const errorText = await response.text()
-            console.error('OpenRouter API error:', response.status, errorText)
-            return NextResponse.json({ error: errorText }, { status: response.status })
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+            try {
+                if (attempt > 0) {
+                    const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000)
+                    console.log(`[ReviewPerformance] Retry attempt ${attempt + 1}/${maxRetries} after ${delay}ms`)
+                    await new Promise(resolve => setTimeout(resolve, delay))
+                }
+
+                const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                        'Content-Type': 'application/json',
+                        'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || 'https://arielsofer.github.io/aiTradeReports',
+                        'X-Title': 'TradeTracker',
+                    },
+                    body: JSON.stringify({
+                        model: 'google/gemini-2.0-flash-exp:free',
+                        messages: messages,
+                    })
+                })
+
+                lastResponse = response
+
+                if (response.status === 429) {
+                    const retryAfter = response.headers.get('Retry-After')
+                    if (retryAfter && attempt < maxRetries - 1) {
+                        const waitTime = parseInt(retryAfter) * 1000
+                        console.log(`[ReviewPerformance] Rate limited. Waiting ${waitTime}ms`)
+                        await new Promise(resolve => setTimeout(resolve, waitTime))
+                        continue
+                    }
+                    if (attempt < maxRetries - 1) continue
+                }
+
+                if (!response.ok) {
+                    lastErrorText = await response.text()
+                    console.error(`[ReviewPerformance] API error (Attempt ${attempt + 1}):`, response.status, lastErrorText)
+                    if (response.status >= 500 && attempt < maxRetries - 1) continue
+                    return NextResponse.json({ error: lastErrorText }, { status: response.status })
+                }
+
+                const data = await response.json()
+                const review = data.choices?.[0]?.message?.content || 'No review generated'
+
+                return NextResponse.json({ review, model: data.model })
+
+            } catch (error) {
+                console.error(`[ReviewPerformance] Fetch error (Attempt ${attempt + 1}):`, error)
+                if (attempt === maxRetries - 1) throw error
+            }
         }
 
-        const data = await response.json()
-        const review = data.choices?.[0]?.message?.content || 'No review generated'
-
-        return NextResponse.json({ review, model: data.model })
+        return NextResponse.json(
+            { error: lastErrorText || 'Failed to connect to AI service after retries' },
+            { status: lastResponse?.status || 500 }
+        )
 
     } catch (error: any) {
         console.error('Error in AI performance review:', error)

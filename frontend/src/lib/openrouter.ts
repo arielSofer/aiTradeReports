@@ -171,6 +171,15 @@ export async function generatePerformanceReview(request: PerformanceReviewReques
     return { review: data.review, model: data.model }
   } catch (error: any) {
     console.error('AI Request failed:', error)
-    throw new Error(error.message || 'AI request failed')
+
+    // Improve error message for known cases
+    let message = error.message || 'AI request failed'
+    if (message.includes('429') || message.includes('Too Many Requests')) {
+      message = 'AI services are currently busy (Rate Limit). Please try again in a minute.'
+    } else if (message.includes('503') || message.includes('500')) {
+      message = 'AI service temporarily unavailable. Please try again later.'
+    }
+
+    throw new Error(message)
   }
 }
