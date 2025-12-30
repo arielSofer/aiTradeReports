@@ -18,8 +18,8 @@ export function HourlyHeatmap() {
     }
   })
 
-  // Only show trading hours (9-16)
-  const tradingHours = hours.filter(h => h.hour >= 9 && h.hour <= 16)
+  // Show standard trading hours (9-16) AND any other hours with activity
+  const tradingHours = hours.filter(h => (h.hour >= 9 && h.hour <= 16) || h.trades > 0)
 
   // Calculate max P&L for color intensity
   const maxPnl = Math.max(...tradingHours.map(h => Math.abs(h.pnl)))
@@ -41,15 +41,15 @@ export function HourlyHeatmap() {
   }
 
   return (
-    <div className="chart-container h-full">
+    <div className="chart-container h-full flex flex-col">
       <div className="p-4 border-b border-dark-800/50">
         <h3 className="text-lg font-display font-semibold text-white">Hourly Performance</h3>
         <p className="text-sm text-dark-500">P&L by time of day</p>
       </div>
 
-      <div className="p-4 space-y-2">
+      <div className="p-4 space-y-2 flex-1 overflow-y-auto">
         {tradingHours.map((hour) => (
-          <div 
+          <div
             key={hour.hour}
             className="flex items-center gap-3 group"
           >
@@ -61,14 +61,14 @@ export function HourlyHeatmap() {
             {/* Bar */}
             <div className="flex-1 h-8 rounded-md overflow-hidden bg-dark-800/30">
               {hour.trades > 0 && (
-                <div 
+                <div
                   className={cn(
                     'h-full flex items-center px-2 transition-all duration-300',
                     hour.pnl >= 0 ? 'bg-profit/30' : 'bg-loss/30',
                     'group-hover:bg-opacity-50'
                   )}
-                  style={{ 
-                    width: `${Math.max((Math.abs(hour.pnl) / maxPnl) * 100, 20)}%` 
+                  style={{
+                    width: `${Math.max((Math.abs(hour.pnl) / maxPnl) * 100, 20)}%`
                   }}
                 >
                   <span className={cn(

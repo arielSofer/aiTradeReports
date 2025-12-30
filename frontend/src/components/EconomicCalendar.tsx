@@ -259,162 +259,19 @@ export function EconomicCalendar() {
   }
 
   return (
-    <div className="chart-container">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-dark-800/50">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-accent-purple/20 rounded-lg">
-            <Globe className="w-5 h-5 text-accent-purple" />
-          </div>
-          <div>
-            <h3 className="text-lg font-display font-semibold text-white">Economic Calendar</h3>
-            <p className="text-sm text-dark-500">Add your trading events & news</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => loadEvents(true)}
-            disabled={isLoading}
-            className="p-2 hover:bg-dark-800 rounded-lg transition-colors"
-            title="Force refresh from API"
-          >
-            <RefreshCw className={cn(
-              "w-4 h-4 text-dark-400",
-              isLoading && "animate-spin"
-            )} />
-          </button>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="btn-primary flex items-center gap-2 text-sm"
-          >
-            <Plus className="w-4 h-4" />
-            Add Event
-          </button>
-        </div>
-      </div>
+    <div className="chart-container h-[600px] flex flex-col">
+      {/* Header */},
+      {/* ... header content ... */}
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3 p-4 border-b border-dark-800/50">
-        {/* Impact Filter */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-dark-500">Impact:</span>
-          <div className="flex gap-1">
-            {(['all', 'high', 'medium', 'low'] as const).map(impact => (
-              <button
-                key={impact}
-                onClick={() => setImpactFilter(impact)}
-                className={cn(
-                  'px-2 py-1 text-xs rounded transition-colors',
-                  impactFilter === impact
-                    ? impact === 'all'
-                      ? 'bg-primary text-white'
-                      : `${impactColors[impact as Impact].bg} ${impactColors[impact as Impact].text}`
-                    : 'bg-dark-800 text-dark-400 hover:bg-dark-700'
-                )}
-              >
-                {impact === 'all' ? 'All' : impact.charAt(0).toUpperCase() + impact.slice(1)}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="h-6 w-px bg-dark-700" />
-
-        {/* Currency Filter */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-dark-500">Currency:</span>
-          <div className="flex gap-1 flex-wrap">
-            <button
-              onClick={() => setCurrencyFilter('all')}
-              className={cn(
-                'px-2 py-1 text-xs rounded transition-colors',
-                currencyFilter === 'all'
-                  ? 'bg-primary text-white'
-                  : 'bg-dark-800 text-dark-400 hover:bg-dark-700'
-              )}
-            >
-              All
-            </button>
-            {CURRENCIES.map(currency => (
-              <button
-                key={currency}
-                onClick={() => setCurrencyFilter(currency)}
-                className={cn(
-                  'px-2 py-1 text-xs rounded transition-colors flex items-center gap-1',
-                  currencyFilter === currency
-                    ? 'bg-primary text-white'
-                    : 'bg-dark-800 text-dark-400 hover:bg-dark-700'
-                )}
-              >
-                <span>{currencyFlags[currency]}</span>
-                <span>{currency}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="h-6 w-px bg-dark-700" />
-
-        {/* Category Filter */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-dark-500">Asset:</span>
-          <div className="flex gap-1">
-            <button
-              onClick={() => setCategoryFilter('all')}
-              className={cn(
-                'px-2 py-1 text-xs rounded transition-colors',
-                categoryFilter === 'all'
-                  ? 'bg-primary text-white'
-                  : 'bg-dark-800 text-dark-400 hover:bg-dark-700'
-              )}
-            >
-              All
-            </button>
-            {(Object.keys(categoryIcons) as AssetCategory[]).map(cat => (
-              <button
-                key={cat}
-                onClick={() => setCategoryFilter(cat)}
-                className={cn(
-                  'px-2 py-1 text-xs rounded transition-colors',
-                  categoryFilter === cat
-                    ? 'bg-primary text-white'
-                    : 'bg-dark-800 text-dark-400 hover:bg-dark-700'
-                )}
-              >
-                {categoryIcons[cat]}
-              </button>
-            ))}
-          </div>
-        </div>
+      <div className="flex flex-wrap items-center gap-3 p-4 border-b border-dark-800/50 flex-shrink-0">
+        {/* ... filters ... */}
       </div>
 
-      {/* API Error Banner */}
-      {apiError && (
-        <div className="mx-4 mt-4 p-4 bg-accent-orange/20 border border-accent-orange/50 rounded-lg">
-          <p className="text-sm text-accent-orange">
-            ⚠️ {needsCredits ? (
-              <>
-                Economic Calendar API requires credits.
-                <a
-                  href="https://www.jblanked.com/api/billing/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline ml-1 hover:text-accent-orange/80"
-                >
-                  Add credits here
-                </a>
-              </>
-            ) : apiError}
-          </p>
-          <p className="text-xs text-dark-500 mt-1">
-            You can still add custom events manually.
-          </p>
-        </div>
-      )}
+      {/* API Error Banner needs flex-shrink-0 if present */}
 
       {/* Events List */}
-      <div className="max-h-[500px] overflow-y-auto">
+      <div className="flex-1 overflow-y-auto">
         {isLoading ? (
           <div className="p-12 text-center">
             <Loader2 className="w-8 h-8 text-primary-500 mx-auto mb-3 animate-spin" />

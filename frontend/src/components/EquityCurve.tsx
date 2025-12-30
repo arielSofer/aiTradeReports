@@ -26,7 +26,7 @@ export function EquityCurve() {
       try {
         // Dynamic import only on client side
         const { createChart, ColorType } = await import('lightweight-charts')
-        
+
         // Check if component was unmounted during async import
         if (isDisposedRef.current || !chartContainerRef.current) return
 
@@ -35,7 +35,7 @@ export function EquityCurve() {
           window.removeEventListener('resize', resizeHandlerRef.current)
           resizeHandlerRef.current = null
         }
-        
+
         if (chartRef.current) {
           try {
             chartRef.current.remove()
@@ -58,7 +58,7 @@ export function EquityCurve() {
             horzLines: { color: 'rgba(30, 41, 59, 0.5)' },
           },
           width: chartContainerRef.current.clientWidth,
-          height: 300,
+          height: chartContainerRef.current.clientHeight,
           rightPriceScale: {
             borderColor: 'rgba(30, 41, 59, 0.5)',
           },
@@ -159,13 +159,13 @@ export function EquityCurve() {
     return () => {
       // Mark as disposed first to prevent any async operations
       isDisposedRef.current = true
-      
+
       // Remove resize handler
       if (resizeHandlerRef.current) {
         window.removeEventListener('resize', resizeHandlerRef.current)
         resizeHandlerRef.current = null
       }
-      
+
       // Remove chart
       if (chartRef.current) {
         try {
@@ -182,14 +182,14 @@ export function EquityCurve() {
   const latestPnL = dailyPnL.length > 0 ? dailyPnL[dailyPnL.length - 1] : null
 
   return (
-    <div className="chart-container">
+    <div className="chart-container h-full flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-dark-800/50">
         <div>
           <h3 className="text-lg font-display font-semibold text-white">Equity Curve</h3>
           <p className="text-sm text-dark-500">Cumulative P&L over time</p>
         </div>
-        
+
         {latestPnL && (
           <div className="text-right">
             <p className={`text-2xl font-bold ${latestPnL.cumulativePnl >= 0 ? 'text-profit' : 'text-loss'}`}>
@@ -203,13 +203,13 @@ export function EquityCurve() {
       </div>
 
       {/* Chart */}
-      <div ref={chartContainerRef} className="w-full min-h-[300px]">
+      <div ref={chartContainerRef} className="w-full flex-1 min-h-[300px]">
         {!isClient ? (
-          <div className="h-[300px] flex items-center justify-center text-dark-500">
+          <div className="h-full flex items-center justify-center text-dark-500">
             Loading chart...
           </div>
         ) : dailyPnL.length === 0 ? (
-          <div className="h-[300px] flex flex-col items-center justify-center gap-3">
+          <div className="h-full flex flex-col items-center justify-center gap-3">
             <div className="w-16 h-16 rounded-full bg-dark-800 flex items-center justify-center">
               <svg className="w-8 h-8 text-dark-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
