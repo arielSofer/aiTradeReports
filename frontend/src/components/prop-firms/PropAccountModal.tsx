@@ -159,8 +159,9 @@ export function PropAccountModal({ isOpen, onClose, onSubmit, initialData }: Pro
 
     if (!isOpen) return null
 
-    const dateValue = formData.purchaseDate instanceof Date
-        ? formData.purchaseDate.toISOString().slice(0, 16)
+    const isValidDate = (d: any) => d instanceof Date && !isNaN(d.getTime())
+    const dateValue = isValidDate(formData.purchaseDate)
+        ? (formData.purchaseDate as Date).toISOString().slice(0, 16)
         : new Date().toISOString().slice(0, 16)
 
     return (

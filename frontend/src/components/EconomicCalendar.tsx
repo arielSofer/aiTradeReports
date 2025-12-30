@@ -311,9 +311,15 @@ export function EconomicCalendar() {
         ) : sortedDates.length === 0 ? (
           <div className="p-12 text-center">
             <Calendar className="w-12 h-12 text-dark-600 mx-auto mb-3" />
-            <p className="text-dark-400">
-              {apiError ? 'Add your own events below' : 'No events match your filters'}
-            </p>
+            {apiError ? (
+              <div className="space-y-2">
+                <p className="text-loss font-medium">Unable to load market news</p>
+                <p className="text-sm text-dark-400 font-mono bg-dark-800 p-2 rounded">{apiError}</p>
+                <p className="text-xs text-dark-500 mt-2">You can still add custom events manually.</p>
+              </div>
+            ) : (
+              <p className="text-dark-400">No events match your filters</p>
+            )}
           </div>
         ) : (
           sortedDates.map(date => (

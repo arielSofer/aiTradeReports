@@ -328,13 +328,18 @@ function DashboardContent() {
         />
 
         <div className="p-6 space-y-6">
-          {/* Account Selector */}
-          <div className="flex items-center justify-between">
+          {/* Account Selector & Filters */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <AccountSelector
               accounts={accounts}
               selectedAccountId={selectedAccountId}
               onChange={(id) => setSelectedAccountId(id)}
               label="Showing statistics for"
+            />
+            <TagFilter
+              availableTags={Array.from(new Set(trades.flatMap(t => t.tags || [])))}
+              selectedTags={selectedTags}
+              onChange={setSelectedTags}
             />
           </div>
 
