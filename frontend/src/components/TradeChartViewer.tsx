@@ -56,6 +56,7 @@ export function TradeChartViewer({
   // Playback State
   const [isPlaying, setIsPlaying] = useState(false)
   const [playbackIndex, setPlaybackIndex] = useState<number>(-1)
+  const [replaySpeed, setReplaySpeed] = useState<1 | 2 | 5 | 10>(1)
   const playbackIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   // Generate synthetic candle data around trade entry/exit
@@ -161,7 +162,6 @@ export function TradeChartViewer({
     const aggregateData = (data: CandleData[], intervalString: Timeframe): CandleData[] => {
       if (intervalString === '5m') { // Actually use server 1m data for client aggregation now
         // Pass through if we want 1m, but we only have 5m/15m/1h selectors
-        // Let's implement generic aggregation
       }
 
       let minutes = 1
@@ -228,21 +228,21 @@ export function TradeChartViewer({
         clearInterval(playbackIntervalRef.current)
       }
 
-      // Create new interval - advance one candle every 100ms
+      // Base interval is 500ms for 1x speed
+      // 1x = 500ms, 2x = 250ms, 5x = 100ms, 10x = 50ms
+      const intervalMs = Math.floor(500 / replaySpeed)
+
       playbackIntervalRef.current = setInterval(() => {
         setPlaybackIndex(prev => {
           const newIndex = prev + 1
-          console.log('Advancing playback:', prev, '->', newIndex, 'of', displayedData.length)
           if (newIndex >= displayedData.length - 1) {
-            // Stop when we reach the end
             setIsPlaying(false)
             return displayedData.length - 1
           }
           return newIndex
         })
-      }, 100)
+      }, intervalMs)
     } else {
-      // Not playing - clear interval
       if (playbackIntervalRef.current) {
         clearInterval(playbackIntervalRef.current)
         playbackIntervalRef.current = null
@@ -254,7 +254,7 @@ export function TradeChartViewer({
         clearInterval(playbackIntervalRef.current)
       }
     }
-  }, [isPlaying, displayedData.length])
+  }, [isPlaying, displayedData.length, replaySpeed])
 
   // Initialize/Update Chart
   useEffect(() => {
@@ -511,8 +511,25 @@ export function TradeChartViewer({
                   <SkipBack size={18} />
                 </button>
 
+                <div className="h-4 w-px bg-dark-700" />
+
+                <div className="flex bg-dark-800 rounded-lg text-xs font-medium">
+                  {[1, 2, 5, 10].map((speed) => (
+                    <button
+                      key={speed}
+                      onClick={() => setReplaySpeed(speed as any)}
+                      className={cn(
+                        "px-2 py-1 first:rounded-l-lg last:rounded-r-lg transition-colors hover:text-white",
+                        replaySpeed === speed ? "bg-primary text-white" : "text-dark-400 hover:bg-dark-700"
+                      )}
+                    >
+                      {speed}x
+                    </button>
+                  ))}
+                </div>
+
                 {isPlaying && (
-                  <span className="text-xs text-primary animate-pulse">
+                  <span className="text-xs text-primary animate-pulse ml-1">
                     Replaying...
                   </span>
                 )}
