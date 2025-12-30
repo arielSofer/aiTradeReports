@@ -24,6 +24,7 @@ import { deleteTrade } from '@/lib/firebase/firestore'
 import { AITradeReviewModal } from './AITradeReviewModal'
 import { TradeDetailsModal } from './TradeDetailsModal'
 import { AdvancedTradeFilter } from './AdvancedTradeFilter'
+import { TRADE_DETAILS_CONFIG } from '@/lib/tradeDetailsConfig'
 
 interface TradesTableProps {
   trades: Trade[]
@@ -411,19 +412,28 @@ export function TradesTable({ trades, onTradeDeleted }: TradesTableProps) {
                       {/* Tags */}
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-1">
-                          {trade.tags.slice(0, 2).map(tag => (
-                            <span
-                              key={tag}
-                              className="px-2 py-0.5 bg-dark-700 text-dark-300 rounded text-xs"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                          {trade.tags.length > 2 && (
-                            <span className="px-2 py-0.5 bg-dark-700 text-dark-400 rounded text-xs">
-                              +{trade.tags.length - 2}
-                            </span>
-                          )}
+                          {(() => {
+                            const systemTags = new Set(TRADE_DETAILS_CONFIG.flatMap(c => c.options))
+                            const customTags = trade.tags.filter(t => !systemTags.has(t))
+
+                            return (
+                              <>
+                                {customTags.slice(0, 2).map(tag => (
+                                  <span
+                                    key={tag}
+                                    className="px-2 py-0.5 bg-dark-700 text-dark-300 rounded text-xs"
+                                  >
+                                    {tag}
+                                  </span>
+                                ))}
+                                {customTags.length > 2 && (
+                                  <span className="px-2 py-0.5 bg-dark-700 text-dark-400 rounded text-xs">
+                                    +{customTags.length - 2}
+                                  </span>
+                                )}
+                              </>
+                            )
+                          })()}
                         </div>
                       </td>
 
