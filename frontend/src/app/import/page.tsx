@@ -98,6 +98,7 @@ function ImportContent() {
   const [file, setFile] = useState<File | null>(null)
   const [status, setStatus] = useState<ImportStatus>('idle')
   const [result, setResult] = useState<ImportResult | null>(null)
+  const [commissionRate, setCommissionRate] = useState<string>('4.00') // Default round turn
   const [showTopstepXModal, setShowTopstepXModal] = useState(false)
   const [accounts, setAccounts] = useState<any[]>([])
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)
@@ -194,8 +195,8 @@ function ImportContent() {
           entryPrice: t.entryPrice,
           exitPrice: t.exitPrice,
           quantity: t.quantity,
-          pnlNet: t.pnl, // Use actual P&L from CSV
-          commission: 0,
+          pnlNet: t.pnl - (parseFloat(commissionRate) * t.quantity), // Gross PnL - Commission
+          commission: parseFloat(commissionRate) * t.quantity,
           tags: [],
           notes: `Duration: ${t.duration}`,
           raw_data: { pnl: t.pnl }
@@ -606,6 +607,29 @@ function ImportContent() {
                   <span className="w-6 h-6 rounded-full bg-primary-500 text-white text-sm font-bold flex items-center justify-center">4</span>
                   <h3 className="text-lg font-display font-semibold text-white">Import Trades</h3>
                 </div>
+
+                {selectedBroker === 'tradovate' && (
+                  <div className="mb-6 p-4 bg-dark-800 rounded-lg border border-dark-700">
+                    <label className="block text-sm font-medium text-dark-200 mb-2">
+                      Commission per Contract (Round Turn)
+                    </label>
+                    <div className="relative max-w-[200px]">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-dark-500">$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={commissionRate}
+                        onChange={(e) => setCommissionRate(e.target.value)}
+                        className="w-full pl-7 pr-4 py-2 bg-dark-900 border border-dark-600 rounded-lg text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all"
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <p className="text-xs text-dark-500 mt-2">
+                      Tradovate CSV exports do not include commission data. Enter your round-turn rate here to calculate accurate Net P&L.
+                    </p>
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between">
                   <p className="text-dark-400">
