@@ -56,7 +56,7 @@ export function TradingCalendar() {
 
     for (let i = startDay - 1; i >= 0; i--) {
       const date = new Date(year, month - 1, prevMonthDays - i)
-      const dateKey = date.toISOString().split('T')[0]
+      const dateKey = getLocalDateKey(date)
       const dayData = tradesByDate[dateKey]
 
       days.push({
@@ -71,7 +71,7 @@ export function TradingCalendar() {
     // Current month days
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month, day)
-      const dateKey = date.toISOString().split('T')[0]
+      const dateKey = getLocalDateKey(date)
       const dayData = tradesByDate[dateKey]
 
       days.push({
@@ -87,7 +87,7 @@ export function TradingCalendar() {
     const remainingDays = 42 - days.length
     for (let day = 1; day <= remainingDays; day++) {
       const date = new Date(year, month + 1, day)
-      const dateKey = date.toISOString().split('T')[0]
+      const dateKey = getLocalDateKey(date)
       const dayData = tradesByDate[dateKey]
 
       days.push({
