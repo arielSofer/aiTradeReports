@@ -38,6 +38,11 @@ export const mockTrades: Trade[] = [
     durationMinutes: 270,
     tags: ['fomo'],
     notes: 'Entered too late, lesson learned',
+    lossReflection: {
+      description: 'Chased the price after a big green candle. Did not wait for pullback.',
+      lesson: 'FOMO gets me killed. Market will always offer another entry.',
+      improvement: 'Set a limit order at the support level and wait. If i miss it, i miss it.'
+    }
   },
   {
     id: '3',

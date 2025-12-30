@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X, Save, Check, Calculator } from 'lucide-react'
+import { X, Save, Check, Calculator, BrainCircuit } from 'lucide-react'
 import { Trade, useStore } from '@/lib/store'
 import { TRADE_DETAILS_CONFIG } from '@/lib/tradeDetailsConfig'
 import { cn, formatCurrency } from '@/lib/utils'
@@ -33,6 +33,11 @@ export function TradeDetailsModal({ isOpen = true, onClose, trade, onSave, isNew
     const [manualSL, setManualSL] = useState<string>('')
     const [manualTP, setManualTP] = useState<string>('')
 
+    // Loss Reflection State
+    const [reflectionDescription, setReflectionDescription] = useState('')
+    const [reflectionLesson, setReflectionLesson] = useState('')
+    const [reflectionImprovement, setReflectionImprovement] = useState('')
+
     const { trades } = useStore()
     const allTags = Array.from(new Set(trades.flatMap(t => t.tags)))
 
@@ -53,6 +58,16 @@ export function TradeDetailsModal({ isOpen = true, onClose, trade, onSave, isNew
             setManualSL(trade.manualSL?.toString() || '')
             setManualTP(trade.manualTP?.toString() || '')
             setChecklistCompleted(trade.checklistCompleted || [])
+
+            if (trade.lossReflection) {
+                setReflectionDescription(trade.lossReflection.description || '')
+                setReflectionLesson(trade.lossReflection.lesson || '')
+                setReflectionImprovement(trade.lossReflection.improvement || '')
+            } else {
+                setReflectionDescription('')
+                setReflectionLesson('')
+                setReflectionImprovement('')
+            }
 
             const initialOptions: Record<string, string[]> = {}
             const initialCustomTags: string[] = []
@@ -164,6 +179,14 @@ export function TradeDetailsModal({ isOpen = true, onClose, trade, onSave, isNew
                 checklistCompleted
             }
 
+            if ((trade.pnlNet || 0) < 0) {
+                additionalFields.lossReflection = {
+                    description: reflectionDescription,
+                    lesson: reflectionLesson,
+                    improvement: reflectionImprovement
+                }
+            }
+
             // Only add SL/TP if provided
             if (manualSL) additionalFields.manualSL = parseFloat(manualSL)
             if (manualTP) additionalFields.manualTP = parseFloat(manualTP)
@@ -235,6 +258,63 @@ export function TradeDetailsModal({ isOpen = true, onClose, trade, onSave, isNew
                             />
                         )}
                     </div>
+
+                    {/* Loss Reflection Section - Only for losing trades */}
+                    {(trade.pnlNet || 0) < 0 && (
+                        <div className="mb-6 bg-dark-800/50 rounded-xl p-4 border border-loss/20">
+                            <div className="flex items-center gap-2 mb-3">
+                                <BrainCircuit className="w-5 h-5 text-loss" />
+                                <label className="text-sm font-medium text-loss">Loss Reflection</label>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label className="text-xs text-dark-400 mb-1 block">Description of Execution</label>
+                                    {readOnly ? (
+                                        <div className="input w-full min-h-[80px] text-sm text-dark-300 bg-dark-900/50">
+                                            {reflectionDescription || <span className="italic text-dark-500">None</span>}
+                                        </div>
+                                    ) : (
+                                        <textarea
+                                            value={reflectionDescription}
+                                            onChange={(e) => setReflectionDescription(e.target.value)}
+                                            className="input w-full min-h-[80px] resize-none text-sm"
+                                            placeholder="What happened during execution?"
+                                        />
+                                    )}
+                                </div>
+                                <div>
+                                    <label className="text-xs text-dark-400 mb-1 block">Lesson Learned</label>
+                                    {readOnly ? (
+                                        <div className="input w-full min-h-[80px] text-sm text-dark-300 bg-dark-900/50">
+                                            {reflectionLesson || <span className="italic text-dark-500">None</span>}
+                                        </div>
+                                    ) : (
+                                        <textarea
+                                            value={reflectionLesson}
+                                            onChange={(e) => setReflectionLesson(e.target.value)}
+                                            className="input w-full min-h-[80px] resize-none text-sm"
+                                            placeholder="What did you learn from this?"
+                                        />
+                                    )}
+                                </div>
+                                <div>
+                                    <label className="text-xs text-dark-400 mb-1 block">Actionable Improvement</label>
+                                    {readOnly ? (
+                                        <div className="input w-full min-h-[80px] text-sm text-dark-300 bg-dark-900/50">
+                                            {reflectionImprovement || <span className="italic text-dark-500">None</span>}
+                                        </div>
+                                    ) : (
+                                        <textarea
+                                            value={reflectionImprovement}
+                                            onChange={(e) => setReflectionImprovement(e.target.value)}
+                                            className="input w-full min-h-[80px] resize-none text-sm"
+                                            placeholder="How will you improve next time?"
+                                        />
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Custom Tags Section */}
                     <div className="mb-6 bg-dark-800/50 rounded-xl p-4 border border-dark-700/50">

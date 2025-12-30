@@ -25,6 +25,11 @@ export interface Trade {
   manualSL?: number
   manualTP?: number
   riskRewardRatio?: number
+  lossReflection?: {
+    description: string
+    lesson: string
+    improvement: string
+  }
 }
 
 export interface Stats {

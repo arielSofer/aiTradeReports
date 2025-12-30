@@ -31,45 +31,27 @@ interface TradovateRawRow {
 /**
  * Parse a Tradovate timestamp string to Date
  * Format: "MM/DD/YYYY HH:mm:ss"
- * Tradovate exports timestamps in US Central Time (CT)
- * We need to convert to UTC for proper chart alignment
+ * We parse this as LOCAL time to ensure the time seen in the CSV
+ * matches the time displayed in the chart for the user.
  */
 function parseTradovateTimestamp(timestamp: string): Date {
     if (!timestamp) return new Date()
 
-    // Tradovate format: "12/11/2025 15:32:00" in US Central Time
     const parts = timestamp.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})/)
     if (!parts) return new Date(timestamp)
 
     const [, month, day, year, hours, minutes, seconds] = parts
 
-    // Build an ISO string with Central Time offset
-    // CT is UTC-6 in winter (CST) and UTC-5 in summer (CDT)
-    // We'll use a simple approach: create the date string and parse with timezone
-    const dateStr = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${hours.padStart(2, '0')}:${minutes}:${seconds}`
-
-    // Check if this date falls in DST (roughly March-November for US)
-    const monthNum = parseInt(month)
-    const isDST = monthNum >= 3 && monthNum <= 11
-    const ctOffset = isDST ? -5 : -6  // CDT (-5) or CST (-6)
-
-    // Parse as UTC first
-    const utcDate = new Date(
-        Date.UTC(
-            parseInt(year),
-            parseInt(month) - 1,
-            parseInt(day),
-            parseInt(hours),
-            parseInt(minutes),
-            parseInt(seconds)
-        )
+    // Construct Date object using local time components
+    // new Date(year, monthIndex, day, hours, minutes, seconds) uses the system's local timezone
+    return new Date(
+        parseInt(year),
+        parseInt(month) - 1, // Month is 0-indexed
+        parseInt(day),
+        parseInt(hours),
+        parseInt(minutes),
+        parseInt(seconds)
     )
-
-    // Adjust for CT offset: if time is 16:32 CT, UTC would be 16:32 - (-6) = 22:32
-    // So we need to SUBTRACT the offset (add hours since offset is negative)
-    utcDate.setUTCHours(utcDate.getUTCHours() - ctOffset)
-
-    return utcDate
 }
 
 /**
