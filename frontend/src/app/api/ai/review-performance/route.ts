@@ -77,67 +77,77 @@ Example:
             }
         ]
 
-        // Retry logic with exponential backoff
-        const maxRetries = 3
-        let lastResponse: Response | null = null
+        // Models to try in order of preference
+        const models = [
+            'google/gemini-2.0-flash-exp:free',
+            'google/gemini-exp-1206:free',
+            'meta-llama/llama-3.3-70b-instruct:free',
+            'microsoft/phi-4:free'
+        ];
+
         let lastErrorText: string = ''
+        let lastStatus: number = 500
 
-        for (let attempt = 0; attempt < maxRetries; attempt++) {
+        // Try each model until one works
+        for (const model of models) {
+            console.log(`[ReviewPerformance] Attempting with model: ${model}`)
+
             try {
-                if (attempt > 0) {
-                    const delay = Math.min(1000 * Math.pow(2, attempt - 1), 10000)
-                    console.log(`[ReviewPerformance] Retry attempt ${attempt + 1}/${maxRetries} after ${delay}ms`)
-                    await new Promise(resolve => setTimeout(resolve, delay))
-                }
-
-                const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-                        'Content-Type': 'application/json',
-                        'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || 'https://arielsofer.github.io/aiTradeReports',
-                        'X-Title': 'TradeTracker',
-                    },
-                    body: JSON.stringify({
-                        model: 'google/gemini-2.0-flash-exp:free',
-                        messages: messages,
-                    })
-                })
-
-                lastResponse = response
-
-                if (response.status === 429) {
-                    const retryAfter = response.headers.get('Retry-After')
-                    if (retryAfter && attempt < maxRetries - 1) {
-                        const waitTime = parseInt(retryAfter) * 1000
-                        console.log(`[ReviewPerformance] Rate limited. Waiting ${waitTime}ms`)
-                        await new Promise(resolve => setTimeout(resolve, waitTime))
-                        continue
+                // Small retry loop for EACH model (in case of momentary network blip)
+                for (let attempt = 0; attempt < 2; attempt++) {
+                    if (attempt > 0) {
+                        await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1000))
                     }
-                    if (attempt < maxRetries - 1) continue
+
+                    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                            'Content-Type': 'application/json',
+                            'HTTP-Referer': process.env.NEXT_PUBLIC_SITE_URL || 'https://arielsofer.github.io/aiTradeReports',
+                            'X-Title': 'TradeTracker',
+                        },
+                        body: JSON.stringify({
+                            model: model,
+                            messages: messages,
+                        })
+                    })
+
+                    if (response.status === 429) {
+                        console.warn(`[ReviewPerformance] Model ${model} rate limited (429).`)
+                        lastStatus = 429
+                        lastErrorText = "Rate limit"
+                        // Break inner loop to move to next model immediately (usually 429s on free tier stick for a bit)
+                        break
+                    }
+
+                    if (!response.ok) {
+                        lastErrorText = await response.text()
+                        lastStatus = response.status
+                        console.warn(`[ReviewPerformance] Model ${model} error: ${response.status} ${lastErrorText}`)
+                        if (response.status >= 500) continue // Retry same model if server error
+                        break // Break inner loop for 4xx errors (except 429 handled above) to try next model or fail
+                    }
+
+                    const data = await response.json()
+                    const review = data.choices?.[0]?.message?.content
+
+                    if (!review) {
+                        console.warn(`[ReviewPerformance] Model ${model} returned empty review.`)
+                        continue // Retry same model? or break?
+                    }
+
+                    return NextResponse.json({ review, model: data.model })
                 }
-
-                if (!response.ok) {
-                    lastErrorText = await response.text()
-                    console.error(`[ReviewPerformance] API error (Attempt ${attempt + 1}):`, response.status, lastErrorText)
-                    if (response.status >= 500 && attempt < maxRetries - 1) continue
-                    return NextResponse.json({ error: lastErrorText }, { status: response.status })
-                }
-
-                const data = await response.json()
-                const review = data.choices?.[0]?.message?.content || 'No review generated'
-
-                return NextResponse.json({ review, model: data.model })
-
             } catch (error) {
-                console.error(`[ReviewPerformance] Fetch error (Attempt ${attempt + 1}):`, error)
-                if (attempt === maxRetries - 1) throw error
+                console.error(`[ReviewPerformance] Error with model ${model}:`, error)
+                // Continue to next model
             }
         }
 
         return NextResponse.json(
-            { error: lastErrorText || 'Failed to connect to AI service after retries' },
-            { status: lastResponse?.status || 500 }
+            { error: lastErrorText || 'All AI models are currently busy. Please try again later.' },
+            { status: lastStatus }
         )
 
     } catch (error: any) {
