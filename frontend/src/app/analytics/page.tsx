@@ -6,6 +6,7 @@ import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { Header } from '@/components/Header'
 import { AccountSelector } from '@/components/AccountSelector'
 import { generatePerformanceReview } from '@/lib/openrouter'
+import { AdvancedTradeFilter } from '@/components/AdvancedTradeFilter'
 import {
   TrendingUp,
   TrendingDown,
@@ -22,7 +23,8 @@ import {
   AlertTriangle,
   Sparkles,
   Loader2,
-  Brain
+  Brain,
+  Filter
 } from 'lucide-react'
 import { formatCurrency, cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
@@ -78,7 +80,8 @@ function AnalyticsContent() {
   const [trades, setTrades] = useState<Trade[]>([])
   const [accounts, setAccounts] = useState<FirestoreAccount[]>([])
   const [selectedAccountId, setSelectedAccountId] = useState<string | 'all'>('all')
-  const [showAccountDropdown, setShowAccountDropdown] = useState(false)
+  const [advancedFilters, setAdvancedFilters] = useState<Record<string, string[]>>({})
+  const [showFilters, setShowFilters] = useState(false)
   const [loading, setLoading] = useState(true)
   const [aiReview, setAiReview] = useState<string | null>(null)
   const [aiLoading, setAiLoading] = useState(false)
@@ -92,7 +95,6 @@ function AnalyticsContent() {
           setAccounts(userAccounts)
         } catch (error) {
           console.error('Error loading accounts:', error)
-          // setAccounts([]) // safe fallback
         }
       }
     }
@@ -141,9 +143,27 @@ function AnalyticsContent() {
     loadData()
   }, [user, selectedAccountId])
 
+  // Filtered Trades Calculation
+  const filteredTrades = useMemo(() => {
+    let result = trades
+
+    // Advanced Filters (Tags)
+    if (Object.keys(advancedFilters).length > 0) {
+      result = result.filter(t => {
+        return Object.entries(advancedFilters).every(([catId, selectedOptions]) => {
+          if (selectedOptions.length === 0) return true
+          // AND logic between categories, OR logic within category
+          return selectedOptions.some(opt => t.tags.includes(opt))
+        })
+      })
+    }
+
+    return result
+  }, [trades, advancedFilters])
+
   // Advanced Statistics Calculation
   const stats = useMemo(() => {
-    const closedTrades = trades.filter(t => t.status === 'closed' && t.pnlNet !== undefined)
+    const closedTrades = filteredTrades.filter(t => t.status === 'closed' && t.pnlNet !== undefined)
     const winningTrades = closedTrades.filter(t => t.pnlNet! > 0)
     const losingTrades = closedTrades.filter(t => t.pnlNet! <= 0)
 
@@ -228,7 +248,7 @@ function AnalyticsContent() {
       equityCurve,
       avgHoldingTimeMinutes
     }
-  }, [trades])
+  }, [filteredTrades])
 
   // Charts Data Preparation
   const chartData = useMemo(() => {
@@ -237,7 +257,7 @@ function AnalyticsContent() {
     const dayStats: any = {}
     daysOfWeek.forEach(day => dayStats[day] = { pnl: 0, trades: 0, wins: 0 })
 
-    trades.forEach(t => {
+    filteredTrades.forEach(t => {
       if (t.entryTime && t.pnlNet) {
         const date = new Date(t.entryTime)
         if (!isNaN(date.getTime())) {
@@ -263,7 +283,7 @@ function AnalyticsContent() {
     const hourlyMap: Record<number, { pnl: number; trades: number }> = {}
     for (let i = 0; i < 24; i++) hourlyMap[i] = { pnl: 0, trades: 0 }
 
-    trades.forEach(t => {
+    filteredTrades.forEach(t => {
       if (t.entryTime && t.pnlNet) {
         const date = new Date(t.entryTime)
         if (!isNaN(date.getTime())) {
@@ -286,7 +306,7 @@ function AnalyticsContent() {
     // 3. Asset Performance (Pie)
     const assetMap: Record<string, number> = {}
 
-    trades.forEach(t => {
+    filteredTrades.forEach(t => {
       if (t.pnlNet && t.pnlNet > 0) {
         assetMap[t.symbol] = (assetMap[t.symbol] || 0) + t.pnlNet
       }
@@ -302,12 +322,7 @@ function AnalyticsContent() {
       hourlyChartData,
       assetPieData
     }
-  }, [trades])
-
-  const selectedAccount = selectedAccountId === 'all'
-    ? null
-    : accounts.find(a => a.id === selectedAccountId)
-
+  }, [filteredTrades])
 
   const handleAiAnalysis = async () => {
     setAiLoading(true)
@@ -337,7 +352,6 @@ function AnalyticsContent() {
       setAiReview(result.review)
     } catch (error) {
       console.error('AI Analysis failed', error)
-      alert('Failed to generate AI analysis. Please check your API key or try again later.')
     } finally {
       setAiLoading(false)
     }
@@ -364,6 +378,21 @@ function AnalyticsContent() {
               <p className="text-sm text-dark-500">Comprehensive performance analysis</p>
             </div>
             <div className="flex items-center gap-3">
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className={cn(
+                  "p-2 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium",
+                  showFilters ? "bg-primary text-white" : "bg-dark-800 hover:bg-dark-700 text-dark-300"
+                )}
+              >
+                <Filter className="w-4 h-4" />
+                Filters
+                {Object.keys(advancedFilters).length > 0 && (
+                  <span className="bg-primary-600 text-white px-1.5 py-0.5 rounded-full text-xs">
+                    {Object.values(advancedFilters).reduce((acc, curr) => acc + curr.length, 0)}
+                  </span>
+                )}
+              </button>
               <AccountSelector
                 accounts={accounts}
                 selectedAccountId={selectedAccountId}
@@ -371,6 +400,13 @@ function AnalyticsContent() {
               />
             </div>
           </div>
+
+          {/* Advanced Filters Panel */}
+          {showFilters && (
+            <div className="bg-dark-950/50 border-b border-dark-800/50 p-6 animate-in slide-in-from-top-4">
+              <AdvancedTradeFilter filters={advancedFilters} onChange={setAdvancedFilters} />
+            </div>
+          )}
         </header>
 
         {loading ? (
@@ -383,7 +419,7 @@ function AnalyticsContent() {
         ) : (
           <div className="p-8 space-y-8 max-w-[1600px] mx-auto">
 
-            {/* AI Insights Section (New) */}
+            {/* AI Insights Section */}
             <div className="bg-gradient-to-br from-primary-900/20 to-purple-900/10 rounded-2xl border border-primary-500/20 p-6">
               <div className="flex items-start justify-between">
                 <div>
