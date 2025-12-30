@@ -336,11 +336,6 @@ function DashboardContent() {
               onChange={(id) => setSelectedAccountId(id)}
               label="Showing statistics for"
             />
-            <TagFilter
-              availableTags={Array.from(new Set(trades.flatMap(t => t.tags || [])))}
-              selectedTags={selectedTags}
-              onChange={setSelectedTags}
-            />
           </div>
 
           {isLoading ? (

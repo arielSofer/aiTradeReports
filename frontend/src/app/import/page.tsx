@@ -198,7 +198,7 @@ function ImportContent() {
           pnlNet: t.pnl - (parseFloat(commissionRate) * t.quantity), // Gross PnL - Commission
           commission: parseFloat(commissionRate) * t.quantity,
           tags: [],
-          notes: `Duration: ${t.duration}`,
+          notes: undefined,
           raw_data: { pnl: t.pnl }
         }))
       } else {

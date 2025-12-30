@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
   ArrowUpRight,
   ArrowDownRight,
@@ -23,6 +23,7 @@ import { TradeChartViewer } from './TradeChartViewer'
 import { deleteTrade } from '@/lib/firebase/firestore'
 import { AITradeReviewModal } from './AITradeReviewModal'
 import { TradeDetailsModal } from './TradeDetailsModal'
+import { AdvancedTradeFilter } from './AdvancedTradeFilter'
 
 interface TradesTableProps {
   trades: Trade[]
@@ -42,8 +43,11 @@ export function TradesTable({ trades, onTradeDeleted }: TradesTableProps) {
   const [isDeleting, setIsDeleting] = useState(false)
   const [aiReviewTrade, setAiReviewTrade] = useState<Trade | null>(null)
   const [detailsTrade, setDetailsTrade] = useState<Trade | null>(null)
-  // Track which trades are being deleted (for fadeout animation)
   const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set())
+
+  // Filtering
+  const [showFilters, setShowFilters] = useState(false)
+  const [filters, setFilters] = useState<Record<string, string[]>>({})
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -85,7 +89,21 @@ export function TradesTable({ trades, onTradeDeleted }: TradesTableProps) {
     }
   }
 
-  const sortedTrades = [...trades].sort((a, b) => {
+  // Filter logic
+  const filteredTrades = useMemo(() => {
+    let result = trades
+    if (Object.keys(filters).length > 0) {
+      result = result.filter(t => {
+        return Object.entries(filters).every(([catId, selectedOptions]) => {
+          if (selectedOptions.length === 0) return true
+          return selectedOptions.some(opt => t.tags.includes(opt))
+        })
+      })
+    }
+    return result
+  }, [trades, filters])
+
+  const sortedTrades = [...filteredTrades].sort((a, b) => {
     let aVal = a[sortField]
     let bVal = b[sortField]
 
@@ -175,13 +193,32 @@ export function TradesTable({ trades, onTradeDeleted }: TradesTableProps) {
           </div>
 
           <div className="flex items-center gap-2">
-            <button className="flex items-center gap-2 px-3 py-1.5 bg-dark-800 hover:bg-dark-700 
-                             text-dark-300 rounded-lg text-sm border border-dark-700 transition-colors">
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={cn(
+                "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border transition-colors",
+                showFilters
+                  ? "bg-primary/10 border-primary/50 text-white"
+                  : "bg-dark-800 hover:bg-dark-700 text-dark-300 border-dark-700"
+              )}
+            >
               <Filter className="w-4 h-4" />
               Filter
+              {Object.keys(filters).length > 0 && (
+                <span className="bg-primary/20 text-primary px-1.5 py-0.5 rounded text-xs ml-1">
+                  {Object.values(filters).reduce((acc, curr) => acc + curr.length, 0)}
+                </span>
+              )}
             </button>
           </div>
         </div>
+
+        {/* Filter Panel */}
+        {showFilters && (
+          <div className="p-4 border-b border-dark-800/50 bg-dark-900/50">
+            <AdvancedTradeFilter filters={filters} onChange={setFilters} />
+          </div>
+        )}
 
         {/* Table */}
         <div className="overflow-x-auto">
@@ -362,7 +399,12 @@ export function TradesTable({ trades, onTradeDeleted }: TradesTableProps) {
                       {/* Duration */}
                       <td className="px-4 py-3">
                         <span className="text-sm text-dark-400">
-                          {trade.durationMinutes ? formatDuration(trade.durationMinutes) : '—'}
+                          {trade.durationMinutes
+                            ? formatDuration(trade.durationMinutes)
+                            : (trade.entryTime && trade.exitTime
+                              ? formatDuration(Math.round((new Date(trade.exitTime).getTime() - new Date(trade.entryTime).getTime()) / 60000))
+                              : '—')
+                          }
                         </span>
                       </td>
 
