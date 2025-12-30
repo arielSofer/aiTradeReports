@@ -185,6 +185,10 @@ function ImportContent() {
           throw new Error('No trades found in Tradovate CSV')
         }
 
+        // Parse commission rate safely
+        const commRate = parseFloat(commissionRate)
+        const safeCommission = isNaN(commRate) ? 0 : commRate
+
         trades = parsedTrades.map(t => ({
           symbol: t.symbol,
           direction: t.direction,
@@ -195,8 +199,8 @@ function ImportContent() {
           entryPrice: t.entryPrice,
           exitPrice: t.exitPrice,
           quantity: t.quantity,
-          pnlNet: t.pnl - (parseFloat(commissionRate) * t.quantity), // Gross PnL - Commission
-          commission: parseFloat(commissionRate) * t.quantity,
+          pnlNet: t.pnl - (safeCommission * t.quantity), // Gross PnL - Commission
+          commission: safeCommission * t.quantity,
           tags: [],
           notes: undefined,
           raw_data: { pnl: t.pnl }

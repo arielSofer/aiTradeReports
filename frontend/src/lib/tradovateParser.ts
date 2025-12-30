@@ -76,7 +76,9 @@ function parsePnl(pnlStr: string): number {
  * Parse Tradovate CSV content
  */
 export function parseTradovateCsv(csvContent: string): TradovateTrade[] {
-    const lines = csvContent.split(/\r?\n/).filter(line => line.trim())
+    // Strip BOM if present
+    const cleanContent = csvContent.replace(/^\uFEFF/, '')
+    const lines = cleanContent.split(/\r?\n/).filter(line => line.trim())
     if (lines.length < 2) return []
 
     // Parse header
