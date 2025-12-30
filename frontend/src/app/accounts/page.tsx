@@ -193,8 +193,9 @@ function AccountsContent() {
       <Sidebar />
 
       <main className={cn(
-        "flex-1 transition-all duration-300",
-        isSidebarCollapsed ? "ml-28" : "ml-72"
+        "flex-1 transition-all duration-300 ease-in-out",
+        "ml-0",
+        isSidebarCollapsed ? "md:ml-28" : "md:ml-72"
       )}>
         {/* Header */}
         <header className="sticky top-0 z-40 bg-dark-950/80 backdrop-blur-xl border-b border-dark-800/50">

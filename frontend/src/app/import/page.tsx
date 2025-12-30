@@ -284,17 +284,17 @@ function ImportContent() {
       <Sidebar />
 
       <main className={cn(
-        "flex-1 transition-all duration-300",
-        isSidebarCollapsed ? "ml-28" : "ml-72"
+        "flex-1 transition-all duration-300 ease-in-out",
+        "ml-0",
+        isSidebarCollapsed ? "md:ml-28" : "md:ml-72"
       )}>
         {/* Header */}
         <header className="sticky top-0 z-40 bg-dark-950/80 backdrop-blur-xl border-b border-dark-800/50">
           <div className="flex items-center justify-between px-6 py-4">
-            <div>
-              <h2 className="text-xl font-display font-bold text-white">Import Trades</h2>
-              <p className="text-sm text-dark-500">Upload trade history from your broker</p>
-            </div>
+            <h2 className="text-xl font-display font-bold text-white">Import Trades</h2>
+            <p className="text-sm text-dark-500">Upload trade history from your broker</p>
           </div>
+
         </header>
 
         <div className="p-6 max-w-4xl mx-auto space-y-6">
@@ -723,7 +723,7 @@ function ImportContent() {
           }}
         />
       </main>
-    </div>
+    </div >
   )
 }
 

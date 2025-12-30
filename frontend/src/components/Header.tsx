@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Bell, Search, Upload, Plus, User, LogOut, Settings, ChevronDown } from 'lucide-react'
+import { Bell, Search, Upload, Plus, User, LogOut, Settings, ChevronDown, Menu } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
+import { useStore } from '@/lib/store'
 
 interface HeaderProps {
   onUploadClick?: () => void
@@ -15,8 +16,21 @@ interface HeaderProps {
 export function Header({ onUploadClick, onAddTradeClick, onSearch }: HeaderProps) {
   const { user, profile, signOut } = useAuth()
   const router = useRouter()
+  const { toggleSidebar } = useStore()
   const [showUserMenu, setShowUserMenu] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+
+  // Direct store access would be better if allowed, but Header props don't pass it.
+  // Ideally Header should use `useStore` hook or receive `onToggleSidebar` prop.
+  // Checking imports... Header uses `useAuth`. Let's add `useStore`.
+  // Wait, I need to check if `useStore` is imported. It is NOT imported in the original file I viewed.
+  // I will cheat and use the CustomEvent for now OR validly import useStore.
+  // Better: Import useStore.
+
+  // Wait, I can't easily add import if I don't see the top.
+  // I'll stick to dispatchEvent event for a second, BUT wait...
+  // I CAN add import.
+
 
   const handleUploadClick = () => {
     if (onUploadClick) {
@@ -53,11 +67,19 @@ export function Header({ onUploadClick, onAddTradeClick, onSearch }: HeaderProps
     <header className="sticky top-0 z-40 bg-dark-950/80 backdrop-blur-xl border-b border-dark-800/50">
       <div className="flex items-center justify-between px-6 py-4">
         {/* Left side */}
-        <div>
-          <h2 className="text-xl font-display font-bold text-white">Dashboard</h2>
-          <p className="text-sm text-dark-500">
-            {formatDate(new Date())} · Overview of your trading performance
-          </p>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={toggleSidebar}
+            className="p-2 -ml-2 text-dark-400 hover:text-white md:hidden"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+          <div>
+            <h2 className="text-xl font-display font-bold text-white">Dashboard</h2>
+            <p className="text-sm text-dark-500 hidden sm:block">
+              {formatDate(new Date())} · Overview of your trading performance
+            </p>
+          </div>
         </div>
 
         {/* Right side */}

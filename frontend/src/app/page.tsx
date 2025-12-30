@@ -319,11 +319,8 @@ function DashboardContent() {
 
       <main className={cn(
         "flex-1 transition-all duration-300 ease-in-out",
-        isSidebarCollapsed ? "ml-28" : "ml-72" // 20 (width) + 4 (left) + 4 (gap) = ~28, but simplified logic:
-        // Sidebar is left-4 (1rem). Width is 20 (5rem) or 64 (16rem).
-        // So content should start at least at 1rem + Width + Gap.
-        // Expanded: 1rem + 16rem + 1rem gap = 18rem => ml-72
-        // Collapsed: 1rem + 5rem + 1rem gap = 7rem => ml-28
+        "ml-0", // Mobile default
+        isSidebarCollapsed ? "md:ml-28" : "md:ml-72"
       )}>
         <Header
           onAddTradeClick={() => document.getElementById('add-trade-trigger')?.click()}

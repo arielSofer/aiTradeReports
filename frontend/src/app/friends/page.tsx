@@ -136,7 +136,8 @@ function FriendsContent() {
 
             <main className={cn(
                 "flex-1 transition-all duration-300",
-                isSidebarCollapsed ? "ml-28" : "ml-72"
+                "ml-0",
+                isSidebarCollapsed ? "md:ml-28" : "md:ml-72"
             )}>
                 <div className="p-8 max-w-4xl mx-auto">
                     {/* Header */}
